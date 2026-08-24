@@ -23,6 +23,11 @@ const updateCount = createServerFn({ method: 'POST' })
     await fs.promises.writeFile(filePath, `${count + data}`)
   })
 
+const resetCount = createServerFn({ method: 'POST' })
+  .handler(async () => {
+    await fs.promises.writeFile(filePath, `0`)
+  })
+
 export const Route = createFileRoute('/demo')({
   component: Home,
   loader: async () => await getCount(),
@@ -33,6 +38,7 @@ function Home() {
   const state = Route.useLoaderData()
 
   return (
+    <div>
     <button
       type="button"
       onClick={() => {
@@ -43,5 +49,16 @@ function Home() {
     >
       Add 1 to {state()}?
     </button>
+    <button
+      type="button"
+      onClick={() => {
+        resetCount().then(() => {
+          router.invalidate()
+        })
+      }}
+    >
+      Reset
+    </button>
+    </div>
   )
 }
