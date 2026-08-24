@@ -1,0 +1,23 @@
+{
+  "name": "music_practice",
+  "version": "1.0.0",
+  "description": "Utilities to help with tracking practice sessions",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "rsbuild dev",
+    "build": "rsbuild build"
+  },
+  "dependencies": {
+    "@tanstack/solid-router": "^1.170.30",
+    "@tanstack/solid-start": "^1.168.47",
+    "solid-js": "^1.9.15"
+  },
+  "devDependencies": {
+    "@rsbuild/core": "^2.1.13",
+    "@rsbuild/plugin-babel": "^2.1.0",
+    "@rsbuild/plugin-solid": "^1.2.2",
+    "@types/node": "^26.2.0",
+    "typescript": "^7.0.2"
+  }
+}
