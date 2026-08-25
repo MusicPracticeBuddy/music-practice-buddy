@@ -1179,4 +1179,362 @@ VALUES
     );
 
 
+-- ============================================================
+-- TEST DATA: WARMUP / LIP SLURS HIERARCHY
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- MUSICIAN
+-- ------------------------------------------------------------
+
+INSERT INTO musician (id, is_admin)
+OVERRIDING SYSTEM VALUE
+VALUES (1, FALSE);
+
+
+-- ------------------------------------------------------------
+-- EXERCISE LIBRARY
+--
+-- These are reusable exercises. They have no knowledge of
+-- which template or section they belong to.
+-- ------------------------------------------------------------
+
+INSERT INTO exercise (
+    id,
+    musician_id,
+    name,
+    notation,
+    notation_format,
+    visibility
+)
+OVERRIDING SYSTEM VALUE
+VALUES
+    (
+        1,
+        1,
+        'Long Tones',
+        NULL,
+        'easyscore',
+        'PRIVATE'
+    ),
+    (
+        2,
+        1,
+        'Lip Slur Pattern 1',
+        NULL,
+        'easyscore',
+        'PRIVATE'
+    ),
+    (
+        3,
+        1,
+        'Lip Slur Pattern 2',
+        NULL,
+        'easyscore',
+        'PRIVATE'
+    ),
+    (
+        4,
+        1,
+        'Lip Slur Pattern 3',
+        NULL,
+        'easyscore',
+        'PRIVATE'
+    ),
+    (
+        5,
+        1,
+        'Major Scales',
+        NULL,
+        'easyscore',
+        'PRIVATE'
+    ),
+    (
+        6,
+        1,
+        'Double Tonguing',
+        NULL,
+        'easyscore',
+        'PRIVATE'
+    );
+
+
+-- ------------------------------------------------------------
+-- REPERTOIRE
+-- ------------------------------------------------------------
+
+INSERT INTO repertoire (
+    id,
+    title,
+    owner_musician_id,
+    visibility,
+    status
+)
+OVERRIDING SYSTEM VALUE
+VALUES
+    (
+        1,
+        'Solo Piece',
+        1,
+        'PRIVATE',
+        'APPROVED'
+    );
+
+
+-- ------------------------------------------------------------
+-- SESSION TEMPLATE
+-- ------------------------------------------------------------
+
+INSERT INTO session_template (
+    id,
+    musician_id,
+    name
+)
+OVERRIDING SYSTEM VALUE
+VALUES
+    (
+        1,
+        1,
+        'Daily Brass Warmup'
+    );
+
+
+-- ============================================================
+-- TEMPLATE HIERARCHY
+--
+-- Daily Brass Warmup
+--
+-- ├── Warmup                         SECTION
+-- │   ├── Long Tones                 EXERCISE
+-- │   └── Lip Slurs                  SECTION
+-- │       ├── Pattern 1              EXERCISE
+-- │       └── Pattern 2              EXERCISE
+-- │
+-- └── Repertoire                     SECTION
+--     └── Solo Piece                 REPERTOIRE
+--
+-- ============================================================
+
+
+-- ------------------------------------------------------------
+-- TOP-LEVEL SECTION: WARMUP
+-- ------------------------------------------------------------
+
+INSERT INTO session_template_item (
+    id,
+    session_template_id,
+    parent_id,
+    type,
+    position,
+    name,
+    notes
+)
+OVERRIDING SYSTEM VALUE
+VALUES
+    (
+        1,
+        1,
+        NULL,
+        'SECTION',
+        10,
+        'Warmup',
+        'General warmup exercises'
+    );
+
+
+-- ------------------------------------------------------------
+-- EXERCISE DIRECTLY UNDER WARMUP
+--
+-- Demonstrates that an exercise does NOT need its own
+-- subsection.
+-- ------------------------------------------------------------
+
+INSERT INTO session_template_item (
+    id,
+    session_template_id,
+    parent_id,
+    type,
+    position,
+    exercise_id,
+    notes
+)
+OVERRIDING SYSTEM VALUE
+VALUES
+    (
+        2,
+        1,
+        1,
+        'EXERCISE',
+        10,
+        1,
+        'Focus on consistent tone and air support'
+    );
+
+
+-- ------------------------------------------------------------
+-- SUBSECTION: LIP SLURS
+-- ------------------------------------------------------------
+
+INSERT INTO session_template_item (
+    id,
+    session_template_id,
+    parent_id,
+    type,
+    position,
+    name,
+    notes
+)
+OVERRIDING SYSTEM VALUE
+VALUES
+    (
+        3,
+        1,
+        1,
+        'SECTION',
+        20,
+        'Lip Slurs',
+        'Flexibility exercises'
+    );
+
+
+-- ------------------------------------------------------------
+-- PATTERN 1
+-- ------------------------------------------------------------
+
+INSERT INTO session_template_item (
+    id,
+    session_template_id,
+    parent_id,
+    type,
+    position,
+    exercise_id,
+    notes
+)
+OVERRIDING SYSTEM VALUE
+VALUES
+    (
+        4,
+        1,
+        3,
+        'EXERCISE',
+        10,
+        2,
+        'Start slowly and increase tempo gradually'
+    );
+
+
+-- ------------------------------------------------------------
+-- PATTERN 2
+-- ------------------------------------------------------------
+
+INSERT INTO session_template_item (
+    id,
+    session_template_id,
+    parent_id,
+    type,
+    position,
+    exercise_id,
+    notes
+)
+OVERRIDING SYSTEM VALUE
+VALUES
+    (
+        5,
+        1,
+        3,
+        'EXERCISE',
+        20,
+        3,
+        'Keep transitions smooth and relaxed'
+    );
+
+
+-- ------------------------------------------------------------
+-- TOP-LEVEL SECTION: REPERTOIRE
+-- ------------------------------------------------------------
+
+INSERT INTO session_template_item (
+    id,
+    session_template_id,
+    parent_id,
+    type,
+    position,
+    name,
+    notes
+)
+OVERRIDING SYSTEM VALUE
+VALUES
+    (
+        6,
+        1,
+        NULL,
+        'SECTION',
+        20,
+        'Repertoire',
+        NULL
+    );
+
+
+-- ------------------------------------------------------------
+-- REPERTOIRE ITEM
+-- ------------------------------------------------------------
+
+INSERT INTO session_template_item (
+    id,
+    session_template_id,
+    parent_id,
+    type,
+    position,
+    repertoire_id,
+    notes
+)
+OVERRIDING SYSTEM VALUE
+VALUES
+    (
+        7,
+        1,
+        6,
+        'REPERTOIRE',
+        10,
+        1,
+        'Focus on phrasing'
+    );
+
+
+-- ============================================================
+-- RESET IDENTITY SEQUENCES
+--
+-- Because explicit IDs were used above.
+-- ============================================================
+
+SELECT setval(
+    pg_get_serial_sequence('musician', 'id'),
+    COALESCE((SELECT MAX(id) FROM musician), 1),
+    true
+);
+
+SELECT setval(
+    pg_get_serial_sequence('exercise', 'id'),
+    COALESCE((SELECT MAX(id) FROM exercise), 1),
+    true
+);
+
+SELECT setval(
+    pg_get_serial_sequence('repertoire', 'id'),
+    COALESCE((SELECT MAX(id) FROM repertoire), 1),
+    true
+);
+
+SELECT setval(
+    pg_get_serial_sequence('session_template', 'id'),
+    COALESCE((SELECT MAX(id) FROM session_template), 1),
+    true
+);
+
+SELECT setval(
+    pg_get_serial_sequence('session_template_item', 'id'),
+    COALESCE((SELECT MAX(id) FROM session_template_item), 1),
+    true
+);
+
 COMMIT;

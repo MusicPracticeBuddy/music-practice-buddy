@@ -53,6 +53,12 @@ CREATE TYPE instrument_family AS ENUM (
     'OTHER'
 );
 
+CREATE TYPE session_item_type AS ENUM (
+    'SECTION',
+    'EXERCISE',
+    'REPERTOIRE'
+);
+
 
 -- ============================================================
 -- COMMON UPDATED_AT TRIGGER
@@ -246,12 +252,9 @@ CREATE TABLE repertoire (
     parent_repertoire_id BIGINT
         REFERENCES repertoire(id),
 
-    -- Optional measure range for excerpts.
     start_measure INTEGER,
     end_measure INTEGER,
 
-    -- NULL means this is a system/global repertoire record.
-    -- Non-NULL means it was created/owned by a musician.
     owner_musician_id BIGINT
         REFERENCES musician(id),
 
@@ -399,8 +402,8 @@ CREATE INDEX idx_musician_repertoire_library_repertoire
 --
 -- IMPORTANT:
 -- Sessions are NOT live copies of templates.
--- When a session is created from a template, its sections/items
--- are copied into independent session rows.
+-- When a session is created from a template, its items are
+-- copied into independent session rows.
 -- ============================================================
 
 CREATE TABLE session_template (
@@ -427,54 +430,47 @@ EXECUTE FUNCTION set_updated_at();
 
 
 -- ============================================================
--- SESSION TEMPLATE SECTIONS
+-- SESSION TEMPLATE ITEMS
 --
--- Sections are completely user-defined.
+-- This table represents BOTH sections and actual practice items.
 --
--- Default application data might create:
+-- A row can be:
 --
---   Warmup
---   Repertoire
---   Cooldown
+--   SECTION
+--       parent_id -> another section
 --
--- But there is no special meaning attached to those names
--- at the database level.
+--   EXERCISE
+--       parent_id -> a section
+--
+--   REPERTOIRE
+--       parent_id -> a section
+--
+-- parent_id is NULL for top-level items.
+--
+-- This allows structures such as:
+--
+--   Warmup                 SECTION
+--   ├── Long Tones         EXERCISE
+--   └── Lip Slurs          SECTION
+--       ├── Pattern 1      EXERCISE
+--       └── Pattern 2      EXERCISE
+--
+--   Repertoire             SECTION
+--   └── Solo Piece         REPERTOIRE
 -- ============================================================
 
-CREATE TABLE session_template_section (
+CREATE TABLE session_template_item (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
     session_template_id BIGINT NOT NULL
         REFERENCES session_template(id)
         ON DELETE CASCADE,
 
-    name TEXT NOT NULL,
-
-    position NUMERIC(20, 10) NOT NULL,
-
-    notes TEXT
-);
-
-
-CREATE INDEX idx_session_template_section_template
-    ON session_template_section (
-        session_template_id,
-        position
-    );
-
-
--- ============================================================
--- SESSION TEMPLATE ITEMS
---
--- An item is either an exercise or repertoire.
--- ============================================================
-
-CREATE TABLE session_template_item (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
-    session_template_section_id BIGINT NOT NULL
-        REFERENCES session_template_section(id)
+    parent_id BIGINT
+        REFERENCES session_template_item(id)
         ON DELETE CASCADE,
+
+    type session_item_type NOT NULL,
 
     position NUMERIC(20, 10) NOT NULL,
 
@@ -484,23 +480,42 @@ CREATE TABLE session_template_item (
     repertoire_id BIGINT
         REFERENCES repertoire(id),
 
+    name TEXT,
+
     notes TEXT,
 
     CONSTRAINT chk_session_template_item_target
         CHECK (
-            num_nonnulls(
-                exercise_id,
-                repertoire_id
-            ) = 1
+            (
+                type = 'SECTION'
+                AND exercise_id IS NULL
+                AND repertoire_id IS NULL
+            )
+            OR
+            (
+                type = 'EXERCISE'
+                AND exercise_id IS NOT NULL
+                AND repertoire_id IS NULL
+            )
+            OR
+            (
+                type = 'REPERTOIRE'
+                AND exercise_id IS NULL
+                AND repertoire_id IS NOT NULL
+            )
         )
 );
 
 
-CREATE INDEX idx_session_template_item_section
+CREATE INDEX idx_session_template_item_template
     ON session_template_item (
-        session_template_section_id,
+        session_template_id,
+        parent_id,
         position
     );
+
+CREATE INDEX idx_session_template_item_parent
+    ON session_template_item (parent_id);
 
 CREATE INDEX idx_session_template_item_exercise
     ON session_template_item (exercise_id);
@@ -567,44 +582,6 @@ EXECUTE FUNCTION set_updated_at();
 
 
 -- ============================================================
--- SESSION SECTIONS
---
--- These are copied from session_template_section when a session
--- is created, but thereafter belong entirely to the session.
---
--- The user can:
---   - rename sections
---   - add sections
---   - remove sections
---   - reorder sections
---   - add/remove/reorder items
---
--- None of those operations affect the template.
--- ============================================================
-
-CREATE TABLE session_section (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
-    session_id BIGINT NOT NULL
-        REFERENCES session(id)
-        ON DELETE CASCADE,
-
-    name TEXT NOT NULL,
-
-    position NUMERIC(20, 10) NOT NULL,
-
-    notes TEXT
-);
-
-
-CREATE INDEX idx_session_section_session
-    ON session_section (
-        session_id,
-        position
-    );
-
-
--- ============================================================
 -- SESSION ITEMS
 --
 -- These are copied from session_template_item when a session
@@ -613,15 +590,32 @@ CREATE INDEX idx_session_section_session
 -- After creation, these rows are completely independent of
 -- the corresponding template items.
 --
--- An item is either an exercise or repertoire.
+-- The hierarchy is represented by parent_id.
+--
+-- Example:
+--
+--   Warmup                 SECTION
+--   ├── Long Tones         EXERCISE
+--   └── Lip Slurs          SECTION
+--       ├── Pattern 1      EXERCISE
+--       └── Pattern 2      EXERCISE
+--
+-- A session item can therefore be moved, renamed, added,
+-- removed, or reordered without affecting its template.
 -- ============================================================
 
 CREATE TABLE session_item (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
-    session_section_id BIGINT NOT NULL
-        REFERENCES session_section(id)
+    session_id BIGINT NOT NULL
+        REFERENCES session(id)
         ON DELETE CASCADE,
+
+    parent_id BIGINT
+        REFERENCES session_item(id)
+        ON DELETE CASCADE,
+
+    type session_item_type NOT NULL,
 
     position NUMERIC(20, 10) NOT NULL,
 
@@ -631,17 +625,33 @@ CREATE TABLE session_item (
     repertoire_id BIGINT
         REFERENCES repertoire(id),
 
+    name TEXT,
+
     started_at TIMESTAMPTZ,
+
     ended_at TIMESTAMPTZ,
 
     notes TEXT,
 
     CONSTRAINT chk_session_item_target
         CHECK (
-            num_nonnulls(
-                exercise_id,
-                repertoire_id
-            ) = 1
+            (
+                type = 'SECTION'
+                AND exercise_id IS NULL
+                AND repertoire_id IS NULL
+            )
+            OR
+            (
+                type = 'EXERCISE'
+                AND exercise_id IS NOT NULL
+                AND repertoire_id IS NULL
+            )
+            OR
+            (
+                type = 'REPERTOIRE'
+                AND exercise_id IS NULL
+                AND repertoire_id IS NOT NULL
+            )
         ),
 
     CONSTRAINT chk_session_item_times
@@ -653,11 +663,15 @@ CREATE TABLE session_item (
 );
 
 
-CREATE INDEX idx_session_item_section
+CREATE INDEX idx_session_item_session
     ON session_item (
-        session_section_id,
+        session_id,
+        parent_id,
         position
     );
+
+CREATE INDEX idx_session_item_parent
+    ON session_item (parent_id);
 
 CREATE INDEX idx_session_item_exercise
     ON session_item (exercise_id);
