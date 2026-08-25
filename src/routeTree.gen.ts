@@ -9,38 +9,167 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as DemoRouteImport } from './routes/demo'
+import { Route as ExercisesRouteImport } from './routes/exercises'
+import { Route as RepertoireRouteImport } from './routes/repertoire'
+import { Route as SessionsRouteImport } from './routes/sessions'
+import { Route as ExercisesIndexRouteImport } from './routes/exercises/index'
+import { Route as ExercisesExerciseIdRouteImport } from './routes/exercises/$exerciseId'
+import { Route as RepertoireIndexRouteImport } from './routes/repertoire/index'
+import { Route as RepertoireRepertoireIdRouteImport } from './routes/repertoire/$repertoireId'
+import { Route as SessionsIndexRouteImport } from './routes/sessions/index'
+import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessionId'
 
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DemoRoute = DemoRouteImport.update({
   id: '/demo',
   path: '/demo',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExercisesRoute = ExercisesRouteImport.update({
+  id: '/exercises',
+  path: '/exercises',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RepertoireRoute = RepertoireRouteImport.update({
+  id: '/repertoire',
+  path: '/repertoire',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SessionsRoute = SessionsRouteImport.update({
+  id: '/sessions',
+  path: '/sessions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExercisesIndexRoute = ExercisesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ExercisesRoute,
+} as any)
+const ExercisesExerciseIdRoute = ExercisesExerciseIdRouteImport.update({
+  id: '/$exerciseId',
+  path: '/$exerciseId',
+  getParentRoute: () => ExercisesRoute,
+} as any)
+const RepertoireIndexRoute = RepertoireIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => RepertoireRoute,
+} as any)
+const RepertoireRepertoireIdRoute = RepertoireRepertoireIdRouteImport.update({
+  id: '/$repertoireId',
+  path: '/$repertoireId',
+  getParentRoute: () => RepertoireRoute,
+} as any)
+const SessionsIndexRoute = SessionsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SessionsRoute,
+} as any)
+const SessionsSessionIdRoute = SessionsSessionIdRouteImport.update({
+  id: '/$sessionId',
+  path: '/$sessionId',
+  getParentRoute: () => SessionsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof IndexRoute
   '/demo': typeof DemoRoute
+  '/exercises': typeof ExercisesRouteWithChildren
+  '/repertoire': typeof RepertoireRouteWithChildren
+  '/sessions': typeof SessionsRouteWithChildren
+  '/exercises/$exerciseId': typeof ExercisesExerciseIdRoute
+  '/repertoire/$repertoireId': typeof RepertoireRepertoireIdRoute
+  '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/exercises/': typeof ExercisesIndexRoute
+  '/repertoire/': typeof RepertoireIndexRoute
+  '/sessions/': typeof SessionsIndexRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof IndexRoute
   '/demo': typeof DemoRoute
+  '/exercises/$exerciseId': typeof ExercisesExerciseIdRoute
+  '/repertoire/$repertoireId': typeof RepertoireRepertoireIdRoute
+  '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/exercises': typeof ExercisesIndexRoute
+  '/repertoire': typeof RepertoireIndexRoute
+  '/sessions': typeof SessionsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
   '/demo': typeof DemoRoute
+  '/exercises': typeof ExercisesRouteWithChildren
+  '/repertoire': typeof RepertoireRouteWithChildren
+  '/sessions': typeof SessionsRouteWithChildren
+  '/exercises/$exerciseId': typeof ExercisesExerciseIdRoute
+  '/repertoire/$repertoireId': typeof RepertoireRepertoireIdRoute
+  '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/exercises/': typeof ExercisesIndexRoute
+  '/repertoire/': typeof RepertoireIndexRoute
+  '/sessions/': typeof SessionsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/demo'
+  fullPaths:
+    | '/'
+    | '/demo'
+    | '/exercises'
+    | '/repertoire'
+    | '/sessions'
+    | '/exercises/$exerciseId'
+    | '/repertoire/$repertoireId'
+    | '/sessions/$sessionId'
+    | '/exercises/'
+    | '/repertoire/'
+    | '/sessions/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/demo'
-  id: '__root__' | '/demo'
+  to:
+    | '/'
+    | '/demo'
+    | '/exercises/$exerciseId'
+    | '/repertoire/$repertoireId'
+    | '/sessions/$sessionId'
+    | '/exercises'
+    | '/repertoire'
+    | '/sessions'
+  id:
+    | '__root__'
+    | '/'
+    | '/demo'
+    | '/exercises'
+    | '/repertoire'
+    | '/sessions'
+    | '/exercises/$exerciseId'
+    | '/repertoire/$repertoireId'
+    | '/sessions/$sessionId'
+    | '/exercises/'
+    | '/repertoire/'
+    | '/sessions/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
   DemoRoute: typeof DemoRoute
+  ExercisesRoute: typeof ExercisesRouteWithChildren
+  RepertoireRoute: typeof RepertoireRouteWithChildren
+  SessionsRoute: typeof SessionsRouteWithChildren
 }
 
 declare module '@tanstack/solid-router' {
   interface FileRoutesByPath {
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/demo': {
       id: '/demo'
       path: '/demo'
@@ -48,11 +177,120 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof DemoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/exercises': {
+      id: '/exercises'
+      path: '/exercises'
+      fullPath: '/exercises'
+      preLoaderRoute: typeof ExercisesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/repertoire': {
+      id: '/repertoire'
+      path: '/repertoire'
+      fullPath: '/repertoire'
+      preLoaderRoute: typeof RepertoireRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sessions': {
+      id: '/sessions'
+      path: '/sessions'
+      fullPath: '/sessions'
+      preLoaderRoute: typeof SessionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/exercises/': {
+      id: '/exercises/'
+      path: '/'
+      fullPath: '/exercises/'
+      preLoaderRoute: typeof ExercisesIndexRouteImport
+      parentRoute: typeof ExercisesRoute
+    }
+    '/exercises/$exerciseId': {
+      id: '/exercises/$exerciseId'
+      path: '/$exerciseId'
+      fullPath: '/exercises/$exerciseId'
+      preLoaderRoute: typeof ExercisesExerciseIdRouteImport
+      parentRoute: typeof ExercisesRoute
+    }
+    '/repertoire/': {
+      id: '/repertoire/'
+      path: '/'
+      fullPath: '/repertoire/'
+      preLoaderRoute: typeof RepertoireIndexRouteImport
+      parentRoute: typeof RepertoireRoute
+    }
+    '/repertoire/$repertoireId': {
+      id: '/repertoire/$repertoireId'
+      path: '/$repertoireId'
+      fullPath: '/repertoire/$repertoireId'
+      preLoaderRoute: typeof RepertoireRepertoireIdRouteImport
+      parentRoute: typeof RepertoireRoute
+    }
+    '/sessions/': {
+      id: '/sessions/'
+      path: '/'
+      fullPath: '/sessions/'
+      preLoaderRoute: typeof SessionsIndexRouteImport
+      parentRoute: typeof SessionsRoute
+    }
+    '/sessions/$sessionId': {
+      id: '/sessions/$sessionId'
+      path: '/$sessionId'
+      fullPath: '/sessions/$sessionId'
+      preLoaderRoute: typeof SessionsSessionIdRouteImport
+      parentRoute: typeof SessionsRoute
+    }
   }
 }
 
+interface ExercisesRouteChildren {
+  ExercisesExerciseIdRoute: typeof ExercisesExerciseIdRoute
+  ExercisesIndexRoute: typeof ExercisesIndexRoute
+}
+
+const ExercisesRouteChildren: ExercisesRouteChildren = {
+  ExercisesExerciseIdRoute: ExercisesExerciseIdRoute,
+  ExercisesIndexRoute: ExercisesIndexRoute,
+}
+
+const ExercisesRouteWithChildren = ExercisesRoute._addFileChildren(
+  ExercisesRouteChildren,
+)
+
+interface RepertoireRouteChildren {
+  RepertoireRepertoireIdRoute: typeof RepertoireRepertoireIdRoute
+  RepertoireIndexRoute: typeof RepertoireIndexRoute
+}
+
+const RepertoireRouteChildren: RepertoireRouteChildren = {
+  RepertoireRepertoireIdRoute: RepertoireRepertoireIdRoute,
+  RepertoireIndexRoute: RepertoireIndexRoute,
+}
+
+const RepertoireRouteWithChildren = RepertoireRoute._addFileChildren(
+  RepertoireRouteChildren,
+)
+
+interface SessionsRouteChildren {
+  SessionsSessionIdRoute: typeof SessionsSessionIdRoute
+  SessionsIndexRoute: typeof SessionsIndexRoute
+}
+
+const SessionsRouteChildren: SessionsRouteChildren = {
+  SessionsSessionIdRoute: SessionsSessionIdRoute,
+  SessionsIndexRoute: SessionsIndexRoute,
+}
+
+const SessionsRouteWithChildren = SessionsRoute._addFileChildren(
+  SessionsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
   DemoRoute: DemoRoute,
+  ExercisesRoute: ExercisesRouteWithChildren,
+  RepertoireRoute: RepertoireRouteWithChildren,
+  SessionsRoute: SessionsRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,6 +1,7 @@
 import * as Solid from 'solid-js'
-import { Outlet, createRootRoute, HeadContent, Scripts } from '@tanstack/solid-router'
+import { HeadContent, Link, Outlet, Scripts, createRootRoute } from '@tanstack/solid-router'
 import { HydrationScript } from 'solid-js/web'
+import '../styles.css'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -13,7 +14,7 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'TanStack Start Starter',
+        title: 'Music Practice Buddy',
       },
     ],
   }),
@@ -33,10 +34,37 @@ function RootDocument({ children }: Readonly<{ children: Solid.JSX.Element }>) {
     <html>
       <head>
         <HydrationScript />
+        <HeadContent />
       </head>
       <body>
-        <HeadContent />
-        <Solid.Suspense>{children}</Solid.Suspense>
+        <div class="app-shell">
+          <header class="site-header">
+            <Link class="brand" to="/">
+              <span class="brand-mark" aria-hidden="true">
+                ♩
+              </span>
+              <span>
+                <strong>Practice Buddy</strong>
+                <small>Music, made daily</small>
+              </span>
+            </Link>
+            <nav aria-label="Primary navigation">
+              <Link to="/" activeOptions={{ exact: true }} activeProps={{ class: 'active' }}>
+                Overview
+              </Link>
+              <Link to="/repertoire" activeProps={{ class: 'active' }}>
+                Repertoire
+              </Link>
+              <Link to="/exercises" activeProps={{ class: 'active' }}>
+                Exercises
+              </Link>
+              <Link to="/sessions" activeProps={{ class: 'active' }}>
+                Sessions
+              </Link>
+            </nav>
+          </header>
+          <Solid.Suspense>{children}</Solid.Suspense>
+        </div>
         <Scripts />
       </body>
     </html>
