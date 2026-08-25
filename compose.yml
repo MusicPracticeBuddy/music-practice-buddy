@@ -1,0 +1,119 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: music-practice-buddy-db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+
+  flyway:
+    image: flyway/flyway:latest
+    container_name: music-practice-buddy-flyway
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    command:
+      - "-url=jdbc:postgresql://postgres:5432/${POSTGRES_DB}"
+      - "-user=${POSTGRES_USER}"
+      - "-password=${POSTGRES_PASSWORD}"
+      - "-locations=filesystem:/flyway/sql"
+      - "migrate"
+
+    volumes:
+      - ./db/migration:/flyway/sql:ro
+
+
+  seed:
+    image: postgres:17
+    container_name: music-practice-buddy-seed
+
+    depends_on:
+      flyway:
+        condition: service_completed_successfully
+
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+
+    volumes:
+      - ./db/test_data/test_data.sql:/seed/test_data.sql:ro
+
+    command:
+      - psql
+      - -f
+      - /seed/test_data.sql
+
+
+  cloudbeaver-config:
+    image: alpine:3.22
+    container_name: music-practice-buddy-cloudbeaver-config
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+    volumes:
+      - ./db/cloudbeaver:/config
+
+    command:
+      - /bin/sh
+      - -c
+      - |
+        apk add --no-cache gettext
+        envsubst < /config/data-sources.json.template > /config/data-sources.json
+
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+
+
+  dbeaver:
+    image: dbeaver/cloudbeaver:26.1.5
+    container_name: music-practice-buddy-dbeaver
+    restart: unless-stopped
+
+    ports:
+      - "8978:8978"
+
+    environment:
+      CB_SERVER_NAME: "Music Practice Buddy"
+      CB_ADMIN_NAME: ${CLOUDBEAVER_ADMIN_NAME}
+      CB_ADMIN_PASSWORD: ${CLOUDBEAVER_ADMIN_PASSWORD}
+
+    volumes:
+      - ./db/cloudbeaver/data-sources.json:/opt/cloudbeaver/workspace/GlobalConfiguration/.dbeaver/data-sources.json
+
+    depends_on:
+      cloudbeaver-config:
+        condition: service_completed_successfully
+
+
+volumes:
+  postgres_data:

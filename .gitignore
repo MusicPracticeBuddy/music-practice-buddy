@@ -3,3 +3,4 @@ dist/
 build/
 .output/
 *.env
+db/cloudbeaver/data-sources.json
