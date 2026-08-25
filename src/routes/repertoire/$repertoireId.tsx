@@ -1,6 +1,6 @@
 import { For, Show } from 'solid-js'
 import { Link, createFileRoute, notFound } from '@tanstack/solid-router'
-import { getRepertoireDetail } from '../../data/music'
+import { getRepertoireDetail } from '../../data/repertoire'
 
 export const Route = createFileRoute('/repertoire/$repertoireId')({
   loader: async ({ params }) => {

@@ -1,6 +1,6 @@
 import { For } from 'solid-js'
 import { Link, createFileRoute } from '@tanstack/solid-router'
-import { getSessions } from '../../data/music'
+import { getSessions } from '../../data/sessions'
 
 export const Route = createFileRoute('/sessions/')({
   loader: () => getSessions(),

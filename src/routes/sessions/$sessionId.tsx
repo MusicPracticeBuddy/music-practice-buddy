@@ -1,6 +1,6 @@
 import { For, Show, createMemo } from 'solid-js'
 import { Link, createFileRoute, notFound } from '@tanstack/solid-router'
-import { getSessionDetail, type SessionDetailItem } from '../../data/music'
+import { getSessionDetail, type SessionDetailItem } from '../../data/sessions'
 
 type SessionItemNode = SessionDetailItem & {
   children: SessionItemNode[]
