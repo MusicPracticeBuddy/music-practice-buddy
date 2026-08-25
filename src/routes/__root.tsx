@@ -1,10 +1,5 @@
 import * as Solid from 'solid-js'
-import {
-  Outlet,
-  createRootRoute,
-  HeadContent,
-  Scripts,
-} from '@tanstack/solid-router'
+import { Outlet, createRootRoute, HeadContent, Scripts } from '@tanstack/solid-router'
 import { HydrationScript } from 'solid-js/web'
 
 export const Route = createRootRoute({

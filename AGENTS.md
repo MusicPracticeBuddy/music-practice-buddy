@@ -14,12 +14,17 @@ Music Practice Buddy is a TypeScript application for tracking music practice ses
 - `db/cloudbeaver/`: CloudBeaver connection template. The rendered `data-sources.json` is generated and ignored.
 - `compose.yml`: local PostgreSQL, Flyway, seed, and CloudBeaver services.
 - `rsbuild.config.ts`: application build and development-server configuration.
+- `.oxlintrc.json`: Oxlint rules, environments, and generated-file exclusions.
+- `.oxfmtrc.json`: Oxfmt style options and generated-file exclusions.
 
 ## Setup and commands
 
 - Install JavaScript dependencies with `npm install` (or `npm ci` when reproducing the lockfile exactly).
 - Start the application with `npm run dev`; it serves on port 3000 by default.
 - Build the client and SSR bundles with `npm run build`.
+- Format supported files with `npm run format`; check formatting without writing with `npm run format:check`.
+- Lint the repository with `npm run lint`; apply safe automatic fixes with `npm run lint:fix`.
+- Type-check the project with `npm run typecheck`.
 - Start the local database stack with `docker compose up -d`. CloudBeaver is exposed on port 8978.
 - Inspect database service state with `docker compose ps` and logs with `docker compose logs <service>`.
 - Do not run `docker compose down -v` unless the user explicitly wants to delete local database data.
@@ -51,7 +56,9 @@ Use scripts declared in `package.json` as the source of truth. Do not invent a t
 ## Verification and handoff
 
 - Run `npm run build` after application or build-configuration changes.
-- Run any relevant named lint, type-check, and test scripts if they exist after the change.
+- Run `npm run lint` and `npm run typecheck` after TypeScript or JavaScript changes.
+- Run `npm run format:check` after changing files supported by Oxfmt.
+- Run any relevant named test scripts if they are added later.
 - For migration or seed changes, validate with a fresh disposable database when practical. Do not erase an existing database volume merely to perform validation.
 - Report which checks ran and any checks that could not run. Call out schema migration requirements and user-visible behavior changes.
 - Preserve unrelated working-tree changes; never discard or overwrite user work to complete a task.

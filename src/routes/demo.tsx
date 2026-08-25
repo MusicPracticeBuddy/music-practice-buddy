@@ -5,9 +5,7 @@ import { createServerFn } from '@tanstack/solid-start'
 const filePath = 'count.txt'
 
 async function readCount() {
-  return parseInt(
-    await fs.promises.readFile(filePath, 'utf-8').catch(() => '0'),
-  )
+  return parseInt(await fs.promises.readFile(filePath, 'utf-8').catch(() => '0'))
 }
 
 const getCount = createServerFn({
@@ -23,10 +21,9 @@ const updateCount = createServerFn({ method: 'POST' })
     await fs.promises.writeFile(filePath, `${count + data}`)
   })
 
-const resetCount = createServerFn({ method: 'POST' })
-  .handler(async () => {
-    await fs.promises.writeFile(filePath, `0`)
-  })
+const resetCount = createServerFn({ method: 'POST' }).handler(async () => {
+  await fs.promises.writeFile(filePath, `0`)
+})
 
 export const Route = createFileRoute('/demo')({
   component: Home,
@@ -39,26 +36,26 @@ function Home() {
 
   return (
     <div>
-    <button
-      type="button"
-      onClick={() => {
-        updateCount({ data: 1 }).then(() => {
-          router.invalidate()
-        })
-      }}
-    >
-      Add 1 to {state()}?
-    </button>
-    <button
-      type="button"
-      onClick={() => {
-        resetCount().then(() => {
-          router.invalidate()
-        })
-      }}
-    >
-      Reset
-    </button>
+      <button
+        type="button"
+        onClick={() => {
+          updateCount({ data: 1 }).then(() => {
+            router.invalidate()
+          })
+        }}
+      >
+        Add 1 to {state()}?
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          resetCount().then(() => {
+            router.invalidate()
+          })
+        }}
+      >
+        Reset
+      </button>
     </div>
   )
 }

@@ -10,22 +10,17 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
 
     ports:
-      - "5432:5432"
+      - '5432:5432'
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
-        ]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 5s
-
 
   flyway:
     image: flyway/flyway:latest
@@ -36,15 +31,14 @@ services:
         condition: service_healthy
 
     command:
-      - "-url=jdbc:postgresql://postgres:5432/${POSTGRES_DB}"
-      - "-user=${POSTGRES_USER}"
-      - "-password=${POSTGRES_PASSWORD}"
-      - "-locations=filesystem:/flyway/sql"
-      - "migrate"
+      - '-url=jdbc:postgresql://postgres:5432/${POSTGRES_DB}'
+      - '-user=${POSTGRES_USER}'
+      - '-password=${POSTGRES_PASSWORD}'
+      - '-locations=filesystem:/flyway/sql'
+      - 'migrate'
 
     volumes:
       - ./db/migration:/flyway/sql:ro
-
 
   seed:
     image: postgres:17
@@ -69,7 +63,6 @@ services:
       - -f
       - /seed/test_data.sql
 
-
   cloudbeaver-config:
     image: alpine:3.22
     container_name: music-practice-buddy-cloudbeaver-config
@@ -93,17 +86,16 @@ services:
       seed:
         condition: service_completed_successfully
 
-
   dbeaver:
     image: dbeaver/cloudbeaver:26.1.5
     container_name: music-practice-buddy-dbeaver
     restart: unless-stopped
 
     ports:
-      - "8978:8978"
+      - '8978:8978'
 
     environment:
-      CB_SERVER_NAME: "Music Practice Buddy"
+      CB_SERVER_NAME: 'Music Practice Buddy'
       CB_ADMIN_NAME: ${CLOUDBEAVER_ADMIN_NAME}
       CB_ADMIN_PASSWORD: ${CLOUDBEAVER_ADMIN_PASSWORD}
 
@@ -113,7 +105,6 @@ services:
     depends_on:
       cloudbeaver-config:
         condition: service_completed_successfully
-
 
 volumes:
   postgres_data:

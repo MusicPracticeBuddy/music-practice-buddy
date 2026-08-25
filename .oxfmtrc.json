@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "semi": false,
+  "singleQuote": true,
+  "ignorePatterns": [
+    "dist/**",
+    ".output/**",
+    "src/routeTree.gen.ts",
+    "db/cloudbeaver/data-sources.json",
+    "package-lock.json"
+  ]
+}
