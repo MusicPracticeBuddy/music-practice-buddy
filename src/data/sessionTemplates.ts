@@ -368,6 +368,29 @@ export const updateSessionTemplate = createServerFn({ method: 'POST' })
     }
   })
 
+export const deleteSessionTemplate = createServerFn({ method: 'POST' })
+  .validator((templateId: string) => {
+    if (!/^\d+$/.test(templateId)) throw new Error('Invalid template')
+    return templateId
+  })
+  .handler(async ({ data: templateId }): Promise<{ id: string }> => {
+    const client = await pool.connect()
+    try {
+      const musicianId = await currentMusicianId(client)
+      const result = await client.query<{ id: string }>(
+        `DELETE FROM session_template
+         WHERE id = $1 AND musician_id = $2
+         RETURNING id::text`,
+        [templateId, musicianId],
+      )
+      const deletedTemplate = result.rows[0]
+      if (!deletedTemplate) throw new Error('Template not found')
+      return deletedTemplate
+    } finally {
+      client.release()
+    }
+  })
+
 export const updatePlannedSession = createServerFn({ method: 'POST' })
   .validator((input: { id: string; assignedDate: string | null; items: TemplateItemInput[] }) => {
     if (!/^\d+$/.test(input.id)) throw new Error('Invalid session')

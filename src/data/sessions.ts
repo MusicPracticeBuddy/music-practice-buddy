@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/solid-start'
 import { pool, toIsoString } from './db'
 
-type SessionRow = {
+export type SessionRow = {
   id: string
   templateName: string
   status: string
@@ -179,4 +179,27 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
         endedAt: toIsoString(item.endedAt),
       })),
     }
+  })
+
+export const deletePlannedSession = createServerFn({ method: 'POST' })
+  .validator((sessionId: string) => {
+    if (!/^\d+$/.test(sessionId)) throw new Error('Invalid session')
+    return sessionId
+  })
+  .handler(async ({ data: sessionId }): Promise<{ id: string }> => {
+    const result = await pool.query<{ id: string }>(
+      `
+        DELETE FROM session
+        WHERE id = $1
+          AND status = 'PLANNED'
+          AND musician_id = (
+            SELECT id FROM musician ORDER BY is_admin DESC, id LIMIT 1
+          )
+        RETURNING id::text
+      `,
+      [sessionId],
+    )
+    const deletedSession = result.rows[0]
+    if (!deletedSession) throw new Error('Only planned sessions can be deleted')
+    return deletedSession
   })

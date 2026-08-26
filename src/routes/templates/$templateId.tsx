@@ -1,6 +1,8 @@
 import { For, Show } from 'solid-js'
-import { Link, createFileRoute, notFound } from '@tanstack/solid-router'
+import { Link, createFileRoute, notFound, useNavigate } from '@tanstack/solid-router'
+import { DeleteConfirmationDialog } from '../../components/DeleteConfirmationDialog'
 import {
+  deleteSessionTemplate,
   getSessionTemplate,
   type SessionTemplateDetail,
   type TemplateItemInput,
@@ -39,6 +41,7 @@ function buildTree(template: SessionTemplateDetail): TemplateNode[] {
 
 function TemplateDetail() {
   const template = Route.useLoaderData()
+  const navigate = useNavigate()
   const tree = () => buildTree(template())
   const practiceItemCount = () => template().items.filter((item) => item.type !== 'SECTION').length
 
@@ -66,6 +69,17 @@ function TemplateDetail() {
           <Link class="primary-button" to="/sessions/new" search={{ template: template().id }}>
             Use template
           </Link>
+          <DeleteConfirmationDialog
+            triggerLabel="Delete template"
+            title="Delete this template?"
+            itemName={template().name}
+            description="This permanently deletes the template. Existing sessions created from it will remain."
+            confirmLabel="Delete template"
+            onConfirm={async () => {
+              await deleteSessionTemplate({ data: template().id })
+              await navigate({ to: '/templates' })
+            }}
+          />
         </div>
       </header>
 

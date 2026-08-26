@@ -1,6 +1,8 @@
-import { For } from 'solid-js'
-import { Link, createFileRoute } from '@tanstack/solid-router'
-import { getSessions } from '../../data/sessions'
+import { For, Show, createSignal } from 'solid-js'
+import { Link, createFileRoute, useRouter } from '@tanstack/solid-router'
+import { DeleteConfirmationDialog } from '../../components/DeleteConfirmationDialog'
+import { SwipeToDelete } from '../../components/SwipeToDelete'
+import { deletePlannedSession, getSessions, type SessionRow } from '../../data/sessions'
 
 export const Route = createFileRoute('/sessions/')({
   loader: () => getSessions(),
@@ -59,31 +61,61 @@ function Sessions() {
       </header>
 
       <section class="session-table">
-        <For each={sessions()}>
-          {(session) => (
-            <Link class="session-row" to="/sessions/$sessionId" params={{ sessionId: session.id }}>
-              <div class="date-tile">
-                <strong>{datePart(session.startedAt, session.assignedDate, 'day')}</strong>
-                <span>{datePart(session.startedAt, session.assignedDate, 'month')}</span>
-              </div>
-              <div class="session-main">
-                <h2>{session.templateName}</h2>
-                <p>{formatSchedule(session.startedAt, session.assignedDate)}</p>
-              </div>
-              <div class="session-meta">
-                <strong>
-                  {session.durationMinutes
-                    ? `${session.durationMinutes} min`
-                    : `${session.itemCount} items`}
-                </strong>
-                <span class={`status status-${session.status.toLowerCase()}`}>
-                  {session.status.replace('_', ' ')}
-                </span>
-              </div>
-            </Link>
-          )}
-        </For>
+        <For each={sessions()}>{(session) => <SessionListItem session={session} />}</For>
       </section>
     </main>
+  )
+}
+
+function SessionListItem(props: { session: SessionRow }) {
+  const router = useRouter()
+  const [deleteOpen, setDeleteOpen] = createSignal(false)
+  const isPlanned = () => props.session.status === 'PLANNED'
+
+  return (
+    <SwipeToDelete enabled={isPlanned()} onDeleteRequest={() => setDeleteOpen(true)}>
+      <article class="session-row">
+        <Link
+          class="session-row-link"
+          to="/sessions/$sessionId"
+          params={{ sessionId: props.session.id }}
+          draggable={false}
+        >
+          <div class="date-tile">
+            <strong>{datePart(props.session.startedAt, props.session.assignedDate, 'day')}</strong>
+            <span>{datePart(props.session.startedAt, props.session.assignedDate, 'month')}</span>
+          </div>
+          <div class="session-main">
+            <h2>{props.session.templateName}</h2>
+            <p>{formatSchedule(props.session.startedAt, props.session.assignedDate)}</p>
+          </div>
+          <div class="session-meta">
+            <strong>
+              {props.session.durationMinutes
+                ? `${props.session.durationMinutes} min`
+                : `${props.session.itemCount} items`}
+            </strong>
+            <span class={`status status-${props.session.status.toLowerCase()}`}>
+              {props.session.status.replace('_', ' ')}
+            </span>
+          </div>
+        </Link>
+        <Show when={isPlanned()}>
+          <DeleteConfirmationDialog
+            triggerLabel="Delete"
+            title="Delete this planned session?"
+            itemName={props.session.templateName}
+            description="This permanently deletes the planned session and its practice outline."
+            confirmLabel="Delete session"
+            open={deleteOpen()}
+            onOpenChange={setDeleteOpen}
+            onConfirm={async () => {
+              await deletePlannedSession({ data: props.session.id })
+              await router.invalidate()
+            }}
+          />
+        </Show>
+      </article>
+    </SwipeToDelete>
   )
 }

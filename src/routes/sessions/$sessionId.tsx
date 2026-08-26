@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js'
-import { Link, createFileRoute, notFound } from '@tanstack/solid-router'
-import { getSessionDetail, type SessionDetailItem } from '../../data/sessions'
+import { Link, createFileRoute, notFound, useNavigate } from '@tanstack/solid-router'
+import { DeleteConfirmationDialog } from '../../components/DeleteConfirmationDialog'
+import { deletePlannedSession, getSessionDetail, type SessionDetailItem } from '../../data/sessions'
 
 type SessionItemNode = SessionDetailItem & {
   children: SessionItemNode[]
@@ -95,6 +96,7 @@ function StatusIndicator(props: { state: ReturnType<typeof itemState> }) {
 
 function SessionDetail() {
   const session = Route.useLoaderData()
+  const navigate = useNavigate()
   const itemTree = createMemo(() => buildItemTree(session().items))
   const practiceItems = createMemo(() => session().items.filter((item) => item.type !== 'SECTION'))
   const completeCount = createMemo(
@@ -119,13 +121,26 @@ function SessionDetail() {
         </div>
         <div class="header-actions">
           <Show when={session().status === 'PLANNED'}>
-            <Link
-              class="secondary-button"
-              to="/sessions/$sessionId/edit"
-              params={{ sessionId: session().id }}
-            >
-              Edit session
-            </Link>
+            <>
+              <Link
+                class="secondary-button"
+                to="/sessions/$sessionId/edit"
+                params={{ sessionId: session().id }}
+              >
+                Edit session
+              </Link>
+              <DeleteConfirmationDialog
+                triggerLabel="Delete session"
+                title="Delete this planned session?"
+                itemName={session().templateName}
+                description="This permanently deletes the planned session and its practice outline."
+                confirmLabel="Delete session"
+                onConfirm={async () => {
+                  await deletePlannedSession({ data: session().id })
+                  await navigate({ to: '/sessions' })
+                }}
+              />
+            </>
           </Show>
           <span class={`status status-${session().status.toLowerCase()}`}>
             {session().status.replace('_', ' ')}

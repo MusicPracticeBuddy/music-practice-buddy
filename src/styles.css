@@ -256,7 +256,8 @@ h1 {
 }
 
 .primary-button,
-.secondary-button {
+.secondary-button,
+.danger-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -277,6 +278,12 @@ h1 {
 .secondary-button {
   color: var(--green);
   background: var(--paper);
+}
+
+.danger-button {
+  color: white;
+  border-color: #9f4736;
+  background: #9f4736;
 }
 
 .page-header h1 {
@@ -408,17 +415,27 @@ h1 {
 }
 
 .session-row {
-  display: grid;
-  grid-template-columns: 62px 1fr auto;
-  gap: 22px;
+  display: flex;
   align-items: center;
-  padding: 18px 22px;
+  gap: 16px;
+  padding: 0 22px 0 0;
   border-radius: 18px;
   color: inherit;
-  text-decoration: none;
   transition:
     transform 160ms ease,
     box-shadow 160ms ease;
+}
+
+.session-row-link {
+  display: grid;
+  min-width: 0;
+  padding: 18px 0 18px 22px;
+  flex: 1;
+  grid-template-columns: 62px 1fr auto;
+  gap: 22px;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
 }
 
 .session-row:hover {
@@ -466,6 +483,35 @@ h1 {
 .template-list-row p {
   margin: 0;
   color: var(--muted);
+}
+
+.swipe-delete-container {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  touch-action: pan-y;
+}
+
+.swipe-delete-background {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 28px;
+  color: white;
+  background: #9f4736;
+  font-weight: 700;
+  transition: opacity 120ms ease;
+}
+
+.swipe-delete-content {
+  position: relative;
+  transition: transform 180ms ease;
+}
+
+.swipe-delete-content.dragging {
+  transition: none;
 }
 
 .form-page {
@@ -810,6 +856,18 @@ textarea.text-input {
 
 .editor-modal h2 {
   margin-bottom: 22px;
+}
+
+.confirmation-modal p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.confirmation-item-name {
+  display: block;
+  margin-top: 10px;
+  color: var(--ink);
+  font-size: 17px;
 }
 
 .modal-actions {
@@ -1314,6 +1372,11 @@ textarea.text-input {
   }
 
   .session-row {
+    align-items: flex-start;
+    padding: 0 16px 0 0;
+  }
+
+  .session-row-link {
     grid-template-columns: 58px 1fr;
   }
 
