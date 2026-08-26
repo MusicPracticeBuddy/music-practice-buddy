@@ -14,12 +14,16 @@ import {
   type TemplateLibraryItem,
   type SessionTemplateDetail,
 } from '../data/sessionTemplates'
+import {
+  LIBRARY_ITEM_TYPE,
+  PRACTICE_ITEM_TYPE,
+  isLibraryItemType,
+  type LibraryItemType,
+} from '../domain/session'
 
 type EditorNode = Omit<TemplateItemInput, 'parentClientId' | 'position'> & {
   children: EditorNode[]
 }
-
-type LibraryItemType = TemplateLibraryItem['type']
 
 let nextClientId = 0
 function clientId() {
@@ -147,7 +151,7 @@ function PlanSortableList(props: {
               )
               event.from.insertBefore(event.item, anchor)
             }
-            if (libraryId && (libraryType === 'EXERCISE' || libraryType === 'REPERTOIRE')) {
+            if (libraryId && isLibraryItemType(libraryType)) {
               props.onAddLibraryItem(libraryId, libraryType, props.parentId, destinationIndex)
             }
           })
@@ -192,17 +196,17 @@ export function PracticePlanEditor(props: {
   const [library, setLibrary] = createStore<TemplateLibraryItem[]>([...props.library])
   const [name, setName] = createSignal(initialRecord?.name ?? '')
   const [assignedDate, setAssignedDate] = createSignal(props.session?.assignedDate ?? '')
-  const [libraryType, setLibraryType] = createSignal<'EXERCISE' | 'REPERTOIRE'>('EXERCISE')
+  const [libraryType, setLibraryType] = createSignal<LibraryItemType>(LIBRARY_ITEM_TYPE.EXERCISE)
   const [selectedParentId, setSelectedParentId] = createSignal<string | null>(null)
   const [savingAction, setSavingAction] = createSignal<'save' | 'save-and-use' | null>(null)
   const [error, setError] = createSignal('')
   const [creatingItem, setCreatingItem] = createSignal(false)
-  const [newItemType, setNewItemType] = createSignal<'EXERCISE' | 'REPERTOIRE'>('EXERCISE')
+  const [newItemType, setNewItemType] = createSignal<LibraryItemType>(LIBRARY_ITEM_TYPE.EXERCISE)
   const [newItemName, setNewItemName] = createSignal('')
   const [newItemNotes, setNewItemNotes] = createSignal('')
 
   const itemCount = createMemo(
-    () => flatten(nodes).filter((item) => item.type !== 'SECTION').length,
+    () => flatten(nodes).filter((item) => item.type !== PRACTICE_ITEM_TYPE.SECTION).length,
   )
 
   function addNode(node: EditorNode, parentId = selectedParentId(), index?: number) {
@@ -222,7 +226,7 @@ export function PracticePlanEditor(props: {
     addNode(
       {
         clientId: clientId(),
-        type: 'SECTION',
+        type: PRACTICE_ITEM_TYPE.SECTION,
         sourceId: null,
         name: 'New section',
         notes: '',
@@ -590,7 +594,8 @@ export function PracticePlanEditor(props: {
               }}
             >
               <Dialog.Trigger class="secondary-button full-button">
-                + Create new {libraryType() === 'EXERCISE' ? 'exercise' : 'repertoire'}
+                + Create new{' '}
+                {libraryType() === LIBRARY_ITEM_TYPE.EXERCISE ? 'exercise' : 'repertoire'}
               </Dialog.Trigger>
               <Dialog.Portal>
                 <Dialog.Overlay class="modal-backdrop" />
@@ -604,12 +609,13 @@ export function PracticePlanEditor(props: {
                       id="new-item-type"
                       class="text-input"
                       value={newItemType()}
-                      onChange={(event) =>
-                        setNewItemType(event.currentTarget.value as 'EXERCISE' | 'REPERTOIRE')
-                      }
+                      onChange={(event) => {
+                        const type = event.currentTarget.value
+                        if (isLibraryItemType(type)) setNewItemType(type)
+                      }}
                     >
-                      <option value="EXERCISE">Exercise</option>
-                      <option value="REPERTOIRE">Repertoire</option>
+                      <option value={LIBRARY_ITEM_TYPE.EXERCISE}>Exercise</option>
+                      <option value={LIBRARY_ITEM_TYPE.REPERTOIRE}>Repertoire</option>
                     </select>
                     <label class="field-label" for="new-item-name">
                       Name
@@ -665,7 +671,7 @@ function TemplateNode(props: {
     index: number,
   ) => void
 }) {
-  const isSection = () => props.node.type === 'SECTION'
+  const isSection = () => props.node.type === PRACTICE_ITEM_TYPE.SECTION
 
   return (
     <article

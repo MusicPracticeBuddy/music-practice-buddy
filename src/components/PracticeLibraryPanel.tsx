@@ -1,8 +1,12 @@
 import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js'
 import Sortable from 'sortablejs'
 import type { TemplateLibraryItem } from '../data/sessionTemplates'
+import {
+  LIBRARY_ITEM_TYPE,
+  type LibraryItemType as PracticeLibraryItemType,
+} from '../domain/session'
 
-export type PracticeLibraryItemType = TemplateLibraryItem['type']
+export type { PracticeLibraryItemType }
 
 function PracticeLibraryList(props: { sortable: boolean; children: JSX.Element }) {
   let element: HTMLDivElement | undefined
@@ -58,7 +62,7 @@ export function PracticeLibraryPanel(props: {
       ? selectedItems.filter((item) => `${item.name} ${item.detail}`.toLowerCase().includes(query))
       : selectedItems
   })
-  const typeLabel = () => (props.type === 'EXERCISE' ? 'exercises' : 'repertoire')
+  const typeLabel = () => (props.type === LIBRARY_ITEM_TYPE.EXERCISE ? 'exercises' : 'repertoire')
 
   return (
     <aside
@@ -76,20 +80,22 @@ export function PracticeLibraryPanel(props: {
         <button
           type="button"
           role="tab"
-          aria-selected={props.type === 'EXERCISE'}
-          classList={{ active: props.type === 'EXERCISE' }}
-          onClick={() => props.onTypeChange('EXERCISE')}
+          aria-selected={props.type === LIBRARY_ITEM_TYPE.EXERCISE}
+          classList={{ active: props.type === LIBRARY_ITEM_TYPE.EXERCISE }}
+          onClick={() => props.onTypeChange(LIBRARY_ITEM_TYPE.EXERCISE)}
         >
-          Exercises ({props.items.filter((item) => item.type === 'EXERCISE').length})
+          Exercises ({props.items.filter((item) => item.type === LIBRARY_ITEM_TYPE.EXERCISE).length}
+          )
         </button>
         <button
           type="button"
           role="tab"
-          aria-selected={props.type === 'REPERTOIRE'}
-          classList={{ active: props.type === 'REPERTOIRE' }}
-          onClick={() => props.onTypeChange('REPERTOIRE')}
+          aria-selected={props.type === LIBRARY_ITEM_TYPE.REPERTOIRE}
+          classList={{ active: props.type === LIBRARY_ITEM_TYPE.REPERTOIRE }}
+          onClick={() => props.onTypeChange(LIBRARY_ITEM_TYPE.REPERTOIRE)}
         >
-          Repertoire ({props.items.filter((item) => item.type === 'REPERTOIRE').length})
+          Repertoire (
+          {props.items.filter((item) => item.type === LIBRARY_ITEM_TYPE.REPERTOIRE).length})
         </button>
       </div>
       <input

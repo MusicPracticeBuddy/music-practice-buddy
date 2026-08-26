@@ -1,11 +1,19 @@
 import { createServerFn } from '@tanstack/solid-start'
 import type { PoolClient } from 'pg'
 import { pool } from './db'
+import {
+  LIBRARY_ITEM_TYPE,
+  PRACTICE_ITEM_TYPE,
+  isLibraryItemType,
+  isPracticeItemType,
+  type LibraryItemType,
+  type PracticeItemType,
+} from '../domain/session'
 
 export type TemplateItemInput = {
   clientId: string
   parentClientId: string | null
-  type: 'SECTION' | 'EXERCISE' | 'REPERTOIRE'
+  type: PracticeItemType
   sourceId: string | null
   name: string
   notes: string
@@ -14,7 +22,7 @@ export type TemplateItemInput = {
 
 export type TemplateLibraryItem = {
   id: string
-  type: 'EXERCISE' | 'REPERTOIRE'
+  type: LibraryItemType
   name: string
   detail: string
 }
@@ -71,13 +79,13 @@ function validateTemplate(input: SaveTemplateInput): SaveTemplateInput {
     if (!item.clientId || ids.has(item.clientId))
       throw new Error('Template item IDs must be unique')
     ids.add(item.clientId)
-    if (!['SECTION', 'EXERCISE', 'REPERTOIRE'].includes(item.type)) {
+    if (!isPracticeItemType(item.type)) {
       throw new Error('Invalid template item type')
     }
-    if (item.type === 'SECTION' && item.sourceId !== null) {
+    if (item.type === PRACTICE_ITEM_TYPE.SECTION && item.sourceId !== null) {
       throw new Error('Sections cannot reference library items')
     }
-    if (item.type !== 'SECTION' && !item.sourceId?.match(/^\d+$/)) {
+    if (item.type !== PRACTICE_ITEM_TYPE.SECTION && !item.sourceId?.match(/^\d+$/)) {
       throw new Error('Practice items must reference a library item')
     }
   }
@@ -89,7 +97,7 @@ function validateTemplate(input: SaveTemplateInput): SaveTemplateInput {
     if (
       item.parentClientId !== null &&
       input.items.find((candidate) => candidate.clientId === item.parentClientId)?.type !==
-        'SECTION'
+        PRACTICE_ITEM_TYPE.SECTION
     ) {
       throw new Error('Template items can only be placed inside sections')
     }
@@ -125,9 +133,9 @@ async function insertTemplateItems(
         parentId,
         item.type,
         item.position,
-        item.type === 'EXERCISE' ? item.sourceId : null,
-        item.type === 'REPERTOIRE' ? item.sourceId : null,
-        item.type === 'SECTION' ? item.name.trim() || 'Untitled section' : null,
+        item.type === PRACTICE_ITEM_TYPE.EXERCISE ? item.sourceId : null,
+        item.type === PRACTICE_ITEM_TYPE.REPERTOIRE ? item.sourceId : null,
+        item.type === PRACTICE_ITEM_TYPE.SECTION ? item.name.trim() || 'Untitled section' : null,
         item.notes.trim() || null,
       ],
     )
@@ -164,9 +172,9 @@ async function insertSessionItems(
         parentId,
         item.type,
         item.position,
-        item.type === 'EXERCISE' ? item.sourceId : null,
-        item.type === 'REPERTOIRE' ? item.sourceId : null,
-        item.type === 'SECTION' ? item.name.trim() || 'Untitled section' : null,
+        item.type === PRACTICE_ITEM_TYPE.EXERCISE ? item.sourceId : null,
+        item.type === PRACTICE_ITEM_TYPE.REPERTOIRE ? item.sourceId : null,
+        item.type === PRACTICE_ITEM_TYPE.SECTION ? item.name.trim() || 'Untitled section' : null,
         item.notes.trim() || null,
       ],
     )
@@ -223,8 +231,8 @@ export const getTemplateLibrary = createServerFn({ method: 'GET' }).handler(
     ])
 
     return [
-      ...exercises.rows.map((item) => ({ ...item, type: 'EXERCISE' as const })),
-      ...repertoire.rows.map((item) => ({ ...item, type: 'REPERTOIRE' as const })),
+      ...exercises.rows.map((item) => ({ ...item, type: LIBRARY_ITEM_TYPE.EXERCISE })),
+      ...repertoire.rows.map((item) => ({ ...item, type: LIBRARY_ITEM_TYPE.REPERTOIRE })),
     ]
   },
 )
@@ -440,10 +448,10 @@ export const updatePlannedSession = createServerFn({ method: 'POST' })
   })
 
 export const createLibraryItem = createServerFn({ method: 'POST' })
-  .validator((input: { type: 'EXERCISE' | 'REPERTOIRE'; name: string; notes: string }) => {
+  .validator((input: { type: LibraryItemType; name: string; notes: string }) => {
     const name = input.name.trim()
     if (!name) throw new Error('Item name is required')
-    if (!['EXERCISE', 'REPERTOIRE'].includes(input.type)) throw new Error('Invalid item type')
+    if (!isLibraryItemType(input.type)) throw new Error('Invalid item type')
     return { ...input, name, notes: input.notes.trim() }
   })
   .handler(async ({ data }): Promise<TemplateLibraryItem> => {
@@ -451,7 +459,7 @@ export const createLibraryItem = createServerFn({ method: 'POST' })
     try {
       await client.query('BEGIN')
       const musicianId = await currentMusicianId(client)
-      if (data.type === 'EXERCISE') {
+      if (data.type === LIBRARY_ITEM_TYPE.EXERCISE) {
         const result = await client.query<{ id: string }>(
           `INSERT INTO exercise (musician_id, name) VALUES ($1, $2) RETURNING id::text`,
           [musicianId, data.name],

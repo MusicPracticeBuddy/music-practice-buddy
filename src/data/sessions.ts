@@ -1,15 +1,31 @@
 import { createServerFn } from '@tanstack/solid-start'
 import type { PoolClient } from 'pg'
 import { pool, toIsoString } from './db'
+import {
+  LIBRARY_ITEM_TYPE,
+  PRACTICE_ITEM_TYPE,
+  SESSION_ITEM_ACTION,
+  SESSION_ITEM_STATUS,
+  SESSION_TIMING_MODE,
+  isLibraryItemType,
+  isIncompleteSessionItemStatus,
+  isResolvedSessionItemStatus,
+  isSessionItemAction,
+  isSessionTimingMode,
+  type LibraryItemType,
+  type PracticeItemType,
+  type SessionItemAction,
+  type SessionItemStatus,
+  type SessionStatus,
+  type SessionTimingMode,
+} from '../domain/session'
 
-export type SessionTimingMode = 'MANUAL' | 'AUTO'
-export type SessionItemStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETE' | 'SKIPPED'
-export type SessionItemAction = 'START' | 'COMPLETE' | 'SKIP' | 'RESET'
+export type { SessionItemAction, SessionItemStatus, SessionStatus, SessionTimingMode }
 
 export type SessionRow = {
   id: string
   templateName: string
-  status: string
+  status: SessionStatus
   assignedDate: string | null
   assignedAt: string | null
   startedAt: string | null
@@ -22,7 +38,7 @@ export type SessionRow = {
 export type SessionDetailItem = {
   id: string
   parentId: string | null
-  type: 'SECTION' | 'EXERCISE' | 'REPERTOIRE'
+  type: PracticeItemType
   position: number
   name: string
   notes: string | null
@@ -38,7 +54,7 @@ export type SessionDetailItem = {
 export type SessionDetail = {
   id: string
   templateName: string
-  status: string
+  status: SessionStatus
   timingMode: SessionTimingMode | null
   assignedDate: string | null
   assignedAt: string | null
@@ -49,7 +65,7 @@ export type SessionDetail = {
 }
 
 export type SessionProgressUpdate = {
-  status: string
+  status: SessionStatus
   timingMode: SessionTimingMode | null
   startedAt: string | null
   endedAt: string | null
@@ -64,7 +80,7 @@ export const getSessions = createServerFn({ method: 'GET' }).handler(
     const result = await pool.query<{
       id: string
       templateName: string
-      status: string
+      status: SessionStatus
       assignedDate: string | null
       assignedAt: Date | null
       startedAt: Date | null
@@ -124,7 +140,7 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
       pool.query<{
         id: string
         templateName: string
-        status: string
+        status: SessionStatus
         timingMode: SessionTimingMode | null
         assignedDate: string | null
         assignedAt: Date | null
@@ -157,7 +173,7 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
       pool.query<{
         id: string
         parentId: string | null
-        type: 'SECTION' | 'EXERCISE' | 'REPERTOIRE'
+        type: PracticeItemType
         position: number
         name: string
         notes: string | null
@@ -244,7 +260,7 @@ function validId(value: unknown): value is string {
 type SessionOutlineRow = {
   id: string
   parentId: string | null
-  type: 'SECTION' | 'EXERCISE' | 'REPERTOIRE'
+  type: PracticeItemType
   position: string
   exerciseId: string | null
   repertoireId: string | null
@@ -459,7 +475,7 @@ async function startNextAutoItem(client: PoolClient, sessionId: string) {
     `SELECT timing_mode::text AS "timingMode" FROM session WHERE id = $1`,
     [sessionId],
   )
-  if (mode.rows[0]?.timingMode !== 'AUTO') return
+  if (mode.rows[0]?.timingMode !== SESSION_TIMING_MODE.AUTO) return
 
   const active = await client.query(
     `SELECT 1 FROM session_item
@@ -498,7 +514,7 @@ async function progressUpdate(
 ): Promise<SessionProgressUpdate> {
   const [sessionResult, itemResult] = await Promise.all([
     client.query<{
-      status: string
+      status: SessionStatus
       timingMode: SessionTimingMode | null
       startedAt: Date | null
       endedAt: Date | null
@@ -547,7 +563,7 @@ async function progressUpdate(
 export const startPracticeSession = createServerFn({ method: 'POST' })
   .validator((input: { sessionId: string; timingMode: SessionTimingMode; localDate: string }) => {
     if (!validId(input.sessionId)) throw new Error('Invalid session')
-    if (input.timingMode !== 'MANUAL' && input.timingMode !== 'AUTO') {
+    if (!isSessionTimingMode(input.timingMode)) {
       throw new Error('Invalid timing mode')
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(input.localDate)) throw new Error('Invalid local date')
@@ -601,7 +617,7 @@ export const updateSessionProgress = createServerFn({ method: 'POST' })
       }
       for (const change of input.changes) {
         if (!validId(change.itemId)) throw new Error('Invalid session item')
-        if (!['START', 'COMPLETE', 'SKIP', 'RESET'].includes(change.action)) {
+        if (!isSessionItemAction(change.action)) {
           throw new Error('Invalid session item action')
         }
       }
@@ -636,8 +652,8 @@ export const updateSessionProgress = createServerFn({ method: 'POST' })
         const item = itemResult.rows[0]
         if (!item) throw new Error('Session item not found')
 
-        if (item.type === 'SECTION') {
-          if (change.action === 'SKIP') {
+        if (item.type === PRACTICE_ITEM_TYPE.SECTION) {
+          if (change.action === SESSION_ITEM_ACTION.SKIP) {
             const blocked = await client.query(
               `WITH RECURSIVE descendants AS (
                  SELECT id, type, status FROM session_item WHERE parent_id = $1
@@ -663,7 +679,10 @@ export const updateSessionProgress = createServerFn({ method: 'POST' })
                WHERE item.id IN (SELECT id FROM descendants) AND item.type <> 'SECTION'`,
               [change.itemId],
             )
-          } else if (change.action === 'RESET' && item.status === 'SKIPPED') {
+          } else if (
+            change.action === SESSION_ITEM_ACTION.RESET &&
+            item.status === SESSION_ITEM_STATUS.SKIPPED
+          ) {
             await client.query(
               `WITH RECURSIVE descendants AS (
                  SELECT id FROM session_item WHERE parent_id = $1
@@ -683,8 +702,11 @@ export const updateSessionProgress = createServerFn({ method: 'POST' })
           continue
         }
 
-        if (change.action === 'START') {
-          if (session.timingMode !== 'MANUAL' || item.status !== 'NOT_STARTED') {
+        if (change.action === SESSION_ITEM_ACTION.START) {
+          if (
+            session.timingMode !== SESSION_TIMING_MODE.MANUAL ||
+            item.status !== SESSION_ITEM_STATUS.NOT_STARTED
+          ) {
             throw new Error('This item cannot be started manually')
           }
           const active = await client.query(
@@ -698,8 +720,8 @@ export const updateSessionProgress = createServerFn({ method: 'POST' })
              WHERE id = $1`,
             [change.itemId],
           )
-        } else if (change.action === 'COMPLETE') {
-          if (!['NOT_STARTED', 'IN_PROGRESS'].includes(item.status)) {
+        } else if (change.action === SESSION_ITEM_ACTION.COMPLETE) {
+          if (!isIncompleteSessionItemStatus(item.status)) {
             throw new Error('Only an incomplete item can be completed')
           }
           await client.query(
@@ -708,8 +730,8 @@ export const updateSessionProgress = createServerFn({ method: 'POST' })
              WHERE id = $1`,
             [change.itemId],
           )
-        } else if (change.action === 'SKIP') {
-          if (!['NOT_STARTED', 'IN_PROGRESS'].includes(item.status)) {
+        } else if (change.action === SESSION_ITEM_ACTION.SKIP) {
+          if (!isIncompleteSessionItemStatus(item.status)) {
             throw new Error('Only an incomplete item can be skipped')
           }
           await client.query(
@@ -717,8 +739,8 @@ export const updateSessionProgress = createServerFn({ method: 'POST' })
              WHERE id = $1`,
             [change.itemId],
           )
-        } else if (change.action === 'RESET') {
-          if (!['COMPLETE', 'SKIPPED'].includes(item.status)) {
+        } else if (change.action === SESSION_ITEM_ACTION.RESET) {
+          if (!isResolvedSessionItemStatus(item.status)) {
             throw new Error('Only a complete or skipped item can be reset')
           }
           await client.query(
@@ -809,14 +831,14 @@ export const addRunningSessionItem = createServerFn({ method: 'POST' })
     (input: {
       sessionId: string
       parentId: string | null
-      type: 'EXERCISE' | 'REPERTOIRE'
+      type: LibraryItemType
       sourceId: string
       notes: string
     }) => {
       if (!validId(input.sessionId)) throw new Error('Invalid session')
       if (input.parentId !== null && !validId(input.parentId)) throw new Error('Invalid section')
       if (!validId(input.sourceId)) throw new Error('Invalid practice item')
-      if (input.type !== 'EXERCISE' && input.type !== 'REPERTOIRE') {
+      if (!isLibraryItemType(input.type)) {
         throw new Error('Invalid practice item type')
       }
       if (input.notes.length > 2000) throw new Error('Notes must be 2000 characters or fewer')
@@ -847,9 +869,9 @@ export const addRunningSessionItem = createServerFn({ method: 'POST' })
         if (!parent.rowCount) throw new Error('Destination section not found')
       }
 
-      const sourceTable = data.type === 'EXERCISE' ? 'exercise' : 'repertoire'
+      const sourceTable = data.type === LIBRARY_ITEM_TYPE.EXERCISE ? 'exercise' : 'repertoire'
       const source = await client.query(
-        `SELECT 1 FROM ${sourceTable} WHERE id = $1${data.type === 'EXERCISE' ? ' AND deleted_at IS NULL' : ''}`,
+        `SELECT 1 FROM ${sourceTable} WHERE id = $1${data.type === LIBRARY_ITEM_TYPE.EXERCISE ? ' AND deleted_at IS NULL' : ''}`,
         [data.sourceId],
       )
       if (!source.rowCount) throw new Error('Practice item not found')
@@ -871,8 +893,8 @@ export const addRunningSessionItem = createServerFn({ method: 'POST' })
           data.sessionId,
           data.parentId,
           data.type,
-          data.type === 'EXERCISE' ? data.sourceId : null,
-          data.type === 'REPERTOIRE' ? data.sourceId : null,
+          data.type === LIBRARY_ITEM_TYPE.EXERCISE ? data.sourceId : null,
+          data.type === LIBRARY_ITEM_TYPE.REPERTOIRE ? data.sourceId : null,
           data.notes || null,
         ],
       )

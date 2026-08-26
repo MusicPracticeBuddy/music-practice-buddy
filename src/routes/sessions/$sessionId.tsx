@@ -29,8 +29,27 @@ import {
   type SessionTimingMode,
 } from '../../data/sessions'
 import { getTemplateLibrary, type TemplateLibraryItem } from '../../data/sessionTemplates'
+import {
+  LIBRARY_ITEM_TYPE,
+  PRACTICE_ITEM_TYPE,
+  SESSION_ITEM_ACTION,
+  SESSION_ITEM_STATUS,
+  SESSION_STATUS,
+  SESSION_TIMING_MODE,
+  isLibraryItemType,
+  isResolvedSessionItemStatus,
+  type LibraryItemType,
+} from '../../domain/session'
 
 type SessionItemNode = SessionDetailItem & { children: SessionItemNode[] }
+
+const SESSION_MANAGEMENT_ACTION = {
+  DUPLICATE: 'DUPLICATE',
+  TEMPLATE: 'TEMPLATE',
+} as const
+
+type SessionManagementAction =
+  (typeof SESSION_MANAGEMENT_ACTION)[keyof typeof SESSION_MANAGEMENT_ACTION]
 
 export const Route = createFileRoute('/sessions/$sessionId')({
   loader: async ({ params }) => {
@@ -61,20 +80,28 @@ function descendants(item: SessionItemNode): SessionItemNode[] {
 }
 
 function practiceDescendants(item: SessionItemNode) {
-  return descendants(item).filter((child) => child.type !== 'SECTION')
+  return descendants(item).filter((child) => child.type !== PRACTICE_ITEM_TYPE.SECTION)
 }
 
 function derivedSectionStatus(item: SessionItemNode): SessionItemStatus {
   const children = practiceDescendants(item)
-  if (children.length === 0) return 'NOT_STARTED'
-  if (children.every((child) => child.status === 'SKIPPED')) return 'SKIPPED'
-  if (children.every((child) => child.status === 'COMPLETE' || child.status === 'SKIPPED')) {
-    return 'COMPLETE'
+  if (children.length === 0) return SESSION_ITEM_STATUS.NOT_STARTED
+  if (children.every((child) => child.status === SESSION_ITEM_STATUS.SKIPPED)) {
+    return SESSION_ITEM_STATUS.SKIPPED
   }
-  if (children.some((child) => child.status === 'IN_PROGRESS' || child.status === 'COMPLETE')) {
-    return 'IN_PROGRESS'
+  if (children.every((child) => isResolvedSessionItemStatus(child.status))) {
+    return SESSION_ITEM_STATUS.COMPLETE
   }
-  return 'NOT_STARTED'
+  if (
+    children.some(
+      (child) =>
+        child.status === SESSION_ITEM_STATUS.IN_PROGRESS ||
+        child.status === SESSION_ITEM_STATUS.COMPLETE,
+    )
+  ) {
+    return SESSION_ITEM_STATUS.IN_PROGRESS
+  }
+  return SESSION_ITEM_STATUS.NOT_STARTED
 }
 
 function formatDate(value: string | null) {
@@ -127,9 +154,9 @@ function dragLibraryItem(event: DragEvent, item: TemplateLibraryItem) {
 
 function StatusIndicator(props: { status: SessionItemStatus }) {
   const icon = () => {
-    if (props.status === 'COMPLETE') return '✓'
-    if (props.status === 'SKIPPED') return '—'
-    if (props.status === 'IN_PROGRESS') return '◐'
+    if (props.status === SESSION_ITEM_STATUS.COMPLETE) return '✓'
+    if (props.status === SESSION_ITEM_STATUS.SKIPPED) return '—'
+    if (props.status === SESSION_ITEM_STATUS.IN_PROGRESS) return '◐'
     return '○'
   }
   return (
@@ -151,7 +178,9 @@ function SessionDetailPage() {
     ...loadedSession(),
     items: loadedSession().items.map((item) => ({ ...item })),
   })
-  const [timingChoice, setTimingChoice] = createSignal<SessionTimingMode>('MANUAL')
+  const [timingChoice, setTimingChoice] = createSignal<SessionTimingMode>(
+    SESSION_TIMING_MODE.MANUAL,
+  )
   const [starting, setStarting] = createSignal(false)
   const [completing, setCompleting] = createSignal(false)
   const [saving, setSaving] = createSignal(false)
@@ -160,13 +189,11 @@ function SessionDetailPage() {
   const [nameDirty, setNameDirty] = createSignal(false)
   const [nameSaving, setNameSaving] = createSignal(false)
   const [structuralSaving, setStructuralSaving] = createSignal(false)
-  const [managementAction, setManagementAction] = createSignal<'DUPLICATE' | 'TEMPLATE' | null>(
-    null,
-  )
+  const [managementAction, setManagementAction] = createSignal<SessionManagementAction | null>(null)
   const [addingItem, setAddingItem] = createSignal(false)
   const [libraryLoading, setLibraryLoading] = createSignal(false)
   const [library, setLibrary] = createSignal<TemplateLibraryItem[]>([])
-  const [libraryType, setLibraryType] = createSignal<'EXERCISE' | 'REPERTOIRE'>('EXERCISE')
+  const [libraryType, setLibraryType] = createSignal<LibraryItemType>(LIBRARY_ITEM_TYPE.EXERCISE)
   const [queuedChangeCount, setQueuedChangeCount] = createSignal(0)
   const [routeDataDirty, setRouteDataDirty] = createSignal(false)
   const [error, setError] = createSignal('')
@@ -178,12 +205,14 @@ function SessionDetailPage() {
   let activeStructuralChange: Promise<void> | undefined
 
   const itemTree = createMemo(() => buildItemTree(session.items))
-  const practiceItems = createMemo(() => session.items.filter((item) => item.type !== 'SECTION'))
+  const practiceItems = createMemo(() =>
+    session.items.filter((item) => item.type !== PRACTICE_ITEM_TYPE.SECTION),
+  )
   const completeCount = createMemo(
-    () => practiceItems().filter((item) => item.status === 'COMPLETE').length,
+    () => practiceItems().filter((item) => item.status === SESSION_ITEM_STATUS.COMPLETE).length,
   )
   const skippedCount = createMemo(
-    () => practiceItems().filter((item) => item.status === 'SKIPPED').length,
+    () => practiceItems().filter((item) => item.status === SESSION_ITEM_STATUS.SKIPPED).length,
   )
   const resolvedCount = createMemo(() => completeCount() + skippedCount())
   const progress = createMemo(() => {
@@ -192,17 +221,17 @@ function SessionDetailPage() {
   })
   const allResolved = createMemo(() => resolvedCount() === practiceItems().length)
   const displayedStatus = createMemo(() =>
-    session.status === 'IN_PROGRESS' && allResolved()
+    session.status === SESSION_STATUS.IN_PROGRESS && allResolved()
       ? { className: 'ready', label: 'Ready to finalize' }
       : { className: session.status.toLowerCase(), label: session.status.replace('_', ' ') },
   )
   const canStart = createMemo(
     () =>
-      session.status === 'PLANNED' &&
+      session.status === SESSION_STATUS.PLANNED &&
       (!session.assignedDate || session.assignedDate === localDate()),
   )
   const hasActiveItem = createMemo(() =>
-    practiceItems().some((item) => item.status === 'IN_PROGRESS'),
+    practiceItems().some((item) => item.status === SESSION_ITEM_STATUS.IN_PROGRESS),
   )
 
   createEffect(() => {
@@ -244,39 +273,71 @@ function SessionDetailPage() {
     if (!item) return
     const now = new Date().toISOString()
 
-    if (item.type === 'SECTION') {
+    if (item.type === PRACTICE_ITEM_TYPE.SECTION) {
       const section = sectionNode(itemId)
       if (!section) return
       const childIds = new Set(practiceDescendants(section).map((child) => child.id))
       for (let childIndex = 0; childIndex < session.items.length; childIndex += 1) {
         const child = session.items[childIndex]!
         if (!childIds.has(child.id)) continue
-        if (action === 'SKIP') {
-          setSession('items', childIndex, { status: 'SKIPPED', startedAt: null, endedAt: null })
-        } else if (action === 'RESET' && child.status === 'SKIPPED') {
-          setSession('items', childIndex, { status: 'NOT_STARTED', startedAt: null, endedAt: null })
+        if (action === SESSION_ITEM_ACTION.SKIP) {
+          setSession('items', childIndex, {
+            status: SESSION_ITEM_STATUS.SKIPPED,
+            startedAt: null,
+            endedAt: null,
+          })
+        } else if (
+          action === SESSION_ITEM_ACTION.RESET &&
+          child.status === SESSION_ITEM_STATUS.SKIPPED
+        ) {
+          setSession('items', childIndex, {
+            status: SESSION_ITEM_STATUS.NOT_STARTED,
+            startedAt: null,
+            endedAt: null,
+          })
         }
       }
       return
     }
 
-    if (action === 'START') {
-      setSession('items', index, { status: 'IN_PROGRESS', startedAt: now, endedAt: null })
-    } else if (action === 'COMPLETE') {
-      setSession('items', index, { status: 'COMPLETE', endedAt: item.startedAt ? now : null })
-    } else if (action === 'SKIP') {
-      setSession('items', index, { status: 'SKIPPED', startedAt: null, endedAt: null })
+    if (action === SESSION_ITEM_ACTION.START) {
+      setSession('items', index, {
+        status: SESSION_ITEM_STATUS.IN_PROGRESS,
+        startedAt: now,
+        endedAt: null,
+      })
+    } else if (action === SESSION_ITEM_ACTION.COMPLETE) {
+      setSession('items', index, {
+        status: SESSION_ITEM_STATUS.COMPLETE,
+        endedAt: item.startedAt ? now : null,
+      })
+    } else if (action === SESSION_ITEM_ACTION.SKIP) {
+      setSession('items', index, {
+        status: SESSION_ITEM_STATUS.SKIPPED,
+        startedAt: null,
+        endedAt: null,
+      })
     } else {
-      setSession('items', index, { status: 'NOT_STARTED', startedAt: null, endedAt: null })
+      setSession('items', index, {
+        status: SESSION_ITEM_STATUS.NOT_STARTED,
+        startedAt: null,
+        endedAt: null,
+      })
     }
 
-    if (session.timingMode === 'AUTO' && !hasActiveItem()) {
+    if (session.timingMode === SESSION_TIMING_MODE.AUTO && !hasActiveItem()) {
       const next = flattenTree(buildItemTree(session.items)).find(
-        (candidate) => candidate.type !== 'SECTION' && candidate.status === 'NOT_STARTED',
+        (candidate) =>
+          candidate.type !== PRACTICE_ITEM_TYPE.SECTION &&
+          candidate.status === SESSION_ITEM_STATUS.NOT_STARTED,
       )
       if (next) {
         const nextIndex = session.items.findIndex((candidate) => candidate.id === next.id)
-        setSession('items', nextIndex, { status: 'IN_PROGRESS', startedAt: now, endedAt: null })
+        setSession('items', nextIndex, {
+          status: SESSION_ITEM_STATUS.IN_PROGRESS,
+          startedAt: now,
+          endedAt: null,
+        })
       }
     }
   }
@@ -416,7 +477,7 @@ function SessionDetailPage() {
     if (!value) return
     try {
       const item = JSON.parse(value) as TemplateLibraryItem
-      if (item.type !== 'EXERCISE' && item.type !== 'REPERTOIRE') return
+      if (!isLibraryItemType(item.type)) return
       void addLibraryItem(item, parentId)
     } catch {
       setError('That practice item could not be added')
@@ -430,7 +491,7 @@ function SessionDetailPage() {
   }
 
   async function duplicateSession() {
-    setManagementAction('DUPLICATE')
+    setManagementAction(SESSION_MANAGEMENT_ACTION.DUPLICATE)
     setError('')
     try {
       await drainChanges()
@@ -446,7 +507,7 @@ function SessionDetailPage() {
   }
 
   async function saveAsTemplate() {
-    setManagementAction('TEMPLATE')
+    setManagementAction(SESSION_MANAGEMENT_ACTION.TEMPLATE)
     setError('')
     try {
       await drainChanges()
@@ -552,11 +613,11 @@ function SessionDetailPage() {
         <div>
           <p class="eyebrow">Session #{session.id}</p>
           <Show
-            when={session.status === 'IN_PROGRESS' && editingName()}
+            when={session.status === SESSION_STATUS.IN_PROGRESS && editingName()}
             fallback={
               <div class="session-title-row">
                 <h1>{session.templateName}</h1>
-                <Show when={session.status === 'IN_PROGRESS'}>
+                <Show when={session.status === SESSION_STATUS.IN_PROGRESS}>
                   <button class="text-button" type="button" onClick={() => setEditingName(true)}>
                     Edit name
                   </button>
@@ -593,7 +654,9 @@ function SessionDetailPage() {
             disabled={managementAction() !== null}
             onClick={duplicateSession}
           >
-            {managementAction() === 'DUPLICATE' ? 'Duplicating…' : 'Duplicate session'}
+            {managementAction() === SESSION_MANAGEMENT_ACTION.DUPLICATE
+              ? 'Duplicating…'
+              : 'Duplicate session'}
           </button>
           <button
             class="secondary-button"
@@ -601,9 +664,11 @@ function SessionDetailPage() {
             disabled={managementAction() !== null}
             onClick={saveAsTemplate}
           >
-            {managementAction() === 'TEMPLATE' ? 'Creating…' : 'Save as template'}
+            {managementAction() === SESSION_MANAGEMENT_ACTION.TEMPLATE
+              ? 'Creating…'
+              : 'Save as template'}
           </button>
-          <Show when={session.status === 'PLANNED'}>
+          <Show when={session.status === SESSION_STATUS.PLANNED}>
             <Link
               class="secondary-button"
               to="/sessions/$sessionId/edit"
@@ -633,7 +698,7 @@ function SessionDetailPage() {
         <span class="count-badge">{practiceItems().length} practice items</span>
         <Show when={session.timingMode}>
           <span class="count-badge">
-            {session.timingMode === 'AUTO' ? 'Auto-timing' : 'Manual timing'}
+            {session.timingMode === SESSION_TIMING_MODE.AUTO ? 'Auto-timing' : 'Manual timing'}
           </span>
         </Show>
         <Show when={session.durationMinutes !== null}>
@@ -649,7 +714,7 @@ function SessionDetailPage() {
         </p>
       </Show>
 
-      <Show when={session.status === 'PLANNED'}>
+      <Show when={session.status === SESSION_STATUS.PLANNED}>
         <section class="session-start-card" aria-labelledby="start-session-title">
           <div>
             <p class="eyebrow">Ready when you are</p>
@@ -657,26 +722,26 @@ function SessionDetailPage() {
             <p>Choose how timers should behave. Manual timing is the default.</p>
           </div>
           <div class="timing-options">
-            <label classList={{ selected: timingChoice() === 'MANUAL' }}>
+            <label classList={{ selected: timingChoice() === SESSION_TIMING_MODE.MANUAL }}>
               <input
                 type="radio"
                 name="timing-mode"
-                value="MANUAL"
-                checked={timingChoice() === 'MANUAL'}
-                onChange={() => setTimingChoice('MANUAL')}
+                value={SESSION_TIMING_MODE.MANUAL}
+                checked={timingChoice() === SESSION_TIMING_MODE.MANUAL}
+                onChange={() => setTimingChoice(SESSION_TIMING_MODE.MANUAL)}
               />
               <span>
                 <strong>Manual timing</strong>
                 <small>Use as a checklist. Start a timer only when you want one.</small>
               </span>
             </label>
-            <label classList={{ selected: timingChoice() === 'AUTO' }}>
+            <label classList={{ selected: timingChoice() === SESSION_TIMING_MODE.AUTO }}>
               <input
                 type="radio"
                 name="timing-mode"
-                value="AUTO"
-                checked={timingChoice() === 'AUTO'}
-                onChange={() => setTimingChoice('AUTO')}
+                value={SESSION_TIMING_MODE.AUTO}
+                checked={timingChoice() === SESSION_TIMING_MODE.AUTO}
+                onChange={() => setTimingChoice(SESSION_TIMING_MODE.AUTO)}
               />
               <span>
                 <strong>Auto-timing</strong>
@@ -729,7 +794,7 @@ function SessionDetailPage() {
                 {(item) => (
                   <SessionItem
                     item={item}
-                    sessionActive={session.status === 'IN_PROGRESS'}
+                    sessionActive={session.status === SESSION_STATUS.IN_PROGRESS}
                     addingItem={addingItem()}
                     timingMode={session.timingMode}
                     hasActiveItem={hasActiveItem()}
@@ -751,7 +816,7 @@ function SessionDetailPage() {
             </div>
           </Show>
 
-          <Show when={session.status === 'IN_PROGRESS' && !addingItem()}>
+          <Show when={session.status === SESSION_STATUS.IN_PROGRESS && !addingItem()}>
             <section class="session-add-item-card">
               <button class="secondary-button" type="button" onClick={openItemPicker}>
                 + Add practice item
@@ -782,7 +847,7 @@ function SessionDetailPage() {
         </Show>
       </div>
 
-      <Show when={session.status === 'IN_PROGRESS'}>
+      <Show when={session.status === SESSION_STATUS.IN_PROGRESS}>
         <section class="session-completion-card">
           <div>
             <p class="eyebrow">Finish session</p>
@@ -806,7 +871,7 @@ function SessionDetailPage() {
           </button>
         </section>
       </Show>
-      <Show when={session.status === 'COMPLETED'}>
+      <Show when={session.status === SESSION_STATUS.COMPLETED}>
         <section class="session-locked-note">
           <strong>Session complete</strong>
           <span>This practice record is locked and can no longer be changed.</span>
@@ -830,7 +895,7 @@ function SessionItem(props: {
   onRemove: (itemId: string) => Promise<void>
   onDropLibraryItem: (event: DragEvent, parentId: string | null) => void
 }) {
-  const isSection = props.item.type === 'SECTION'
+  const isSection = props.item.type === PRACTICE_ITEM_TYPE.SECTION
   const [expanded, setExpanded] = createSignal(isSection)
   const contentId = `session-item-${props.item.id}-content`
   const status = () => (isSection ? derivedSectionStatus(props.item) : props.item.status)
@@ -838,7 +903,11 @@ function SessionItem(props: {
     const items = practiceDescendants(props.item)
     return (
       items.length > 0 &&
-      items.every((item) => item.status === 'NOT_STARTED' || item.status === 'SKIPPED')
+      items.every(
+        (item) =>
+          item.status === SESSION_ITEM_STATUS.NOT_STARTED ||
+          item.status === SESSION_ITEM_STATUS.SKIPPED,
+      )
     )
   }
 
@@ -859,20 +928,24 @@ function SessionItem(props: {
             <h2>{props.item.name}</h2>
           </button>
           <div class="disclosure-status">
-            <Show when={props.sessionActive && status() === 'SKIPPED'}>
+            <Show when={props.sessionActive && status() === SESSION_ITEM_STATUS.SKIPPED}>
               <button
                 class="item-action item-action-reset"
                 type="button"
-                onClick={() => props.onAction(props.item.id, 'RESET')}
+                onClick={() => props.onAction(props.item.id, SESSION_ITEM_ACTION.RESET)}
               >
                 Reset section
               </button>
             </Show>
-            <Show when={props.sessionActive && status() !== 'SKIPPED' && sectionCanSkip()}>
+            <Show
+              when={
+                props.sessionActive && status() !== SESSION_ITEM_STATUS.SKIPPED && sectionCanSkip()
+              }
+            >
               <button
                 class="item-action"
                 type="button"
-                onClick={() => props.onAction(props.item.id, 'SKIP')}
+                onClick={() => props.onAction(props.item.id, SESSION_ITEM_ACTION.SKIP)}
               >
                 Skip section
               </button>
@@ -926,15 +999,15 @@ function SessionItem(props: {
           <Show
             when={
               props.sessionActive &&
-              props.item.status === 'NOT_STARTED' &&
-              props.timingMode === 'MANUAL'
+              props.item.status === SESSION_ITEM_STATUS.NOT_STARTED &&
+              props.timingMode === SESSION_TIMING_MODE.MANUAL
             }
           >
             <button
               class="item-action"
               type="button"
               disabled={props.hasActiveItem}
-              onClick={() => props.onAction(props.item.id, 'START')}
+              onClick={() => props.onAction(props.item.id, SESSION_ITEM_ACTION.START)}
             >
               Start timer
             </button>
@@ -942,20 +1015,21 @@ function SessionItem(props: {
           <Show
             when={
               props.sessionActive &&
-              (props.item.status === 'NOT_STARTED' || props.item.status === 'IN_PROGRESS')
+              (props.item.status === SESSION_ITEM_STATUS.NOT_STARTED ||
+                props.item.status === SESSION_ITEM_STATUS.IN_PROGRESS)
             }
           >
             <button
               class="item-action item-action-complete"
               type="button"
-              onClick={() => props.onAction(props.item.id, 'COMPLETE')}
+              onClick={() => props.onAction(props.item.id, SESSION_ITEM_ACTION.COMPLETE)}
             >
               Complete
             </button>
             <button
               class="item-action"
               type="button"
-              onClick={() => props.onAction(props.item.id, 'SKIP')}
+              onClick={() => props.onAction(props.item.id, SESSION_ITEM_ACTION.SKIP)}
             >
               Skip
             </button>
@@ -963,14 +1037,15 @@ function SessionItem(props: {
           <Show
             when={
               props.sessionActive &&
-              (props.item.status === 'COMPLETE' || props.item.status === 'SKIPPED')
+              (props.item.status === SESSION_ITEM_STATUS.COMPLETE ||
+                props.item.status === SESSION_ITEM_STATUS.SKIPPED)
             }
           >
             <button
               class="item-action item-action-reset"
               type="button"
               aria-label={`Reset ${props.item.name} to not started`}
-              onClick={() => props.onAction(props.item.id, 'RESET')}
+              onClick={() => props.onAction(props.item.id, SESSION_ITEM_ACTION.RESET)}
             >
               Reset
             </button>

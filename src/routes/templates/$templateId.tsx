@@ -7,6 +7,7 @@ import {
   type SessionTemplateDetail,
   type TemplateItemInput,
 } from '../../data/sessionTemplates'
+import { PRACTICE_ITEM_TYPE } from '../../domain/session'
 
 export const Route = createFileRoute('/templates/$templateId')({
   loader: async ({ params }) => {
@@ -43,7 +44,8 @@ function TemplateDetail() {
   const template = Route.useLoaderData()
   const navigate = useNavigate()
   const tree = () => buildTree(template())
-  const practiceItemCount = () => template().items.filter((item) => item.type !== 'SECTION').length
+  const practiceItemCount = () =>
+    template().items.filter((item) => item.type !== PRACTICE_ITEM_TYPE.SECTION).length
 
   return (
     <main class="page session-detail-page">
@@ -101,7 +103,7 @@ function TemplateDetail() {
 }
 
 function TemplateOutlineItem(props: { item: TemplateNode }) {
-  if (props.item.type === 'SECTION') {
+  if (props.item.type === PRACTICE_ITEM_TYPE.SECTION) {
     return (
       <section class="practice-section">
         <div class="practice-section-header template-section-header">

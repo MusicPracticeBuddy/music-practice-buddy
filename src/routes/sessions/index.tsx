@@ -3,6 +3,7 @@ import { Link, createFileRoute, useRouter } from '@tanstack/solid-router'
 import { DeleteConfirmationDialog } from '../../components/DeleteConfirmationDialog'
 import { SwipeToDelete } from '../../components/SwipeToDelete'
 import { deletePlannedSession, getSessions, type SessionRow } from '../../data/sessions'
+import { SESSION_STATUS } from '../../domain/session'
 
 export const Route = createFileRoute('/sessions/')({
   loader: () => getSessions(),
@@ -70,7 +71,7 @@ function Sessions() {
 function SessionListItem(props: { session: SessionRow }) {
   const router = useRouter()
   const [deleteOpen, setDeleteOpen] = createSignal(false)
-  const isPlanned = () => props.session.status === 'PLANNED'
+  const isPlanned = () => props.session.status === SESSION_STATUS.PLANNED
   const displayedStatus = () =>
     props.session.readyToFinalize
       ? { className: 'ready', label: 'Ready to finalize' }
