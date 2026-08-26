@@ -18,6 +18,8 @@ type EditorNode = Omit<TemplateItemInput, 'parentClientId' | 'position'> & {
   children: EditorNode[]
 }
 
+type LibraryItemType = TemplateLibraryItem['type']
+
 let nextClientId = 0
 function clientId() {
   nextClientId += 1
@@ -105,7 +107,12 @@ function PlanSortableList(props: {
   children: JSX.Element
   canMove: (nodeId: string, parentId: string | null) => boolean
   onMoveNode: (nodeId: string, parentId: string | null, index: number) => void
-  onAddLibraryItem: (libraryId: string, parentId: string | null) => void
+  onAddLibraryItem: (
+    libraryId: string,
+    libraryType: LibraryItemType,
+    parentId: string | null,
+    index: number,
+  ) => void
 }) {
   let element: HTMLDivElement | undefined
 
@@ -127,10 +134,22 @@ function PlanSortableList(props: {
       onAdd: (event: SortableEvent) => {
         if (event.from.dataset.sortableKind === 'library') {
           const libraryId = event.item.dataset.libraryId
-          event.item.remove()
-          if (libraryId) {
-            queueMicrotask(() => props.onAddLibraryItem(libraryId, props.parentId))
-          }
+          const libraryType = event.item.dataset.libraryType
+          const destinationIndex = event.newIndex ?? 0
+          queueMicrotask(() => {
+            if (event.clone.parentElement === event.from) {
+              event.clone.replaceWith(event.item)
+            } else if (event.item.parentElement !== event.from) {
+              const oldIndex = event.oldIndex ?? event.from.children.length
+              const anchor = event.from.children.item(
+                Math.min(oldIndex, event.from.children.length),
+              )
+              event.from.insertBefore(event.item, anchor)
+            }
+            if (libraryId && (libraryType === 'EXERCISE' || libraryType === 'REPERTOIRE')) {
+              props.onAddLibraryItem(libraryId, libraryType, props.parentId, destinationIndex)
+            }
+          })
           return
         }
         const nodeId = event.item.dataset.nodeId
@@ -222,11 +241,15 @@ export function PracticePlanEditor(props: {
     () => flatten(nodes).filter((item) => item.type !== 'SECTION').length,
   )
 
-  function addNode(node: EditorNode, parentId = selectedParentId()) {
+  function addNode(node: EditorNode, parentId = selectedParentId(), index?: number) {
     setNodes(
       produce((items) => {
         const destination = findChildren(items, parentId) ?? items
-        destination.push(node)
+        if (index === undefined) {
+          destination.push(node)
+          return
+        }
+        destination.splice(Math.min(Math.max(index, 0), destination.length), 0, node)
       }),
     )
   }
@@ -245,7 +268,12 @@ export function PracticePlanEditor(props: {
     )
   }
 
-  function addLibraryEntry(item: TemplateLibraryItem, notes = '', parentId = selectedParentId()) {
+  function addLibraryEntry(
+    item: TemplateLibraryItem,
+    notes = '',
+    parentId = selectedParentId(),
+    index?: number,
+  ) {
     addNode(
       {
         clientId: clientId(),
@@ -256,6 +284,7 @@ export function PracticePlanEditor(props: {
         children: [],
       },
       parentId,
+      index,
     )
   }
 
@@ -277,10 +306,17 @@ export function PracticePlanEditor(props: {
     )
   }
 
-  function addLibraryItemById(libraryId: string, parentId: string | null) {
-    const item = library.find((candidate) => candidate.id === libraryId)
+  function addLibraryItemById(
+    libraryId: string,
+    itemType: LibraryItemType,
+    parentId: string | null,
+    index: number,
+  ) {
+    const item = library.find(
+      (candidate) => candidate.id === libraryId && candidate.type === itemType,
+    )
     if (!item) return
-    addLibraryEntry(item, '', parentId)
+    addLibraryEntry(item, '', parentId, index)
     setSelectedParentId(parentId)
   }
 
@@ -599,6 +635,7 @@ export function PracticePlanEditor(props: {
                   type="button"
                   class="editor-library-item"
                   data-library-id={item.id}
+                  data-library-type={item.type}
                   onClick={() => addLibraryEntry(item)}
                 >
                   <span>
@@ -685,7 +722,12 @@ function TemplateNode(props: {
   onRename: (id: string, value: string) => void
   canMove: (nodeId: string, parentId: string | null) => boolean
   onMoveNode: (nodeId: string, parentId: string | null, index: number) => void
-  onAddLibraryItem: (libraryId: string, parentId: string | null) => void
+  onAddLibraryItem: (
+    libraryId: string,
+    libraryType: LibraryItemType,
+    parentId: string | null,
+    index: number,
+  ) => void
 }) {
   const isSection = () => props.node.type === 'SECTION'
 
