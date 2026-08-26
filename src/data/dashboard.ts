@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/solid-start'
-import { pool, toIsoString } from './db'
+import { pool } from './db'
 
 type DashboardData = {
   counts: {
@@ -13,7 +13,7 @@ type DashboardData = {
     id: string
     templateName: string
     status: string
-    assignedAt: string | null
+    assignedDate: string | null
   } | null
 }
 
@@ -42,14 +42,15 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(
         id: string
         template_name: string
         status: string
-        assigned_at: Date | null
+        assigned_date: string | null
       }>(`
         SELECT s.id::text, COALESCE(st.name, 'Open practice') AS template_name,
-               s.status::text, s.assigned_at
+               s.status::text, to_char(s.assigned_date, 'YYYY-MM-DD') AS assigned_date
         FROM session s
         LEFT JOIN session_template st ON st.id = s.session_template_id
         WHERE s.status IN ('IN_PROGRESS', 'PLANNED')
-        ORDER BY CASE WHEN s.status = 'IN_PROGRESS' THEN 0 ELSE 1 END, s.assigned_at
+        ORDER BY CASE WHEN s.status = 'IN_PROGRESS' THEN 0 ELSE 1 END,
+          s.assigned_date NULLS LAST
         LIMIT 1
       `),
     ])
@@ -70,7 +71,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(
             id: next.id,
             templateName: next.template_name,
             status: next.status,
-            assignedAt: toIsoString(next.assigned_at),
+            assignedDate: next.assigned_date,
           }
         : null,
     }

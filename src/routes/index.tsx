@@ -7,15 +7,14 @@ export const Route = createFileRoute('/')({
   component: Dashboard,
 })
 
-function formatDate(value: string | null) {
-  if (!value) return 'No time assigned'
+function formatSchedule(assignedDate: string | null) {
+  if (!assignedDate) return 'No date assigned'
+  const [year, month, day] = assignedDate.split('-').map(Number)
   return new Intl.DateTimeFormat(undefined, {
     weekday: 'long',
     month: 'short',
     day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(value))
+  }).format(new Date(year!, month! - 1, day))
 }
 
 function Dashboard() {
@@ -68,7 +67,7 @@ function Dashboard() {
               <div>
                 <p class="eyebrow">Up next</p>
                 <h2>{session().templateName}</h2>
-                <p>{formatDate(session().assignedAt)}</p>
+                <p>{formatSchedule(session().assignedDate)}</p>
               </div>
               <span class={`status status-${session().status.toLowerCase()}`}>
                 {session().status.replace('_', ' ')}

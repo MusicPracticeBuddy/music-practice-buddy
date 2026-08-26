@@ -61,6 +61,9 @@ function RootDocument({ children }: Readonly<{ children: Solid.JSX.Element }>) {
               <Link to="/sessions" activeProps={{ class: 'active' }}>
                 Sessions
               </Link>
+              <Link to="/templates" activeProps={{ class: 'active' }}>
+                Templates
+              </Link>
             </nav>
           </header>
           <Solid.Suspense>{children}</Solid.Suspense>

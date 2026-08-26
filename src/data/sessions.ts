@@ -5,6 +5,7 @@ type SessionRow = {
   id: string
   templateName: string
   status: string
+  assignedDate: string | null
   assignedAt: string | null
   startedAt: string | null
   endedAt: string | null
@@ -30,6 +31,7 @@ type SessionDetail = {
   id: string
   templateName: string
   status: string
+  assignedDate: string | null
   assignedAt: string | null
   startedAt: string | null
   endedAt: string | null
@@ -43,6 +45,7 @@ export const getSessions = createServerFn({ method: 'GET' }).handler(
       id: string
       templateName: string
       status: string
+      assignedDate: string | null
       assignedAt: Date | null
       startedAt: Date | null
       endedAt: Date | null
@@ -53,6 +56,7 @@ export const getSessions = createServerFn({ method: 'GET' }).handler(
         session.id::text,
         COALESCE(template.name, 'Open practice') AS "templateName",
         session.status::text,
+        to_char(session.assigned_date, 'YYYY-MM-DD') AS "assignedDate",
         session.assigned_at AS "assignedAt",
         session.started_at AS "startedAt",
         session.ended_at AS "endedAt",
@@ -66,7 +70,10 @@ export const getSessions = createServerFn({ method: 'GET' }).handler(
       LEFT JOIN session_template template ON template.id = session.session_template_id
       LEFT JOIN session_item item ON item.session_id = session.id AND item.type <> 'SECTION'
       GROUP BY session.id, template.name
-      ORDER BY COALESCE(session.started_at, session.assigned_at) DESC NULLS LAST
+      ORDER BY COALESCE(
+        session.started_at,
+        session.assigned_date::timestamp AT TIME ZONE current_setting('TIMEZONE')
+      ) DESC NULLS LAST
     `)
 
     return result.rows.map((row) => ({
@@ -92,6 +99,7 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
         id: string
         templateName: string
         status: string
+        assignedDate: string | null
         assignedAt: Date | null
         startedAt: Date | null
         endedAt: Date | null
@@ -102,6 +110,7 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
             session.id::text,
             COALESCE(template.name, 'Open practice') AS "templateName",
             session.status::text,
+            to_char(session.assigned_date, 'YYYY-MM-DD') AS "assignedDate",
             session.assigned_at AS "assignedAt",
             session.started_at AS "startedAt",
             session.ended_at AS "endedAt",

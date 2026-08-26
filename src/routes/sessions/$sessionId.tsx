@@ -48,6 +48,18 @@ function formatDate(value: string | null) {
   }).format(new Date(value))
 }
 
+function formatSchedule(startedAt: string | null, assignedDate: string | null) {
+  if (startedAt) return formatDate(startedAt)
+  if (!assignedDate) return 'Not scheduled'
+  const [year, month, day] = assignedDate.split('-').map(Number)
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(year!, month! - 1, day))
+}
+
 function itemState(item: SessionDetailItem) {
   if (item.endedAt) return 'Complete'
   if (item.startedAt) return 'In progress'
@@ -103,11 +115,22 @@ function SessionDetail() {
         <div>
           <p class="eyebrow">Session #{session().id}</p>
           <h1>{session().templateName}</h1>
-          <p class="lede">{formatDate(session().startedAt ?? session().assignedAt)}</p>
+          <p class="lede">{formatSchedule(session().startedAt, session().assignedDate)}</p>
         </div>
-        <span class={`status status-${session().status.toLowerCase()}`}>
-          {session().status.replace('_', ' ')}
-        </span>
+        <div class="header-actions">
+          <Show when={session().status === 'PLANNED'}>
+            <Link
+              class="secondary-button"
+              to="/sessions/$sessionId/edit"
+              params={{ sessionId: session().id }}
+            >
+              Edit session
+            </Link>
+          </Show>
+          <span class={`status status-${session().status.toLowerCase()}`}>
+            {session().status.replace('_', ' ')}
+          </span>
+        </div>
       </header>
 
       <div class="meta-row">
