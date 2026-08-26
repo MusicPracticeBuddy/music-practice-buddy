@@ -1,6 +1,13 @@
+import { readFile } from 'node:fs/promises'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { pool } from '../../src/data/db'
-import { deletePlannedSession } from '../../src/data/sessions'
+import {
+  completePracticeSession,
+  deletePlannedSession,
+  getSessions,
+  startPracticeSession,
+  updateSessionProgress,
+} from '../../src/data/sessions'
 import {
   createPracticeSession,
   createSessionTemplate,
@@ -240,5 +247,195 @@ describe('session persistence', () => {
       [created.id],
     )
     expect(remaining.rows[0]?.count).toBe(1)
+  })
+
+  it('enforces the assigned local date when starting a session', async () => {
+    const created = await createPracticeSession({
+      data: { templateId: null, assignedDate: '2030-03-15' },
+    })
+
+    await expect(
+      startPracticeSession({
+        data: { sessionId: created.id, timingMode: 'MANUAL', localDate: '2030-03-14' },
+      }),
+    ).rejects.toThrow('assigned local date')
+
+    const started = await startPracticeSession({
+      data: { sessionId: created.id, timingMode: 'MANUAL', localDate: '2030-03-15' },
+    })
+    expect(started.status).toBe('IN_PROGRESS')
+    expect(started.timingMode).toBe('MANUAL')
+  })
+
+  it('supports checklist completion, optional timers, skips, and reset in manual mode', async () => {
+    const created = await createPracticeSession({
+      data: { templateId: null, assignedDate: null },
+    })
+    await updatePlannedSession({
+      data: {
+        id: created.id,
+        assignedDate: null,
+        items: [
+          section('section', 'Session section', 1),
+          practiceItem('first', 'section', 'EXERCISE', exerciseId, 'First item', 1),
+          practiceItem('second', 'section', 'REPERTOIRE', repertoireId, 'Second item', 2),
+        ],
+      },
+    })
+    const itemRows = await pool.query<{ id: string; name: string }>(
+      `SELECT id::text, COALESCE(name, '') AS name FROM session_item
+       WHERE session_id = $1 AND type <> 'SECTION' ORDER BY position`,
+      [created.id],
+    )
+    const firstId = itemRows.rows[0]!.id
+    const secondId = itemRows.rows[1]!.id
+
+    const started = await startPracticeSession({
+      data: { sessionId: created.id, timingMode: 'MANUAL', localDate: '2030-01-01' },
+    })
+    expect(started.items.filter((item) => item.status === 'IN_PROGRESS')).toHaveLength(0)
+
+    const checked = await updateSessionProgress({
+      data: { sessionId: created.id, changes: [{ itemId: firstId, action: 'COMPLETE' }] },
+    })
+    const checkedItem = checked.items.find((item) => item.id === firstId)
+    expect(checkedItem?.status).toBe('COMPLETE')
+    expect(checkedItem?.startedAt).toBeNull()
+    expect(checkedItem?.endedAt).toBeNull()
+
+    await updateSessionProgress({
+      data: { sessionId: created.id, changes: [{ itemId: secondId, action: 'START' }] },
+    })
+    const skipped = await updateSessionProgress({
+      data: { sessionId: created.id, changes: [{ itemId: secondId, action: 'SKIP' }] },
+    })
+    const skippedItem = skipped.items.find((item) => item.id === secondId)
+    expect(skippedItem?.status).toBe('SKIPPED')
+    expect(skippedItem?.startedAt).toBeNull()
+    expect(skipped.status).toBe('IN_PROGRESS')
+    expect(
+      (await getSessions()).find((session) => session.id === created.id)?.readyToFinalize,
+    ).toBe(true)
+
+    const reset = await updateSessionProgress({
+      data: { sessionId: created.id, changes: [{ itemId: secondId, action: 'RESET' }] },
+    })
+    expect(reset.status).toBe('IN_PROGRESS')
+    expect(reset.items.find((item) => item.id === secondId)?.status).toBe('NOT_STARTED')
+
+    await updateSessionProgress({
+      data: { sessionId: created.id, changes: [{ itemId: secondId, action: 'SKIP' }] },
+    })
+    const completed = await completePracticeSession({ data: created.id })
+    expect(completed.status).toBe('COMPLETED')
+    expect(completed.endedAt).not.toBeNull()
+    expect(
+      (await getSessions()).find((session) => session.id === created.id)?.readyToFinalize,
+    ).toBe(false)
+    await expect(
+      updateSessionProgress({
+        data: { sessionId: created.id, changes: [{ itemId: secondId, action: 'RESET' }] },
+      }),
+    ).rejects.toThrow('Only an in-progress session can be changed')
+  })
+
+  it('auto-times the next item and propagates section skips', async () => {
+    const created = await createPracticeSession({
+      data: { templateId: null, assignedDate: null },
+    })
+    await updatePlannedSession({
+      data: {
+        id: created.id,
+        assignedDate: null,
+        items: [
+          section('first-section', 'First section', 1),
+          practiceItem('first', 'first-section', 'EXERCISE', exerciseId, 'First item', 1),
+          section('second-section', 'Second section', 2),
+          practiceItem('second', 'second-section', 'REPERTOIRE', repertoireId, 'Second item', 1),
+        ],
+      },
+    })
+    const rows = await pool.query<{
+      id: string
+      parentId: string | null
+      type: string
+      position: number
+    }>(
+      `SELECT id::text, parent_id::text AS "parentId", type::text, position::int
+       FROM session_item WHERE session_id = $1 ORDER BY id`,
+      [created.id],
+    )
+    const firstSection = rows.rows.find((item) => item.type === 'SECTION' && item.position === 1)!
+    const secondSection = rows.rows.find((item) => item.type === 'SECTION' && item.position === 2)!
+    const firstItem = rows.rows.find((item) => item.parentId === firstSection.id)!
+    const secondItem = rows.rows.find((item) => item.parentId === secondSection.id)!
+
+    const started = await startPracticeSession({
+      data: { sessionId: created.id, timingMode: 'AUTO', localDate: '2030-01-01' },
+    })
+    expect(started.items.find((item) => item.id === firstItem.id)?.status).toBe('IN_PROGRESS')
+
+    const skipped = await updateSessionProgress({
+      data: { sessionId: created.id, changes: [{ itemId: secondSection.id, action: 'SKIP' }] },
+    })
+    expect(skipped.items.find((item) => item.id === secondItem.id)?.status).toBe('SKIPPED')
+    expect(skipped.items.find((item) => item.id === secondSection.id)?.status).toBe('SKIPPED')
+
+    const completed = await updateSessionProgress({
+      data: { sessionId: created.id, changes: [{ itemId: firstItem.id, action: 'COMPLETE' }] },
+    })
+    expect(completed.items.find((item) => item.id === firstItem.id)?.endedAt).not.toBeNull()
+    expect(completed.status).toBe('IN_PROGRESS')
+
+    const reset = await updateSessionProgress({
+      data: { sessionId: created.id, changes: [{ itemId: secondSection.id, action: 'RESET' }] },
+    })
+    expect(reset.status).toBe('IN_PROGRESS')
+    expect(reset.items.find((item) => item.id === secondItem.id)?.status).toBe('IN_PROGRESS')
+
+    await updateSessionProgress({
+      data: { sessionId: created.id, changes: [{ itemId: secondItem.id, action: 'SKIP' }] },
+    })
+    expect((await completePracticeSession({ data: created.id })).status).toBe('COMPLETED')
+  })
+})
+
+describe('local development seed data', () => {
+  it('loads completely after all migrations', async () => {
+    await pool.query(`
+      TRUNCATE TABLE musician, instrument, person, repertoire, session_template, session
+      RESTART IDENTITY CASCADE
+    `)
+    const seedSql = await readFile(
+      new URL('../../db/test_data/test_data.sql', import.meta.url),
+      'utf8',
+    )
+
+    await pool.query(seedSql)
+
+    const counts = await pool.query<{
+      musicians: number
+      exercises: number
+      repertoire: number
+      templates: number
+      sessions: number
+      sessionItems: number
+    }>(`
+      SELECT
+        (SELECT count(*)::int FROM musician) AS musicians,
+        (SELECT count(*)::int FROM exercise) AS exercises,
+        (SELECT count(*)::int FROM repertoire) AS repertoire,
+        (SELECT count(*)::int FROM session_template) AS templates,
+        (SELECT count(*)::int FROM session) AS sessions,
+        (SELECT count(*)::int FROM session_item) AS "sessionItems"
+    `)
+    expect(counts.rows[0]).toEqual({
+      musicians: 3,
+      exercises: 5,
+      repertoire: 5,
+      templates: 2,
+      sessions: 3,
+      sessionItems: 18,
+    })
   })
 })

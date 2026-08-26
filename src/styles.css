@@ -942,6 +942,11 @@ textarea.text-input {
   background: var(--coral);
 }
 
+.status-ready {
+  color: var(--green);
+  background: var(--lime);
+}
+
 .status-planned {
   color: #4e556b;
   background: #e3e6f0;
@@ -979,11 +984,114 @@ textarea.text-input {
 }
 
 .progress-card,
+.session-start-card,
 .practice-section,
 .empty-state {
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--paper);
+}
+
+.session-start-card {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 18px;
+  padding: 24px;
+}
+
+.session-start-card h2 {
+  margin: 2px 0 6px;
+}
+
+.session-start-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.session-start-card > .primary-button {
+  justify-self: start;
+}
+
+.timing-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.timing-options label {
+  display: flex;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.timing-options label.selected {
+  border-color: var(--green);
+  background: #f1f6ed;
+}
+
+.timing-options strong,
+.timing-options small {
+  display: block;
+}
+
+.timing-options small {
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.start-restriction {
+  font-size: 13px;
+}
+
+.sync-state {
+  align-self: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.session-error {
+  margin: -10px 0 18px;
+}
+
+.session-completion-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 24px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--paper);
+}
+
+.session-completion-card h2 {
+  margin: 2px 0 6px;
+}
+
+.session-completion-card p,
+.session-locked-note span {
+  margin: 0;
+  color: var(--muted);
+}
+
+.session-completion-card .primary-button {
+  flex: 0 0 auto;
+}
+
+.session-locked-note {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+  padding: 18px;
+  border-radius: 12px;
+  background: var(--lime);
+  text-align: center;
 }
 
 .progress-card {
@@ -1045,18 +1153,24 @@ textarea.text-input {
   color: inherit;
   background: transparent;
   text-align: left;
+}
+
+.section-disclosure {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
   cursor: pointer;
 }
 
 .practice-section-header:hover,
 .practice-item-toggle:hover {
   background: #f1f3ed;
-}
-
-.practice-section-header > div {
-  display: flex;
-  align-items: center;
-  gap: 10px;
 }
 
 .practice-section-header h2 {
@@ -1119,6 +1233,12 @@ textarea.text-input {
   color: var(--coral);
 }
 
+.item-state-skipped {
+  border-color: #89908b;
+  color: white;
+  background: #89908b;
+}
+
 .disclosure-icon {
   display: inline-grid;
   width: 18px;
@@ -1144,6 +1264,48 @@ textarea.text-input {
 .practice-item-details {
   display: block;
   padding: 0 10px 16px 38px;
+}
+
+.item-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.item-action {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 10px;
+  color: var(--ink);
+  background: white;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.item-action:hover:not(:disabled) {
+  border-color: var(--green);
+}
+
+.item-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.item-action-complete {
+  border-color: var(--green);
+  color: white;
+  background: var(--green);
+}
+
+.item-action-reset {
+  color: var(--muted);
+}
+
+.practice-item-skipped h3 {
+  color: var(--muted);
+  text-decoration: line-through;
 }
 
 .practice-item-toggle .item-state {
@@ -1359,6 +1521,7 @@ textarea.text-input {
   .feature-card,
   .page-header,
   .session-detail-header,
+  .session-completion-card,
   .record-header,
   .editor-header,
   .template-list-row {
@@ -1368,6 +1531,10 @@ textarea.text-input {
   }
 
   .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .timing-options {
     grid-template-columns: 1fr;
   }
 

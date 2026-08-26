@@ -71,6 +71,13 @@ function SessionListItem(props: { session: SessionRow }) {
   const router = useRouter()
   const [deleteOpen, setDeleteOpen] = createSignal(false)
   const isPlanned = () => props.session.status === 'PLANNED'
+  const displayedStatus = () =>
+    props.session.readyToFinalize
+      ? { className: 'ready', label: 'Ready to finalize' }
+      : {
+          className: props.session.status.toLowerCase(),
+          label: props.session.status.replace('_', ' '),
+        }
 
   return (
     <SwipeToDelete enabled={isPlanned()} onDeleteRequest={() => setDeleteOpen(true)}>
@@ -95,8 +102,8 @@ function SessionListItem(props: { session: SessionRow }) {
                 ? `${props.session.durationMinutes} min`
                 : `${props.session.itemCount} items`}
             </strong>
-            <span class={`status status-${props.session.status.toLowerCase()}`}>
-              {props.session.status.replace('_', ' ')}
+            <span class={`status status-${displayedStatus().className}`}>
+              {displayedStatus().label}
             </span>
           </div>
         </Link>
