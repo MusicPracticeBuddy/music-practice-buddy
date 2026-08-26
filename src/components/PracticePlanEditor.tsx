@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js'
 import { createStore, produce } from 'solid-js/store'
 import { Link, useNavigate } from '@tanstack/solid-router'
+import * as Dialog from '@kobalte/core/dialog'
 import Sortable, { type MoveEvent, type SortableEvent } from 'sortablejs'
 import {
   createLibraryItem,
@@ -609,68 +610,67 @@ export function PracticePlanEditor(props: {
               )}
             </For>
           </LibrarySortableList>
-          <button
-            class="secondary-button full-button"
-            type="button"
-            onClick={() => {
-              setNewItemType(libraryType())
-              setCreatingItem(true)
+          <Dialog.Root
+            open={creatingItem()}
+            onOpenChange={(open) => {
+              if (open) setNewItemType(libraryType())
+              setCreatingItem(open)
             }}
           >
-            + Create new {libraryType() === 'EXERCISE' ? 'exercise' : 'repertoire'}
-          </button>
+            <Dialog.Trigger class="secondary-button full-button">
+              + Create new {libraryType() === 'EXERCISE' ? 'exercise' : 'repertoire'}
+            </Dialog.Trigger>
+            <Dialog.Portal>
+              <Dialog.Overlay class="modal-backdrop" />
+              <Dialog.Content class="editor-modal">
+                <form onSubmit={createAndAddItem}>
+                  <Dialog.Title>Create and add an item</Dialog.Title>
+                  <label class="field-label" for="new-item-type">
+                    Type
+                  </label>
+                  <select
+                    id="new-item-type"
+                    class="text-input"
+                    value={newItemType()}
+                    onChange={(event) =>
+                      setNewItemType(event.currentTarget.value as 'EXERCISE' | 'REPERTOIRE')
+                    }
+                  >
+                    <option value="EXERCISE">Exercise</option>
+                    <option value="REPERTOIRE">Repertoire</option>
+                  </select>
+                  <label class="field-label" for="new-item-name">
+                    Name
+                  </label>
+                  <input
+                    id="new-item-name"
+                    class="text-input"
+                    value={newItemName()}
+                    onInput={(event) => setNewItemName(event.currentTarget.value)}
+                    required
+                  />
+                  <label class="field-label" for="new-item-notes">
+                    Notes (optional)
+                  </label>
+                  <textarea
+                    id="new-item-notes"
+                    class="text-input"
+                    value={newItemNotes()}
+                    onInput={(event) => setNewItemNotes(event.currentTarget.value)}
+                    rows="3"
+                  />
+                  <div class="modal-actions">
+                    <Dialog.CloseButton class="secondary-button">Cancel</Dialog.CloseButton>
+                    <button type="submit" class="primary-button">
+                      Create and add
+                    </button>
+                  </div>
+                </form>
+              </Dialog.Content>
+            </Dialog.Portal>
+          </Dialog.Root>
         </aside>
       </div>
-
-      <Show when={creatingItem()}>
-        <div class="modal-backdrop" role="presentation">
-          <form class="editor-modal" onSubmit={createAndAddItem}>
-            <h2>Create and add an item</h2>
-            <label class="field-label" for="new-item-type">
-              Type
-            </label>
-            <select
-              id="new-item-type"
-              class="text-input"
-              value={newItemType()}
-              onChange={(event) =>
-                setNewItemType(event.currentTarget.value as 'EXERCISE' | 'REPERTOIRE')
-              }
-            >
-              <option value="EXERCISE">Exercise</option>
-              <option value="REPERTOIRE">Repertoire</option>
-            </select>
-            <label class="field-label" for="new-item-name">
-              Name
-            </label>
-            <input
-              id="new-item-name"
-              class="text-input"
-              value={newItemName()}
-              onInput={(event) => setNewItemName(event.currentTarget.value)}
-              required
-            />
-            <label class="field-label" for="new-item-notes">
-              Notes (optional)
-            </label>
-            <textarea
-              id="new-item-notes"
-              class="text-input"
-              value={newItemNotes()}
-              onInput={(event) => setNewItemNotes(event.currentTarget.value)}
-              rows="3"
-            />
-            <div class="modal-actions">
-              <button type="button" class="secondary-button" onClick={() => setCreatingItem(false)}>
-                Cancel
-              </button>
-              <button type="submit" class="primary-button">
-                Create and add
-              </button>
-            </div>
-          </form>
-        </div>
-      </Show>
     </main>
   )
 }
