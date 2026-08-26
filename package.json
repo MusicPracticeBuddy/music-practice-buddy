@@ -11,7 +11,11 @@
     "format:check": "oxfmt --check",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:all": "npm run test && npm run test:integration"
   },
   "dependencies": {
     "@kobalte/core": "^0.13.13",
@@ -25,11 +29,16 @@
     "@rsbuild/core": "^2.1.13",
     "@rsbuild/plugin-babel": "^2.1.0",
     "@rsbuild/plugin-solid": "^1.2.2",
+    "@solidjs/testing-library": "^0.8.10",
+    "@testcontainers/postgresql": "^12.1.0",
     "@types/node": "^26.2.0",
     "@types/pg": "^8.23.1",
     "@types/sortablejs": "^1.15.9",
+    "jsdom": "^30.0.1",
     "oxfmt": "^0.65.0",
     "oxlint": "^1.80.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vite-plugin-solid": "^2.11.14",
+    "vitest": "^4.1.11"
   }
 }
