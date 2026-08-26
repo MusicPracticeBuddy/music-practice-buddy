@@ -1,6 +1,6 @@
 import { createFileRoute, notFound } from '@tanstack/solid-router'
 import { getSessionTemplate, getTemplateLibrary } from '../../data/sessionTemplates'
-import { TemplateEditor } from './new'
+import { PracticePlanEditor } from '../../components/PracticePlanEditor'
 
 export const Route = createFileRoute('/templates/$templateId_/edit')({
   loader: async ({ params }) => {
@@ -22,5 +22,5 @@ export const Route = createFileRoute('/templates/$templateId_/edit')({
 
 function EditTemplate() {
   const data = Route.useLoaderData()
-  return <TemplateEditor template={data().template} library={data().library} />
+  return <PracticePlanEditor template={data().template} library={data().library} />
 }
