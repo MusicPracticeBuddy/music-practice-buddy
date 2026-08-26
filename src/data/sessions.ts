@@ -241,6 +241,180 @@ function validId(value: unknown): value is string {
   return typeof value === 'string' && /^\d+$/.test(value)
 }
 
+type SessionOutlineRow = {
+  id: string
+  parentId: string | null
+  type: 'SECTION' | 'EXERCISE' | 'REPERTOIRE'
+  position: string
+  exerciseId: string | null
+  repertoireId: string | null
+  name: string | null
+  notes: string | null
+}
+
+async function copySessionOutline(
+  client: PoolClient,
+  sourceSessionId: string,
+  destination: { type: 'SESSION' | 'TEMPLATE'; id: string },
+) {
+  const itemResult = await client.query<SessionOutlineRow>(
+    `
+      SELECT id::text, parent_id::text AS "parentId", type::text,
+        position::text, exercise_id::text AS "exerciseId",
+        repertoire_id::text AS "repertoireId", name, notes
+      FROM session_item
+      WHERE session_id = $1
+      ORDER BY parent_id NULLS FIRST, position, id
+    `,
+    [sourceSessionId],
+  )
+  const copiedIds = new Map<string, string>()
+  const remaining = [...itemResult.rows]
+  while (remaining.length > 0) {
+    const index = remaining.findIndex(
+      (item) => item.parentId === null || copiedIds.has(item.parentId),
+    )
+    if (index < 0) throw new Error('Session hierarchy could not be copied')
+    const [item] = remaining.splice(index, 1)
+    if (!item) continue
+    const parentId = item.parentId ? copiedIds.get(item.parentId) : null
+    const result =
+      destination.type === 'SESSION'
+        ? await client.query<{ id: string }>(
+            `
+              INSERT INTO session_item
+                (session_id, parent_id, type, position, exercise_id, repertoire_id, name, notes)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+              RETURNING id::text
+            `,
+            [
+              destination.id,
+              parentId,
+              item.type,
+              item.position,
+              item.exerciseId,
+              item.repertoireId,
+              item.name,
+              item.notes,
+            ],
+          )
+        : await client.query<{ id: string }>(
+            `
+              INSERT INTO session_template_item
+                (session_template_id, parent_id, type, position, exercise_id, repertoire_id, name, notes)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+              RETURNING id::text
+            `,
+            [
+              destination.id,
+              parentId,
+              item.type,
+              item.position,
+              item.exerciseId,
+              item.repertoireId,
+              item.name,
+              item.notes,
+            ],
+          )
+    const copiedId = result.rows[0]?.id
+    if (!copiedId) throw new Error('Session outline could not be copied')
+    copiedIds.set(item.id, copiedId)
+  }
+}
+
+export const duplicatePracticeSession = createServerFn({ method: 'POST' })
+  .validator((sessionId: string) => {
+    if (!validId(sessionId)) throw new Error('Invalid session')
+    return sessionId
+  })
+  .handler(async ({ data: sessionId }): Promise<{ id: string }> => {
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      const sourceResult = await client.query<{ name: string }>(
+        `
+          SELECT session.name
+          FROM session
+          WHERE session.id = $1
+            AND session.musician_id = (
+              SELECT id FROM musician ORDER BY is_admin DESC, id LIMIT 1
+            )
+          FOR SHARE
+        `,
+        [sessionId],
+      )
+      const source = sourceResult.rows[0]
+      if (!source) throw new Error('Session not found')
+
+      const sessionResult = await client.query<{ id: string }>(
+        `
+          INSERT INTO session (musician_id, name)
+          VALUES (
+            (SELECT id FROM musician ORDER BY is_admin DESC, id LIMIT 1),
+            $1
+          )
+          RETURNING id::text
+        `,
+        [source.name],
+      )
+      const duplicatedId = sessionResult.rows[0]?.id
+      if (!duplicatedId) throw new Error('Session could not be duplicated')
+      await copySessionOutline(client, sessionId, { type: 'SESSION', id: duplicatedId })
+      await client.query('COMMIT')
+      return { id: duplicatedId }
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
+  })
+
+export const createTemplateFromSession = createServerFn({ method: 'POST' })
+  .validator((sessionId: string) => {
+    if (!validId(sessionId)) throw new Error('Invalid session')
+    return sessionId
+  })
+  .handler(async ({ data: sessionId }): Promise<{ id: string }> => {
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      const sourceResult = await client.query<{ musicianId: string; name: string }>(
+        `
+          SELECT session.musician_id::text AS "musicianId", session.name
+          FROM session
+          WHERE session.id = $1
+            AND session.musician_id = (
+              SELECT id FROM musician ORDER BY is_admin DESC, id LIMIT 1
+            )
+          FOR SHARE
+        `,
+        [sessionId],
+      )
+      const source = sourceResult.rows[0]
+      if (!source) throw new Error('Session not found')
+
+      const templateResult = await client.query<{ id: string }>(
+        `
+          INSERT INTO session_template (musician_id, name)
+          VALUES ($1, $2)
+          RETURNING id::text
+        `,
+        [source.musicianId, source.name],
+      )
+      const templateId = templateResult.rows[0]?.id
+      if (!templateId) throw new Error('Template could not be created')
+      await copySessionOutline(client, sessionId, { type: 'TEMPLATE', id: templateId })
+      await client.query('COMMIT')
+      return { id: templateId }
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
+  })
+
 async function refreshSectionStates(client: PoolClient, sessionId: string) {
   await client.query(
     `

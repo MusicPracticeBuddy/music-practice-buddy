@@ -13,7 +13,9 @@ import { PracticeLibraryPanel } from '../../components/PracticeLibraryPanel'
 import {
   addRunningSessionItem,
   completePracticeSession,
+  createTemplateFromSession,
   deletePlannedSession,
+  duplicatePracticeSession,
   getSessionDetail,
   removeRunningSessionItem,
   startPracticeSession,
@@ -158,6 +160,9 @@ function SessionDetailPage() {
   const [nameDirty, setNameDirty] = createSignal(false)
   const [nameSaving, setNameSaving] = createSignal(false)
   const [structuralSaving, setStructuralSaving] = createSignal(false)
+  const [managementAction, setManagementAction] = createSignal<'DUPLICATE' | 'TEMPLATE' | null>(
+    null,
+  )
   const [addingItem, setAddingItem] = createSignal(false)
   const [libraryLoading, setLibraryLoading] = createSignal(false)
   const [library, setLibrary] = createSignal<TemplateLibraryItem[]>([])
@@ -424,6 +429,38 @@ function SessionDetailPage() {
     })
   }
 
+  async function duplicateSession() {
+    setManagementAction('DUPLICATE')
+    setError('')
+    try {
+      await drainChanges()
+      const duplicated = await duplicatePracticeSession({ data: session.id })
+      await navigate({
+        to: '/sessions/$sessionId/edit',
+        params: { sessionId: duplicated.id },
+      })
+    } catch (caught) {
+      setError(errorMessage(caught))
+      setManagementAction(null)
+    }
+  }
+
+  async function saveAsTemplate() {
+    setManagementAction('TEMPLATE')
+    setError('')
+    try {
+      await drainChanges()
+      const template = await createTemplateFromSession({ data: session.id })
+      await navigate({
+        to: '/templates/$templateId',
+        params: { templateId: template.id },
+      })
+    } catch (caught) {
+      setError(errorMessage(caught))
+      setManagementAction(null)
+    }
+  }
+
   async function drainChanges() {
     if (flushTimer) clearTimeout(flushTimer)
     flushTimer = undefined
@@ -550,6 +587,22 @@ function SessionDetailPage() {
           <p class="lede">{formatSchedule(session.startedAt, session.assignedDate)}</p>
         </div>
         <div class="header-actions">
+          <button
+            class="secondary-button"
+            type="button"
+            disabled={managementAction() !== null}
+            onClick={duplicateSession}
+          >
+            {managementAction() === 'DUPLICATE' ? 'Duplicating…' : 'Duplicate session'}
+          </button>
+          <button
+            class="secondary-button"
+            type="button"
+            disabled={managementAction() !== null}
+            onClick={saveAsTemplate}
+          >
+            {managementAction() === 'TEMPLATE' ? 'Creating…' : 'Save as template'}
+          </button>
           <Show when={session.status === 'PLANNED'}>
             <Link
               class="secondary-button"

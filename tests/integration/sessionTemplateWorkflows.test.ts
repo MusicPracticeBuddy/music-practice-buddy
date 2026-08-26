@@ -4,7 +4,9 @@ import { pool } from '../../src/data/db'
 import {
   addRunningSessionItem,
   completePracticeSession,
+  createTemplateFromSession,
   deletePlannedSession,
+  duplicatePracticeSession,
   getSessionDetail,
   getSessions,
   removeRunningSessionItem,
@@ -237,6 +239,108 @@ describe('session persistence', () => {
     expect(copiedItems.rows.map((item) => item.type)).toEqual(['SECTION', 'EXERCISE', 'REPERTOIRE'])
     expect(copiedItems.rows.some((item) => item.exerciseId === exerciseId)).toBe(true)
     expect(copiedItems.rows.some((item) => item.repertoireId === repertoireId)).toBe(true)
+  })
+
+  it('duplicates a session without progress and creates an independent template from it', async () => {
+    const sourceTemplate = await createSessionTemplate({
+      data: {
+        name: 'Evening practice',
+        items: [
+          section('section', 'Main section', 1),
+          practiceItem('exercise', 'section', 'EXERCISE', exerciseId, 'Test exercise', 1),
+          practiceItem('repertoire', 'section', 'REPERTOIRE', repertoireId, 'Test repertoire', 2),
+        ],
+      },
+    })
+    const source = await createPracticeSession({
+      data: { templateId: sourceTemplate.id, assignedDate: '2030-02-20' },
+    })
+    await pool.query(
+      `UPDATE session
+       SET status = 'COMPLETED', timing_mode = 'MANUAL',
+         started_at = '2030-02-20T18:00:00Z', ended_at = '2030-02-20T19:00:00Z'
+       WHERE id = $1`,
+      [source.id],
+    )
+    await pool.query(
+      `UPDATE session_item
+       SET status = 'COMPLETE',
+         started_at = CASE WHEN type = 'SECTION' THEN NULL
+           ELSE '2030-02-20T18:00:00Z'::timestamptz END,
+         ended_at = CASE WHEN type = 'SECTION' THEN NULL
+           ELSE '2030-02-20T18:20:00Z'::timestamptz END,
+         added_during_session = TRUE
+       WHERE session_id = $1`,
+      [source.id],
+    )
+
+    const duplicated = await duplicatePracticeSession({ data: source.id })
+    const duplicateSession = await pool.query<{
+      name: string
+      status: string
+      templateId: string | null
+      assignedDate: string | null
+      timingMode: string | null
+      startedAt: Date | null
+      endedAt: Date | null
+    }>(
+      `SELECT name, status::text, session_template_id::text AS "templateId",
+         assigned_date::text AS "assignedDate", timing_mode::text AS "timingMode",
+         started_at AS "startedAt", ended_at AS "endedAt"
+       FROM session WHERE id = $1`,
+      [duplicated.id],
+    )
+    expect(duplicateSession.rows[0]).toMatchObject({
+      name: 'Evening practice',
+      status: 'PLANNED',
+      templateId: null,
+      assignedDate: null,
+      timingMode: null,
+      startedAt: null,
+      endedAt: null,
+    })
+
+    const duplicateItems = await pool.query<{
+      status: string
+      startedAt: Date | null
+      endedAt: Date | null
+      addedDuringSession: boolean
+      parentId: string | null
+    }>(
+      `SELECT status::text, started_at AS "startedAt", ended_at AS "endedAt",
+         added_during_session AS "addedDuringSession", parent_id::text AS "parentId"
+       FROM session_item WHERE session_id = $1 ORDER BY position, id`,
+      [duplicated.id],
+    )
+    expect(duplicateItems.rows).toHaveLength(3)
+    expect(duplicateItems.rows.every((item) => item.status === 'NOT_STARTED')).toBe(true)
+    expect(
+      duplicateItems.rows.every((item) => item.startedAt === null && item.endedAt === null),
+    ).toBe(true)
+    expect(duplicateItems.rows.every((item) => !item.addedDuringSession)).toBe(true)
+    expect(duplicateItems.rows.filter((item) => item.parentId !== null)).toHaveLength(2)
+
+    const createdTemplate = await createTemplateFromSession({ data: source.id })
+    const template = await pool.query<{ name: string }>(
+      `SELECT name FROM session_template WHERE id = $1`,
+      [createdTemplate.id],
+    )
+    const templateItems = await pool.query<{ parentId: string | null }>(
+      `SELECT parent_id::text AS "parentId"
+       FROM session_template_item WHERE session_template_id = $1 ORDER BY position, id`,
+      [createdTemplate.id],
+    )
+    expect(template.rows[0]?.name).toBe('Evening practice')
+    expect(templateItems.rows).toHaveLength(3)
+    expect(templateItems.rows.filter((item) => item.parentId !== null)).toHaveLength(2)
+
+    const original = await pool.query<{ status: string; itemCount: number }>(
+      `SELECT session.status::text AS status, count(item.id)::int AS "itemCount"
+       FROM session LEFT JOIN session_item item ON item.session_id = session.id
+       WHERE session.id = $1 GROUP BY session.id`,
+      [source.id],
+    )
+    expect(original.rows[0]).toEqual({ status: 'COMPLETED', itemCount: 3 })
   })
 
   it('refuses to delete a session after it is no longer planned', async () => {
