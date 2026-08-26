@@ -976,6 +976,31 @@ textarea.text-input {
   font-size: clamp(42px, 6vw, 68px);
 }
 
+.session-title-row,
+.session-name-editor {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.text-button {
+  padding: 4px;
+  border: 0;
+  color: var(--green);
+  background: transparent;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.session-name-editor .text-input {
+  width: min(560px, 60vw);
+  font-family: 'Fraunces', serif;
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: 700;
+}
+
 .meta-row {
   display: flex;
   gap: 8px;
@@ -1247,10 +1272,17 @@ textarea.text-input {
   font-size: 18px;
 }
 
+.practice-item-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .practice-item-toggle {
   display: flex;
-  width: 100%;
+  min-width: 0;
   align-items: center;
+  flex: 1 1 auto;
   gap: 10px;
   padding: 15px 10px;
   border: 0;
@@ -1261,16 +1293,17 @@ textarea.text-input {
   cursor: pointer;
 }
 
+.practice-item-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-right: 10px;
+  flex: 0 0 auto;
+}
+
 .practice-item-details {
   display: block;
   padding: 0 10px 16px 38px;
-}
-
-.item-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 14px;
-  flex-wrap: wrap;
 }
 
 .item-action {
@@ -1308,8 +1341,7 @@ textarea.text-input {
   text-decoration: line-through;
 }
 
-.practice-item-toggle .item-state {
-  margin-left: auto;
+.practice-item-quick-actions .item-state {
   flex: 0 0 auto;
 }
 
@@ -1536,6 +1568,17 @@ textarea.text-input {
 
   .timing-options {
     grid-template-columns: 1fr;
+  }
+
+  .practice-item-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .practice-item-quick-actions {
+    width: 100%;
+    justify-content: flex-end;
+    padding: 0 10px 12px;
   }
 
   .session-row {

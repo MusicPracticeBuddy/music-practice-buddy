@@ -6,6 +6,7 @@ import {
   deletePlannedSession,
   getSessions,
   startPracticeSession,
+  updateSessionName,
   updateSessionProgress,
 } from '../../src/data/sessions'
 import {
@@ -165,6 +166,7 @@ describe('session persistence', () => {
     await updatePlannedSession({
       data: {
         id: created.id,
+        name: 'Edited session',
         assignedDate: '2030-01-15',
         items: [
           section('section', 'Session section', 1),
@@ -172,8 +174,8 @@ describe('session persistence', () => {
         ],
       },
     })
-    const editedSession = await pool.query<{ assignedDate: string }>(
-      `SELECT assigned_date::text AS "assignedDate" FROM session WHERE id = $1`,
+    const editedSession = await pool.query<{ name: string; assignedDate: string }>(
+      `SELECT name, assigned_date::text AS "assignedDate" FROM session WHERE id = $1`,
       [created.id],
     )
     const editedItems = await pool.query<{ id: string }>(
@@ -181,6 +183,7 @@ describe('session persistence', () => {
       [created.id],
     )
     expect(editedSession.rows[0]?.assignedDate).toBe('2030-01-15')
+    expect(editedSession.rows[0]?.name).toBe('Edited session')
     expect(editedItems.rows).toHaveLength(2)
 
     const childIds = editedItems.rows.map((item) => item.id)
@@ -274,6 +277,7 @@ describe('session persistence', () => {
     await updatePlannedSession({
       data: {
         id: created.id,
+        name: 'Manual session',
         assignedDate: null,
         items: [
           section('section', 'Session section', 1),
@@ -294,6 +298,9 @@ describe('session persistence', () => {
       data: { sessionId: created.id, timingMode: 'MANUAL', localDate: '2030-01-01' },
     })
     expect(started.items.filter((item) => item.status === 'IN_PROGRESS')).toHaveLength(0)
+    expect(
+      (await updateSessionName({ data: { sessionId: created.id, name: 'Renamed live' } })).name,
+    ).toBe('Renamed live')
 
     const checked = await updateSessionProgress({
       data: { sessionId: created.id, changes: [{ itemId: firstId, action: 'COMPLETE' }] },
@@ -337,6 +344,9 @@ describe('session persistence', () => {
         data: { sessionId: created.id, changes: [{ itemId: secondId, action: 'RESET' }] },
       }),
     ).rejects.toThrow('Only an in-progress session can be changed')
+    await expect(
+      updateSessionName({ data: { sessionId: created.id, name: 'Too late' } }),
+    ).rejects.toThrow('Completed sessions cannot be renamed')
   })
 
   it('auto-times the next item and propagates section skips', async () => {
@@ -346,6 +356,7 @@ describe('session persistence', () => {
     await updatePlannedSession({
       data: {
         id: created.id,
+        name: 'Auto session',
         assignedDate: null,
         items: [
           section('first-section', 'First section', 1),

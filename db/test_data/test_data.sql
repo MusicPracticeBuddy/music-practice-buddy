@@ -129,11 +129,11 @@ VALUES
     ((SELECT id FROM session_template WHERE name = 'Short Practice Session'), (SELECT id FROM session_template_item WHERE name = 'Core Work'), 'EXERCISE', 1, (SELECT id FROM exercise WHERE name = 'Long tones - adapted'), NULL, NULL),
     ((SELECT id FROM session_template WHERE name = 'Short Practice Session'), (SELECT id FROM session_template_item WHERE name = 'Repertoire' AND session_template_id = (SELECT id FROM session_template WHERE name = 'Short Practice Session')), 'REPERTOIRE', 1, NULL, (SELECT id FROM repertoire WHERE title = 'Arban Characteristic Study No. 1'), 'One focused pass.');
 
-INSERT INTO session (musician_id, session_template_id, status, timing_mode, assigned_date, assigned_at, started_at, ended_at)
+INSERT INTO session (musician_id, session_template_id, name, status, timing_mode, assigned_date, assigned_at, started_at, ended_at)
 VALUES
-    ((SELECT id FROM musician WHERE is_admin LIMIT 1), (SELECT id FROM session_template WHERE name = 'Daily Brass Practice'), 'COMPLETED', 'AUTO', '2026-08-23', '2026-08-23 08:00:00-04', '2026-08-23 08:05:00-04', '2026-08-23 08:55:00-04'),
-    ((SELECT id FROM musician WHERE is_admin LIMIT 1), (SELECT id FROM session_template WHERE name = 'Daily Brass Practice'), 'IN_PROGRESS', 'AUTO', '2026-08-25', '2026-08-25 08:00:00-04', '2026-08-25 08:05:00-04', NULL),
-    ((SELECT id FROM musician WHERE is_admin LIMIT 1), (SELECT id FROM session_template WHERE name = 'Short Practice Session'), 'PLANNED', NULL, '2026-08-26', '2026-08-26 08:00:00-04', NULL, NULL);
+    ((SELECT id FROM musician WHERE is_admin LIMIT 1), (SELECT id FROM session_template WHERE name = 'Daily Brass Practice'), 'Daily Brass Practice', 'COMPLETED', 'AUTO', '2026-08-23', '2026-08-23 08:00:00-04', '2026-08-23 08:05:00-04', '2026-08-23 08:55:00-04'),
+    ((SELECT id FROM musician WHERE is_admin LIMIT 1), (SELECT id FROM session_template WHERE name = 'Daily Brass Practice'), 'Daily Brass Practice', 'IN_PROGRESS', 'AUTO', '2026-08-25', '2026-08-25 08:00:00-04', '2026-08-25 08:05:00-04', NULL),
+    ((SELECT id FROM musician WHERE is_admin LIMIT 1), (SELECT id FROM session_template WHERE name = 'Short Practice Session'), 'Short Practice Session', 'PLANNED', NULL, '2026-08-26', '2026-08-26 08:00:00-04', NULL, NULL);
 
 INSERT INTO session_item (session_id, type, position, name, status, notes)
 VALUES

@@ -74,7 +74,7 @@ export const getSessions = createServerFn({ method: 'GET' }).handler(
     }>(`
       SELECT
         session.id::text,
-        COALESCE(template.name, 'Open practice') AS "templateName",
+        session.name AS "templateName",
         session.status::text,
         to_char(session.assigned_date, 'YYYY-MM-DD') AS "assignedDate",
         session.assigned_at AS "assignedAt",
@@ -134,7 +134,7 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
         `
           SELECT
             session.id::text,
-            COALESCE(template.name, 'Open practice') AS "templateName",
+            session.name AS "templateName",
             session.status::text,
             session.timing_mode::text AS "timingMode",
             to_char(session.assigned_date, 'YYYY-MM-DD') AS "assignedDate",
@@ -570,6 +570,7 @@ export const completePracticeSession = createServerFn({ method: 'POST' })
     if (!validId(sessionId)) throw new Error('Invalid session')
     return sessionId
   })
+
   .handler(async ({ data: sessionId }): Promise<SessionProgressUpdate> => {
     const client = await pool.connect()
     try {
@@ -601,4 +602,27 @@ export const completePracticeSession = createServerFn({ method: 'POST' })
     } finally {
       client.release()
     }
+  })
+
+export const updateSessionName = createServerFn({ method: 'POST' })
+  .validator((input: { sessionId: string; name: string }) => {
+    if (!validId(input.sessionId)) throw new Error('Invalid session')
+    const name = input.name.trim()
+    if (!name) throw new Error('Session name is required')
+    if (name.length > 200) throw new Error('Session name must be 200 characters or fewer')
+    return { sessionId: input.sessionId, name }
+  })
+  .handler(async ({ data }): Promise<{ name: string }> => {
+    const result = await pool.query<{ name: string }>(
+      `UPDATE session SET name = $2
+       WHERE id = $1 AND status IN ('PLANNED', 'IN_PROGRESS')
+         AND musician_id = (
+           SELECT id FROM musician ORDER BY is_admin DESC, id LIMIT 1
+         )
+       RETURNING name`,
+      [data.sessionId, data.name],
+    )
+    const session = result.rows[0]
+    if (!session) throw new Error('Completed sessions cannot be renamed')
+    return session
   })

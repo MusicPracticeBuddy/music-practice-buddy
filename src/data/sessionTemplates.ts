@@ -277,7 +277,7 @@ export const getPlannedSessionForEdit = createServerFn({ method: 'GET' })
     const [sessionResult, itemResult] = await Promise.all([
       pool.query<{ id: string; name: string; assignedDate: string | null }>(
         `
-          SELECT session.id::text, COALESCE(template.name, 'Open practice') AS name,
+          SELECT session.id::text, session.name,
             to_char(session.assigned_date, 'YYYY-MM-DD') AS "assignedDate"
           FROM session
           LEFT JOIN session_template template ON template.id = session.session_template_id
@@ -392,13 +392,27 @@ export const deleteSessionTemplate = createServerFn({ method: 'POST' })
   })
 
 export const updatePlannedSession = createServerFn({ method: 'POST' })
-  .validator((input: { id: string; assignedDate: string | null; items: TemplateItemInput[] }) => {
-    if (!/^\d+$/.test(input.id)) throw new Error('Invalid session')
-    if (input.assignedDate !== null && !/^\d{4}-\d{2}-\d{2}$/.test(input.assignedDate)) {
-      throw new Error('Invalid scheduled date')
-    }
-    return { ...input, items: validateTemplate({ name: 'Session', items: input.items }).items }
-  })
+  .validator(
+    (input: {
+      id: string
+      name: string
+      assignedDate: string | null
+      items: TemplateItemInput[]
+    }) => {
+      const name = input.name.trim()
+      if (!/^\d+$/.test(input.id)) throw new Error('Invalid session')
+      if (!name) throw new Error('Session name is required')
+      if (name.length > 200) throw new Error('Session name must be 200 characters or fewer')
+      if (input.assignedDate !== null && !/^\d{4}-\d{2}-\d{2}$/.test(input.assignedDate)) {
+        throw new Error('Invalid scheduled date')
+      }
+      return {
+        ...input,
+        name,
+        items: validateTemplate({ name: 'Session', items: input.items }).items,
+      }
+    },
+  )
   .handler(async ({ data }): Promise<{ id: string }> => {
     const client = await pool.connect()
     try {
@@ -407,10 +421,10 @@ export const updatePlannedSession = createServerFn({ method: 'POST' })
       const result = await client.query(
         `
           UPDATE session
-          SET assigned_date = $1, assigned_at = NULL
-          WHERE id = $2 AND musician_id = $3 AND status = 'PLANNED'
+          SET name = $1, assigned_date = $2, assigned_at = NULL
+          WHERE id = $3 AND musician_id = $4 AND status = 'PLANNED'
         `,
-        [data.assignedDate, data.id, musicianId],
+        [data.name, data.assignedDate, data.id, musicianId],
       )
       if (result.rowCount === 0) throw new Error('Only planned sessions can be edited')
       await client.query(`DELETE FROM session_item WHERE session_id = $1`, [data.id])
@@ -484,21 +498,23 @@ export const createPracticeSession = createServerFn({ method: 'POST' })
     try {
       await client.query('BEGIN')
       const musicianId = await currentMusicianId(client)
+      let sessionName = 'Open practice'
       if (data.templateId) {
-        const template = await client.query(
-          'SELECT 1 FROM session_template WHERE id = $1 AND musician_id = $2',
+        const template = await client.query<{ name: string }>(
+          'SELECT name FROM session_template WHERE id = $1 AND musician_id = $2',
           [data.templateId, musicianId],
         )
         if (template.rowCount === 0) throw new Error('Template not found')
+        sessionName = template.rows[0]!.name
       }
 
       const sessionResult = await client.query<{ id: string }>(
         `
-          INSERT INTO session (musician_id, session_template_id, assigned_date)
-          VALUES ($1, $2, $3)
+          INSERT INTO session (musician_id, session_template_id, name, assigned_date)
+          VALUES ($1, $2, $3, $4)
           RETURNING id::text
         `,
-        [musicianId, data.templateId, data.assignedDate],
+        [musicianId, data.templateId, sessionName, data.assignedDate],
       )
       const sessionId = sessionResult.rows[0]!.id
 

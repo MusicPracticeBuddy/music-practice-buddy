@@ -374,8 +374,8 @@ export function PracticePlanEditor(props: {
 
   async function saveTemplate(action: 'save' | 'save-and-use') {
     setError('')
-    if (!props.session && !name().trim()) {
-      setError('Enter a template name.')
+    if (!name().trim()) {
+      setError(props.session ? 'Enter a session name.' : 'Enter a template name.')
       return
     }
     setSavingAction(action)
@@ -385,6 +385,7 @@ export function PracticePlanEditor(props: {
         await updatePlannedSession({
           data: {
             id: props.session.id,
+            name: name(),
             assignedDate: assignedDate() || null,
             items: data.items,
           },
@@ -516,7 +517,18 @@ export function PracticePlanEditor(props: {
       <Show
         when={!props.session}
         fallback={
-          <div class="template-name-input">
+          <div>
+            <label class="field-label" for="session-name">
+              Session name
+            </label>
+            <input
+              id="session-name"
+              class="text-input template-name-input"
+              value={name()}
+              onInput={(event) => setName(event.currentTarget.value)}
+              maxlength="200"
+              required
+            />
             <label class="field-label" for="session-scheduled-date">
               Scheduled date (optional)
             </label>

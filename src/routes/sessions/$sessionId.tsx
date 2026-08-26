@@ -14,6 +14,7 @@ import {
   deletePlannedSession,
   getSessionDetail,
   startPracticeSession,
+  updateSessionName,
   updateSessionProgress,
   type SessionDetail,
   type SessionDetailItem,
@@ -143,12 +144,18 @@ function SessionDetailPage() {
   const [starting, setStarting] = createSignal(false)
   const [completing, setCompleting] = createSignal(false)
   const [saving, setSaving] = createSignal(false)
+  const [editingName, setEditingName] = createSignal(false)
+  const [nameDraft, setNameDraft] = createSignal(loadedSession().templateName)
+  const [nameDirty, setNameDirty] = createSignal(false)
+  const [nameSaving, setNameSaving] = createSignal(false)
   const [queuedChangeCount, setQueuedChangeCount] = createSignal(0)
   const [routeDataDirty, setRouteDataDirty] = createSignal(false)
   const [error, setError] = createSignal('')
   const pendingChanges: Array<{ itemId: string; action: SessionItemAction }> = []
   let flushTimer: ReturnType<typeof setTimeout> | undefined
   let activeFlush: Promise<void> | undefined
+  let nameFlushTimer: ReturnType<typeof setTimeout> | undefined
+  let activeNameFlush: Promise<void> | undefined
 
   const itemTree = createMemo(() => buildItemTree(session.items))
   const practiceItems = createMemo(() => session.items.filter((item) => item.type !== 'SECTION'))
@@ -180,8 +187,11 @@ function SessionDetailPage() {
 
   createEffect(() => {
     const loaded = loadedSession()
-    if (queuedChangeCount() > 0 || saving() || routeDataDirty()) return
+    if (queuedChangeCount() > 0 || saving() || nameDirty() || nameSaving() || routeDataDirty()) {
+      return
+    }
     setSession({ ...loaded, items: loaded.items.map((item) => ({ ...item })) })
+    setNameDraft(loaded.templateName)
   })
 
   function applyProgress(update: SessionProgressUpdate) {
@@ -273,12 +283,62 @@ function SessionDetailPage() {
     return activeFlush
   }
 
+  function flushNameChange(): Promise<void> {
+    if (nameFlushTimer) clearTimeout(nameFlushTimer)
+    nameFlushTimer = undefined
+    if (activeNameFlush) return activeNameFlush
+    if (!nameDirty()) return Promise.resolve()
+
+    const name = nameDraft().trim()
+    if (!name || name.length > 200) {
+      setError(name ? 'Session name must be 200 characters or fewer' : 'Session name is required')
+      setNameDraft(session.templateName)
+      setNameDirty(false)
+      return Promise.resolve()
+    }
+
+    setNameDirty(false)
+    activeNameFlush = (async () => {
+      setNameSaving(true)
+      setError('')
+      try {
+        const updated = await updateSessionName({ data: { sessionId: session.id, name } })
+        setSession('templateName', updated.name)
+        if (!nameDirty()) setNameDraft(updated.name)
+        setRouteDataDirty(true)
+      } catch (caught) {
+        setError(errorMessage(caught))
+        const fresh = await getSessionDetail({ data: session.id })
+        if (fresh) {
+          setSession(fresh)
+          if (!nameDirty()) setNameDraft(fresh.templateName)
+        }
+      } finally {
+        setNameSaving(false)
+        activeNameFlush = undefined
+        if (nameDirty()) nameFlushTimer = setTimeout(flushNameChange, 0)
+      }
+    })()
+    return activeNameFlush
+  }
+
+  function queueNameChange(value: string) {
+    setNameDraft(value)
+    setNameDirty(true)
+    if (nameFlushTimer) clearTimeout(nameFlushTimer)
+    nameFlushTimer = setTimeout(flushNameChange, 400)
+  }
+
   async function drainChanges() {
     if (flushTimer) clearTimeout(flushTimer)
     flushTimer = undefined
     while (activeFlush || pendingChanges.length > 0) {
       if (activeFlush) await activeFlush
       else await flushChanges()
+    }
+    while (activeNameFlush || nameDirty()) {
+      if (activeNameFlush) await activeNameFlush
+      else await flushNameChange()
     }
     if (routeDataDirty()) {
       await router.invalidate()
@@ -326,16 +386,26 @@ function SessionDetailPage() {
 
   useBlocker({
     shouldBlockFn: async () => {
-      if (queuedChangeCount() === 0 && !saving() && !routeDataDirty()) return false
+      if (
+        queuedChangeCount() === 0 &&
+        !saving() &&
+        !nameDirty() &&
+        !nameSaving() &&
+        !routeDataDirty()
+      ) {
+        return false
+      }
       await drainChanges()
       return false
     },
-    enableBeforeUnload: () => queuedChangeCount() > 0 || saving(),
+    enableBeforeUnload: () => queuedChangeCount() > 0 || saving() || nameDirty() || nameSaving(),
   })
 
   onCleanup(() => {
     if (flushTimer) clearTimeout(flushTimer)
+    if (nameFlushTimer) clearTimeout(nameFlushTimer)
     if (pendingChanges.length > 0) void flushChanges()
+    if (nameDirty()) void flushNameChange()
   })
 
   return (
@@ -346,7 +416,39 @@ function SessionDetailPage() {
       <header class="session-detail-header">
         <div>
           <p class="eyebrow">Session #{session.id}</p>
-          <h1>{session.templateName}</h1>
+          <Show
+            when={session.status === 'IN_PROGRESS' && editingName()}
+            fallback={
+              <div class="session-title-row">
+                <h1>{session.templateName}</h1>
+                <Show when={session.status === 'IN_PROGRESS'}>
+                  <button class="text-button" type="button" onClick={() => setEditingName(true)}>
+                    Edit name
+                  </button>
+                </Show>
+              </div>
+            }
+          >
+            <div class="session-name-editor">
+              <input
+                class="text-input"
+                aria-label="Session name"
+                value={nameDraft()}
+                maxlength="200"
+                onInput={(event) => queueNameChange(event.currentTarget.value)}
+              />
+              <button
+                class="secondary-button"
+                type="button"
+                onClick={async () => {
+                  await drainChanges()
+                  setEditingName(false)
+                }}
+              >
+                Done
+              </button>
+            </div>
+          </Show>
           <p class="lede">{formatSchedule(session.startedAt, session.assignedDate)}</p>
         </div>
         <div class="header-actions">
@@ -386,7 +488,7 @@ function SessionDetailPage() {
         <Show when={session.durationMinutes !== null}>
           <span class="count-badge">{session.durationMinutes} timed minutes</span>
         </Show>
-        <Show when={saving()}>
+        <Show when={saving() || nameSaving()}>
           <span class="sync-state">Saving…</span>
         </Show>
       </div>
@@ -599,19 +701,75 @@ function SessionItem(props: {
     <article
       class={`practice-item practice-item-${props.item.status.toLowerCase().replace('_', '-')}`}
     >
-      <button
-        type="button"
-        class="practice-item-toggle"
-        aria-expanded={expanded()}
-        aria-controls={contentId}
-        onClick={() => setExpanded((value) => !value)}
-      >
-        <span class="disclosure-icon" aria-hidden="true">
-          {expanded() ? '⌄' : '›'}
-        </span>
-        <h3>{props.item.name}</h3>
-        <StatusIndicator status={props.item.status} />
-      </button>
+      <div class="practice-item-header">
+        <button
+          type="button"
+          class="practice-item-toggle"
+          aria-expanded={expanded()}
+          aria-controls={contentId}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          <span class="disclosure-icon" aria-hidden="true">
+            {expanded() ? '⌄' : '›'}
+          </span>
+          <h3>{props.item.name}</h3>
+        </button>
+        <div class="practice-item-quick-actions">
+          <Show
+            when={
+              props.sessionActive &&
+              props.item.status === 'NOT_STARTED' &&
+              props.timingMode === 'MANUAL'
+            }
+          >
+            <button
+              class="item-action"
+              type="button"
+              disabled={props.hasActiveItem}
+              onClick={() => props.onAction(props.item.id, 'START')}
+            >
+              Start timer
+            </button>
+          </Show>
+          <Show
+            when={
+              props.sessionActive &&
+              (props.item.status === 'NOT_STARTED' || props.item.status === 'IN_PROGRESS')
+            }
+          >
+            <button
+              class="item-action item-action-complete"
+              type="button"
+              onClick={() => props.onAction(props.item.id, 'COMPLETE')}
+            >
+              Complete
+            </button>
+            <button
+              class="item-action"
+              type="button"
+              onClick={() => props.onAction(props.item.id, 'SKIP')}
+            >
+              Skip
+            </button>
+          </Show>
+          <Show
+            when={
+              props.sessionActive &&
+              (props.item.status === 'COMPLETE' || props.item.status === 'SKIPPED')
+            }
+          >
+            <button
+              class="item-action item-action-reset"
+              type="button"
+              aria-label={`Reset ${props.item.name} to not started`}
+              onClick={() => props.onAction(props.item.id, 'RESET')}
+            >
+              Reset
+            </button>
+          </Show>
+          <StatusIndicator status={props.item.status} />
+        </div>
+      </div>
       <Show when={expanded()}>
         <div id={contentId} class="practice-item-details">
           <div class="practice-item-heading">
@@ -629,47 +787,6 @@ function SessionItem(props: {
             <div class="notation-block">
               <span>{props.item.notationFormat}</span>
               <p>{props.item.notation}</p>
-            </div>
-          </Show>
-          <Show when={props.sessionActive}>
-            <div class="item-actions">
-              <Show when={props.item.status === 'NOT_STARTED' && props.timingMode === 'MANUAL'}>
-                <button
-                  class="item-action"
-                  type="button"
-                  disabled={props.hasActiveItem}
-                  onClick={() => props.onAction(props.item.id, 'START')}
-                >
-                  Start timer
-                </button>
-              </Show>
-              <Show
-                when={props.item.status === 'NOT_STARTED' || props.item.status === 'IN_PROGRESS'}
-              >
-                <button
-                  class="item-action item-action-complete"
-                  type="button"
-                  onClick={() => props.onAction(props.item.id, 'COMPLETE')}
-                >
-                  Complete
-                </button>
-                <button
-                  class="item-action"
-                  type="button"
-                  onClick={() => props.onAction(props.item.id, 'SKIP')}
-                >
-                  Skip
-                </button>
-              </Show>
-              <Show when={props.item.status === 'COMPLETE' || props.item.status === 'SKIPPED'}>
-                <button
-                  class="item-action item-action-reset"
-                  type="button"
-                  onClick={() => props.onAction(props.item.id, 'RESET')}
-                >
-                  Reset to not started
-                </button>
-              </Show>
             </div>
           </Show>
         </div>
