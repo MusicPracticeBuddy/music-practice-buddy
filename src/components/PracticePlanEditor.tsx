@@ -1,6 +1,7 @@
-import { For, Show, createMemo, createSignal } from 'solid-js'
+import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js'
 import { createStore, produce } from 'solid-js/store'
 import { Link, useNavigate } from '@tanstack/solid-router'
+import Sortable, { type MoveEvent, type SortableEvent } from 'sortablejs'
 import {
   createLibraryItem,
   createSessionTemplate,
@@ -74,15 +75,6 @@ function removeEditorNode(items: EditorNode[], id: string): EditorNode | null {
   return null
 }
 
-function findSiblingArray(items: EditorNode[], id: string): EditorNode[] | null {
-  if (items.some((item) => item.clientId === id)) return items
-  for (const item of items) {
-    const siblings = findSiblingArray(item.children, id)
-    if (siblings) return siblings
-  }
-  return null
-}
-
 function buildTree(items: TemplateItemInput[]): EditorNode[] {
   const nodes = new Map<string, EditorNode>()
   const roots: EditorNode[] = []
@@ -106,6 +98,97 @@ function buildTree(items: TemplateItemInput[]): EditorNode[] {
   return roots
 }
 
+function PlanSortableList(props: {
+  parentId: string | null
+  class: string
+  children: JSX.Element
+  canMove: (nodeId: string, parentId: string | null) => boolean
+  onMoveNode: (nodeId: string, parentId: string | null, index: number) => void
+  onAddLibraryItem: (libraryId: string, parentId: string | null) => void
+}) {
+  let element: HTMLDivElement | undefined
+
+  onMount(() => {
+    if (!element) return
+    const sortable = new Sortable(element, {
+      group: { name: 'practice-plan', pull: true, put: ['practice-plan', 'practice-library'] },
+      animation: 150,
+      fallbackOnBody: true,
+      swapThreshold: 0.65,
+      draggable: '.editor-node',
+      handle: '.editor-drag-handle',
+      ghostClass: 'sortable-ghost',
+      chosenClass: 'sortable-chosen',
+      onMove: (event: MoveEvent) => {
+        const nodeId = (event.dragged as HTMLElement).dataset.nodeId
+        return nodeId ? props.canMove(nodeId, props.parentId) : true
+      },
+      onAdd: (event: SortableEvent) => {
+        if (event.from.dataset.sortableKind === 'library') {
+          const libraryId = event.item.dataset.libraryId
+          event.item.remove()
+          if (libraryId) {
+            queueMicrotask(() => props.onAddLibraryItem(libraryId, props.parentId))
+          }
+          return
+        }
+        const nodeId = event.item.dataset.nodeId
+        if (nodeId) {
+          queueMicrotask(() => props.onMoveNode(nodeId, props.parentId, event.newIndex ?? 0))
+        }
+      },
+      onUpdate: (event: SortableEvent) => {
+        const nodeId = event.item.dataset.nodeId
+        if (nodeId) {
+          queueMicrotask(() => props.onMoveNode(nodeId, props.parentId, event.newIndex ?? 0))
+        }
+      },
+    })
+    onCleanup(() => sortable.destroy())
+  })
+
+  return (
+    <div
+      ref={(node) => {
+        element = node
+      }}
+      class={props.class}
+      data-sortable-kind="plan"
+    >
+      {props.children}
+    </div>
+  )
+}
+
+function LibrarySortableList(props: { children: JSX.Element }) {
+  let element: HTMLDivElement | undefined
+
+  onMount(() => {
+    if (!element) return
+    const sortable = new Sortable(element, {
+      group: { name: 'practice-library', pull: 'clone', put: false },
+      sort: false,
+      animation: 150,
+      draggable: '.editor-library-item',
+      ghostClass: 'sortable-ghost',
+      chosenClass: 'sortable-chosen',
+    })
+    onCleanup(() => sortable.destroy())
+  })
+
+  return (
+    <div
+      ref={(node) => {
+        element = node
+      }}
+      class="editor-library-list"
+      data-sortable-kind="library"
+    >
+      {props.children}
+    </div>
+  )
+}
+
 export function PracticePlanEditor(props: {
   library: TemplateLibraryItem[]
   template?: SessionTemplateDetail
@@ -126,13 +209,6 @@ export function PracticePlanEditor(props: {
   const [newItemType, setNewItemType] = createSignal<'EXERCISE' | 'REPERTOIRE'>('EXERCISE')
   const [newItemName, setNewItemName] = createSignal('')
   const [newItemNotes, setNewItemNotes] = createSignal('')
-  const [draggedLibraryItem, setDraggedLibraryItem] = createSignal<TemplateLibraryItem | null>(null)
-  const [dropTargetId, setDropTargetId] = createSignal<string | null | undefined>(undefined)
-  const [draggedNodeId, setDraggedNodeId] = createSignal<string | null>(null)
-  const [nodeDropTarget, setNodeDropTarget] = createSignal<{
-    id: string | null
-    position: 'before' | 'after' | 'inside'
-  } | null>(null)
 
   const filteredLibrary = createMemo(() => {
     const query = search().trim().toLowerCase()
@@ -182,122 +258,29 @@ export function PracticePlanEditor(props: {
     )
   }
 
-  function dragLibraryEntry(event: DragEvent, item: TemplateLibraryItem) {
-    clearEditorNodeDrag()
-    setDraggedLibraryItem(item)
-    event.dataTransfer?.setData('application/x-practice-library-item', item.id)
-    event.dataTransfer?.setData('text/plain', item.name)
-    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy'
+  function canMoveNode(nodeId: string, parentId: string | null) {
+    const node = findNode(nodes, nodeId)
+    return Boolean(node && parentId !== nodeId && (!parentId || !containsNode(node, parentId)))
   }
 
-  function allowLibraryDrop(event: DragEvent, parentId: string | null) {
-    if (!draggedLibraryItem()) return
-    event.preventDefault()
-    event.stopPropagation()
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
-    setDropTargetId(parentId)
-  }
-
-  function dropLibraryEntry(event: DragEvent, parentId: string | null) {
-    const item = draggedLibraryItem()
-    if (!item) return
-    event.preventDefault()
-    event.stopPropagation()
-    addLibraryEntry(item, '', parentId)
-    setSelectedParentId(parentId)
-    clearLibraryDrag()
-  }
-
-  function leaveLibraryDropTarget(event: DragEvent, parentId: string | null) {
-    const destination = event.relatedTarget
-    const currentTarget = event.currentTarget
-    if (
-      destination instanceof Node &&
-      currentTarget instanceof HTMLElement &&
-      currentTarget.contains(destination)
-    ) {
-      return
-    }
-    if (dropTargetId() === parentId) setDropTargetId(undefined)
-  }
-
-  function clearLibraryDrag() {
-    setDraggedLibraryItem(null)
-    setDropTargetId(undefined)
-  }
-
-  function dragEditorNode(event: DragEvent, id: string) {
-    const origin = event.target
-    if (origin instanceof Element && origin.closest('button, input, textarea, select')) {
-      event.preventDefault()
-      return
-    }
-    event.stopPropagation()
-    setDraggedLibraryItem(null)
-    setDraggedNodeId(id)
-    event.dataTransfer?.setData('application/x-practice-plan-item', id)
-    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
-  }
-
-  function allowEditorNodeDrop(event: DragEvent, targetId: string | null, isSection = false) {
-    const draggedId = draggedNodeId()
-    if (!draggedId || draggedId === targetId) return
-    const dragged = findNode(nodes, draggedId)
-    if (!dragged || (targetId && containsNode(dragged, targetId))) return
-
-    event.preventDefault()
-    event.stopPropagation()
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
-
-    if (targetId === null) {
-      setNodeDropTarget({ id: null, position: 'inside' })
-      return
-    }
-    if (isSection && dragged.type !== 'SECTION') {
-      setNodeDropTarget({ id: targetId, position: 'inside' })
-      return
-    }
-    const currentTarget = event.currentTarget
-    if (!(currentTarget instanceof HTMLElement)) return
-    const bounds = currentTarget.getBoundingClientRect()
-    setNodeDropTarget({
-      id: targetId,
-      position: event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after',
-    })
-  }
-
-  function dropEditorNode(event: DragEvent, targetId: string | null) {
-    const draggedId = draggedNodeId()
-    const target = nodeDropTarget()
-    if (!draggedId || !target || target.id !== targetId) return
-    event.preventDefault()
-    event.stopPropagation()
-
+  function moveNodeTo(nodeId: string, parentId: string | null, index: number) {
     setNodes(
       produce((items) => {
-        const dragged = findNode(items, draggedId)
-        if (!dragged || (targetId && containsNode(dragged, targetId))) return
-        const moved = removeEditorNode(items, draggedId)
+        const node = findNode(items, nodeId)
+        if (!node || parentId === nodeId || (parentId && containsNode(node, parentId))) return
+        const moved = removeEditorNode(items, nodeId)
         if (!moved) return
-
-        if (target.position === 'inside') {
-          const destination = findChildren(items, targetId) ?? items
-          destination.push(moved)
-          return
-        }
-
-        const siblings = targetId ? findSiblingArray(items, targetId) : items
-        if (!siblings || !targetId) return
-        const targetIndex = siblings.findIndex((item) => item.clientId === targetId)
-        siblings.splice(targetIndex + (target.position === 'after' ? 1 : 0), 0, moved)
+        const destination = findChildren(items, parentId) ?? items
+        destination.splice(Math.min(Math.max(index, 0), destination.length), 0, moved)
       }),
     )
-    clearEditorNodeDrag()
   }
 
-  function clearEditorNodeDrag() {
-    setDraggedNodeId(null)
-    setNodeDropTarget(null)
+  function addLibraryItemById(libraryId: string, parentId: string | null) {
+    const item = library.find((candidate) => candidate.id === libraryId)
+    if (!item) return
+    addLibraryEntry(item, '', parentId)
+    setSelectedParentId(parentId)
   }
 
   function removeNode(id: string) {
@@ -538,25 +521,24 @@ export function PracticePlanEditor(props: {
           </div>
           <button
             type="button"
-            class={`root-target ${selectedParentId() === null ? 'selected' : ''} ${dropTargetId() === null ? 'drop-target' : ''} ${nodeDropTarget()?.id === null ? 'node-drop-inside' : ''}`}
+            class={`root-target ${selectedParentId() === null ? 'selected' : ''}`}
             onClick={() => setSelectedParentId(null)}
-            onDragOver={(event) =>
-              draggedNodeId() ? allowEditorNodeDrop(event, null) : allowLibraryDrop(event, null)
-            }
-            onDragLeave={(event) => leaveLibraryDropTarget(event, null)}
-            onDrop={(event) =>
-              draggedNodeId() ? dropEditorNode(event, null) : dropLibraryEntry(event, null)
-            }
           >
-            Add new items at the top level, or drop one here
+            New items will be added at the top level
           </button>
-          <Show
-            when={nodes.length > 0}
-            fallback={
-              <p class="editor-empty">Add a section or choose something from your library.</p>
-            }
+          <PlanSortableList
+            parentId={null}
+            class="editor-tree plan-sortable-list"
+            canMove={canMoveNode}
+            onMoveNode={moveNodeTo}
+            onAddLibraryItem={addLibraryItemById}
           >
-            <div class="editor-tree">
+            <Show
+              when={nodes.length > 0}
+              fallback={
+                <p class="editor-empty">Add a section or drag something from your library.</p>
+              }
+            >
               <For each={nodes}>
                 {(node) => (
                   <TemplateNode
@@ -567,21 +549,14 @@ export function PracticePlanEditor(props: {
                     onRemove={removeNode}
                     onMove={moveNode}
                     onRename={renameSection}
-                    dropTargetId={dropTargetId()}
-                    onLibraryDragOver={allowLibraryDrop}
-                    onLibraryDragLeave={leaveLibraryDropTarget}
-                    onLibraryDrop={dropLibraryEntry}
-                    draggedNodeId={draggedNodeId()}
-                    nodeDropTarget={nodeDropTarget()}
-                    onNodeDragStart={dragEditorNode}
-                    onNodeDragEnd={clearEditorNodeDrag}
-                    onNodeDragOver={allowEditorNodeDrop}
-                    onNodeDrop={dropEditorNode}
+                    canMove={canMoveNode}
+                    onMoveNode={moveNodeTo}
+                    onAddLibraryItem={addLibraryItemById}
                   />
                 )}
               </For>
-            </div>
-          </Show>
+            </Show>
+          </PlanSortableList>
         </section>
 
         <aside class="editor-panel library-panel">
@@ -616,16 +591,14 @@ export function PracticePlanEditor(props: {
             placeholder={`Search ${libraryType() === 'EXERCISE' ? 'exercises' : 'repertoire'}`}
             aria-label={`Search ${libraryType() === 'EXERCISE' ? 'exercises' : 'repertoire'}`}
           />
-          <div class="editor-library-list">
+          <LibrarySortableList>
             <For each={filteredLibrary()}>
               {(item) => (
                 <button
                   type="button"
-                  class={`editor-library-item ${draggedLibraryItem()?.id === item.id ? 'dragging' : ''}`}
-                  draggable={true}
+                  class="editor-library-item"
+                  data-library-id={item.id}
                   onClick={() => addLibraryEntry(item)}
-                  onDragStart={(event) => dragLibraryEntry(event, item)}
-                  onDragEnd={clearLibraryDrag}
                 >
                   <span>
                     <strong>{item.name}</strong>
@@ -635,7 +608,7 @@ export function PracticePlanEditor(props: {
                 </button>
               )}
             </For>
-          </div>
+          </LibrarySortableList>
           <button
             class="secondary-button full-button"
             type="button"
@@ -710,46 +683,21 @@ function TemplateNode(props: {
   onRemove: (id: string) => void
   onMove: (id: string, offset: -1 | 1) => void
   onRename: (id: string, value: string) => void
-  dropTargetId: string | null | undefined
-  onLibraryDragOver: (event: DragEvent, parentId: string | null) => void
-  onLibraryDragLeave: (event: DragEvent, parentId: string | null) => void
-  onLibraryDrop: (event: DragEvent, parentId: string | null) => void
-  draggedNodeId: string | null
-  nodeDropTarget: { id: string | null; position: 'before' | 'after' | 'inside' } | null
-  onNodeDragStart: (event: DragEvent, id: string) => void
-  onNodeDragEnd: () => void
-  onNodeDragOver: (event: DragEvent, targetId: string | null, isSection?: boolean) => void
-  onNodeDrop: (event: DragEvent, targetId: string | null) => void
+  canMove: (nodeId: string, parentId: string | null) => boolean
+  onMoveNode: (nodeId: string, parentId: string | null, index: number) => void
+  onAddLibraryItem: (libraryId: string, parentId: string | null) => void
 }) {
   const isSection = () => props.node.type === 'SECTION'
 
   return (
     <article
       class={`editor-node ${props.selectedParentId === props.node.clientId ? 'selected' : ''}`}
+      data-node-id={props.node.clientId}
     >
-      <div
-        class={`editor-node-row ${isSection() && props.dropTargetId === props.node.clientId ? 'drop-target' : ''} ${props.draggedNodeId === props.node.clientId ? 'dragging' : ''} ${props.nodeDropTarget?.id === props.node.clientId ? `node-drop-${props.nodeDropTarget.position}` : ''}`}
-        draggable={true}
-        onDragStart={(event) => props.onNodeDragStart(event, props.node.clientId)}
-        onDragEnd={props.onNodeDragEnd}
-        onDragOver={(event) => {
-          if (props.draggedNodeId) {
-            props.onNodeDragOver(event, props.node.clientId, isSection())
-          } else if (isSection()) {
-            props.onLibraryDragOver(event, props.node.clientId)
-          }
-        }}
-        onDragLeave={(event) => {
-          if (isSection()) props.onLibraryDragLeave(event, props.node.clientId)
-        }}
-        onDrop={(event) => {
-          if (props.draggedNodeId) {
-            props.onNodeDrop(event, props.node.clientId)
-          } else if (isSection()) {
-            props.onLibraryDrop(event, props.node.clientId)
-          }
-        }}
-      >
+      <div class="editor-node-row">
+        <span class="editor-drag-handle" title="Drag to move" aria-hidden="true">
+          ⠿
+        </span>
         <Show
           when={isSection()}
           fallback={
@@ -799,12 +747,23 @@ function TemplateNode(props: {
           </button>
         </div>
       </div>
-      <Show when={props.node.children.length > 0}>
-        <div class="editor-node-children">
-          <For each={props.node.children}>
-            {(child) => <TemplateNode {...props} node={child} />}
-          </For>
-        </div>
+      <Show when={isSection()}>
+        <PlanSortableList
+          parentId={props.node.clientId}
+          class="editor-node-children plan-sortable-list"
+          canMove={props.canMove}
+          onMoveNode={props.onMoveNode}
+          onAddLibraryItem={props.onAddLibraryItem}
+        >
+          <Show
+            when={props.node.children.length > 0}
+            fallback={<span class="section-drop-hint">Drop items here</span>}
+          >
+            <For each={props.node.children}>
+              {(child) => <TemplateNode {...props} node={child} />}
+            </For>
+          </Show>
+        </PlanSortableList>
       </Show>
     </article>
   )
