@@ -51,6 +51,38 @@ function findChildren(items: EditorNode[], parentId: string | null): EditorNode[
   return null
 }
 
+function findNode(items: EditorNode[], id: string): EditorNode | null {
+  for (const item of items) {
+    if (item.clientId === id) return item
+    const found = findNode(item.children, id)
+    if (found) return found
+  }
+  return null
+}
+
+function containsNode(item: EditorNode, id: string): boolean {
+  return item.children.some((child) => child.clientId === id || containsNode(child, id))
+}
+
+function removeEditorNode(items: EditorNode[], id: string): EditorNode | null {
+  const index = items.findIndex((item) => item.clientId === id)
+  if (index >= 0) return items.splice(index, 1)[0] ?? null
+  for (const item of items) {
+    const removed = removeEditorNode(item.children, id)
+    if (removed) return removed
+  }
+  return null
+}
+
+function findSiblingArray(items: EditorNode[], id: string): EditorNode[] | null {
+  if (items.some((item) => item.clientId === id)) return items
+  for (const item of items) {
+    const siblings = findSiblingArray(item.children, id)
+    if (siblings) return siblings
+  }
+  return null
+}
+
 function buildTree(items: TemplateItemInput[]): EditorNode[] {
   const nodes = new Map<string, EditorNode>()
   const roots: EditorNode[] = []
@@ -96,6 +128,11 @@ export function PracticePlanEditor(props: {
   const [newItemNotes, setNewItemNotes] = createSignal('')
   const [draggedLibraryItem, setDraggedLibraryItem] = createSignal<TemplateLibraryItem | null>(null)
   const [dropTargetId, setDropTargetId] = createSignal<string | null | undefined>(undefined)
+  const [draggedNodeId, setDraggedNodeId] = createSignal<string | null>(null)
+  const [nodeDropTarget, setNodeDropTarget] = createSignal<{
+    id: string | null
+    position: 'before' | 'after' | 'inside'
+  } | null>(null)
 
   const filteredLibrary = createMemo(() => {
     const query = search().trim().toLowerCase()
@@ -146,6 +183,7 @@ export function PracticePlanEditor(props: {
   }
 
   function dragLibraryEntry(event: DragEvent, item: TemplateLibraryItem) {
+    clearEditorNodeDrag()
     setDraggedLibraryItem(item)
     event.dataTransfer?.setData('application/x-practice-library-item', item.id)
     event.dataTransfer?.setData('text/plain', item.name)
@@ -186,6 +224,80 @@ export function PracticePlanEditor(props: {
   function clearLibraryDrag() {
     setDraggedLibraryItem(null)
     setDropTargetId(undefined)
+  }
+
+  function dragEditorNode(event: DragEvent, id: string) {
+    const origin = event.target
+    if (origin instanceof Element && origin.closest('button, input, textarea, select')) {
+      event.preventDefault()
+      return
+    }
+    event.stopPropagation()
+    setDraggedLibraryItem(null)
+    setDraggedNodeId(id)
+    event.dataTransfer?.setData('application/x-practice-plan-item', id)
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+  }
+
+  function allowEditorNodeDrop(event: DragEvent, targetId: string | null, isSection = false) {
+    const draggedId = draggedNodeId()
+    if (!draggedId || draggedId === targetId) return
+    const dragged = findNode(nodes, draggedId)
+    if (!dragged || (targetId && containsNode(dragged, targetId))) return
+
+    event.preventDefault()
+    event.stopPropagation()
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+
+    if (targetId === null) {
+      setNodeDropTarget({ id: null, position: 'inside' })
+      return
+    }
+    if (isSection && dragged.type !== 'SECTION') {
+      setNodeDropTarget({ id: targetId, position: 'inside' })
+      return
+    }
+    const currentTarget = event.currentTarget
+    if (!(currentTarget instanceof HTMLElement)) return
+    const bounds = currentTarget.getBoundingClientRect()
+    setNodeDropTarget({
+      id: targetId,
+      position: event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after',
+    })
+  }
+
+  function dropEditorNode(event: DragEvent, targetId: string | null) {
+    const draggedId = draggedNodeId()
+    const target = nodeDropTarget()
+    if (!draggedId || !target || target.id !== targetId) return
+    event.preventDefault()
+    event.stopPropagation()
+
+    setNodes(
+      produce((items) => {
+        const dragged = findNode(items, draggedId)
+        if (!dragged || (targetId && containsNode(dragged, targetId))) return
+        const moved = removeEditorNode(items, draggedId)
+        if (!moved) return
+
+        if (target.position === 'inside') {
+          const destination = findChildren(items, targetId) ?? items
+          destination.push(moved)
+          return
+        }
+
+        const siblings = targetId ? findSiblingArray(items, targetId) : items
+        if (!siblings || !targetId) return
+        const targetIndex = siblings.findIndex((item) => item.clientId === targetId)
+        siblings.splice(targetIndex + (target.position === 'after' ? 1 : 0), 0, moved)
+      }),
+    )
+    clearEditorNodeDrag()
+  }
+
+  function clearEditorNodeDrag() {
+    setDraggedNodeId(null)
+    setNodeDropTarget(null)
   }
 
   function removeNode(id: string) {
@@ -426,11 +538,15 @@ export function PracticePlanEditor(props: {
           </div>
           <button
             type="button"
-            class={`root-target ${selectedParentId() === null ? 'selected' : ''} ${dropTargetId() === null ? 'drop-target' : ''}`}
+            class={`root-target ${selectedParentId() === null ? 'selected' : ''} ${dropTargetId() === null ? 'drop-target' : ''} ${nodeDropTarget()?.id === null ? 'node-drop-inside' : ''}`}
             onClick={() => setSelectedParentId(null)}
-            onDragOver={(event) => allowLibraryDrop(event, null)}
+            onDragOver={(event) =>
+              draggedNodeId() ? allowEditorNodeDrop(event, null) : allowLibraryDrop(event, null)
+            }
             onDragLeave={(event) => leaveLibraryDropTarget(event, null)}
-            onDrop={(event) => dropLibraryEntry(event, null)}
+            onDrop={(event) =>
+              draggedNodeId() ? dropEditorNode(event, null) : dropLibraryEntry(event, null)
+            }
           >
             Add new items at the top level, or drop one here
           </button>
@@ -455,6 +571,12 @@ export function PracticePlanEditor(props: {
                     onLibraryDragOver={allowLibraryDrop}
                     onLibraryDragLeave={leaveLibraryDropTarget}
                     onLibraryDrop={dropLibraryEntry}
+                    draggedNodeId={draggedNodeId()}
+                    nodeDropTarget={nodeDropTarget()}
+                    onNodeDragStart={dragEditorNode}
+                    onNodeDragEnd={clearEditorNodeDrag}
+                    onNodeDragOver={allowEditorNodeDrop}
+                    onNodeDrop={dropEditorNode}
                   />
                 )}
               </For>
@@ -592,6 +714,12 @@ function TemplateNode(props: {
   onLibraryDragOver: (event: DragEvent, parentId: string | null) => void
   onLibraryDragLeave: (event: DragEvent, parentId: string | null) => void
   onLibraryDrop: (event: DragEvent, parentId: string | null) => void
+  draggedNodeId: string | null
+  nodeDropTarget: { id: string | null; position: 'before' | 'after' | 'inside' } | null
+  onNodeDragStart: (event: DragEvent, id: string) => void
+  onNodeDragEnd: () => void
+  onNodeDragOver: (event: DragEvent, targetId: string | null, isSection?: boolean) => void
+  onNodeDrop: (event: DragEvent, targetId: string | null) => void
 }) {
   const isSection = () => props.node.type === 'SECTION'
 
@@ -600,15 +728,26 @@ function TemplateNode(props: {
       class={`editor-node ${props.selectedParentId === props.node.clientId ? 'selected' : ''}`}
     >
       <div
-        class={`editor-node-row ${isSection() && props.dropTargetId === props.node.clientId ? 'drop-target' : ''}`}
+        class={`editor-node-row ${isSection() && props.dropTargetId === props.node.clientId ? 'drop-target' : ''} ${props.draggedNodeId === props.node.clientId ? 'dragging' : ''} ${props.nodeDropTarget?.id === props.node.clientId ? `node-drop-${props.nodeDropTarget.position}` : ''}`}
+        draggable={true}
+        onDragStart={(event) => props.onNodeDragStart(event, props.node.clientId)}
+        onDragEnd={props.onNodeDragEnd}
         onDragOver={(event) => {
-          if (isSection()) props.onLibraryDragOver(event, props.node.clientId)
+          if (props.draggedNodeId) {
+            props.onNodeDragOver(event, props.node.clientId, isSection())
+          } else if (isSection()) {
+            props.onLibraryDragOver(event, props.node.clientId)
+          }
         }}
         onDragLeave={(event) => {
           if (isSection()) props.onLibraryDragLeave(event, props.node.clientId)
         }}
         onDrop={(event) => {
-          if (isSection()) props.onLibraryDrop(event, props.node.clientId)
+          if (props.draggedNodeId) {
+            props.onNodeDrop(event, props.node.clientId)
+          } else if (isSection()) {
+            props.onLibraryDrop(event, props.node.clientId)
+          }
         }}
       >
         <Show
