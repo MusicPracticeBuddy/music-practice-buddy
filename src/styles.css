@@ -1094,6 +1094,58 @@ textarea.text-input {
   background: var(--paper);
 }
 
+.session-add-item-card {
+  margin-top: 24px;
+}
+
+.session-add-item-card > .secondary-button {
+  width: 100%;
+}
+
+.running-session-workspace.active {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 16px;
+  align-items: start;
+}
+
+.running-session-outline-column {
+  min-width: 0;
+}
+
+.running-library-panel {
+  position: sticky;
+  top: 16px;
+  margin-top: 18px;
+}
+
+.running-library-panel .editor-library-item:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.running-drop-zone {
+  margin-top: 10px;
+  padding: 16px;
+  border: 2px dashed var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  background: rgb(255 255 255 / 45%);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.running-drop-zone:hover {
+  border-color: var(--green);
+  background: #f1f5e5;
+}
+
+.running-drop-zone-section {
+  margin: 0 12px 12px;
+  padding: 12px;
+}
+
 .session-completion-card h2 {
   margin: 2px 0 6px;
 }
@@ -1336,6 +1388,10 @@ textarea.text-input {
   color: var(--muted);
 }
 
+.item-action-remove {
+  color: #9f4736;
+}
+
 .practice-item-skipped h3 {
   color: var(--muted);
   text-decoration: line-through;
@@ -1523,7 +1579,12 @@ textarea.text-input {
     grid-template-columns: 1fr;
   }
 
-  .library-panel {
+  .running-session-workspace.active {
+    grid-template-columns: 1fr;
+  }
+
+  .library-panel,
+  .running-library-panel {
     position: static;
   }
 }

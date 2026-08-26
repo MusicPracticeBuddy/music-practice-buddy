@@ -9,10 +9,13 @@ import {
   useRouter,
 } from '@tanstack/solid-router'
 import { DeleteConfirmationDialog } from '../../components/DeleteConfirmationDialog'
+import { PracticeLibraryPanel } from '../../components/PracticeLibraryPanel'
 import {
+  addRunningSessionItem,
   completePracticeSession,
   deletePlannedSession,
   getSessionDetail,
+  removeRunningSessionItem,
   startPracticeSession,
   updateSessionName,
   updateSessionProgress,
@@ -23,6 +26,7 @@ import {
   type SessionProgressUpdate,
   type SessionTimingMode,
 } from '../../data/sessions'
+import { getTemplateLibrary, type TemplateLibraryItem } from '../../data/sessionTemplates'
 
 type SessionItemNode = SessionDetailItem & { children: SessionItemNode[] }
 
@@ -114,6 +118,11 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'The session could not be updated.'
 }
 
+function dragLibraryItem(event: DragEvent, item: TemplateLibraryItem) {
+  event.dataTransfer?.setData('application/x-practice-library-item', JSON.stringify(item))
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy'
+}
+
 function StatusIndicator(props: { status: SessionItemStatus }) {
   const icon = () => {
     if (props.status === 'COMPLETE') return '✓'
@@ -148,6 +157,11 @@ function SessionDetailPage() {
   const [nameDraft, setNameDraft] = createSignal(loadedSession().templateName)
   const [nameDirty, setNameDirty] = createSignal(false)
   const [nameSaving, setNameSaving] = createSignal(false)
+  const [structuralSaving, setStructuralSaving] = createSignal(false)
+  const [addingItem, setAddingItem] = createSignal(false)
+  const [libraryLoading, setLibraryLoading] = createSignal(false)
+  const [library, setLibrary] = createSignal<TemplateLibraryItem[]>([])
+  const [libraryType, setLibraryType] = createSignal<'EXERCISE' | 'REPERTOIRE'>('EXERCISE')
   const [queuedChangeCount, setQueuedChangeCount] = createSignal(0)
   const [routeDataDirty, setRouteDataDirty] = createSignal(false)
   const [error, setError] = createSignal('')
@@ -156,6 +170,7 @@ function SessionDetailPage() {
   let activeFlush: Promise<void> | undefined
   let nameFlushTimer: ReturnType<typeof setTimeout> | undefined
   let activeNameFlush: Promise<void> | undefined
+  let activeStructuralChange: Promise<void> | undefined
 
   const itemTree = createMemo(() => buildItemTree(session.items))
   const practiceItems = createMemo(() => session.items.filter((item) => item.type !== 'SECTION'))
@@ -187,7 +202,14 @@ function SessionDetailPage() {
 
   createEffect(() => {
     const loaded = loadedSession()
-    if (queuedChangeCount() > 0 || saving() || nameDirty() || nameSaving() || routeDataDirty()) {
+    if (
+      queuedChangeCount() > 0 ||
+      saving() ||
+      nameDirty() ||
+      nameSaving() ||
+      structuralSaving() ||
+      routeDataDirty()
+    ) {
       return
     }
     setSession({ ...loaded, items: loaded.items.map((item) => ({ ...item })) })
@@ -329,6 +351,79 @@ function SessionDetailPage() {
     nameFlushTimer = setTimeout(flushNameChange, 400)
   }
 
+  async function refreshSession() {
+    const fresh = await getSessionDetail({ data: session.id })
+    if (!fresh) throw new Error('Session not found')
+    setSession(fresh)
+    setNameDraft(fresh.templateName)
+    setRouteDataDirty(true)
+  }
+
+  function runStructuralChange(change: () => Promise<void>) {
+    if (activeStructuralChange) return activeStructuralChange
+    activeStructuralChange = (async () => {
+      setStructuralSaving(true)
+      setError('')
+      try {
+        await change()
+        await refreshSession()
+      } catch (caught) {
+        setError(errorMessage(caught))
+      } finally {
+        setStructuralSaving(false)
+        activeStructuralChange = undefined
+      }
+    })()
+    return activeStructuralChange
+  }
+
+  async function openItemPicker() {
+    setAddingItem(true)
+    if (library().length > 0 || libraryLoading()) return
+    setLibraryLoading(true)
+    try {
+      const items = await getTemplateLibrary()
+      setLibrary(items)
+    } catch (caught) {
+      setError(errorMessage(caught))
+    } finally {
+      setLibraryLoading(false)
+    }
+  }
+
+  function addLibraryItem(item: TemplateLibraryItem, parentId: string | null) {
+    return runStructuralChange(async () => {
+      await addRunningSessionItem({
+        data: {
+          sessionId: session.id,
+          parentId,
+          type: item.type,
+          sourceId: item.id,
+          notes: '',
+        },
+      })
+    })
+  }
+
+  function dropLibraryItem(event: DragEvent, parentId: string | null) {
+    event.preventDefault()
+    const value = event.dataTransfer?.getData('application/x-practice-library-item')
+    if (!value) return
+    try {
+      const item = JSON.parse(value) as TemplateLibraryItem
+      if (item.type !== 'EXERCISE' && item.type !== 'REPERTOIRE') return
+      void addLibraryItem(item, parentId)
+    } catch {
+      setError('That practice item could not be added')
+    }
+  }
+
+  function removeItem(itemId: string) {
+    return runStructuralChange(async () => {
+      await removeRunningSessionItem({ data: { sessionId: session.id, itemId } })
+    })
+  }
+
   async function drainChanges() {
     if (flushTimer) clearTimeout(flushTimer)
     flushTimer = undefined
@@ -340,6 +435,7 @@ function SessionDetailPage() {
       if (activeNameFlush) await activeNameFlush
       else await flushNameChange()
     }
+    if (activeStructuralChange) await activeStructuralChange
     if (routeDataDirty()) {
       await router.invalidate()
       setRouteDataDirty(false)
@@ -391,6 +487,7 @@ function SessionDetailPage() {
         !saving() &&
         !nameDirty() &&
         !nameSaving() &&
+        !structuralSaving() &&
         !routeDataDirty()
       ) {
         return false
@@ -398,7 +495,8 @@ function SessionDetailPage() {
       await drainChanges()
       return false
     },
-    enableBeforeUnload: () => queuedChangeCount() > 0 || saving() || nameDirty() || nameSaving(),
+    enableBeforeUnload: () =>
+      queuedChangeCount() > 0 || saving() || nameDirty() || nameSaving() || structuralSaving(),
   })
 
   onCleanup(() => {
@@ -562,29 +660,74 @@ function SessionDetailPage() {
         </div>
       </section>
 
-      <Show
-        when={itemTree().length > 0}
-        fallback={
-          <section class="empty-state">
-            <h2>No practice items</h2>
-            <p>This session does not have any copied exercises or repertoire yet.</p>
-          </section>
-        }
-      >
-        <section class="session-outline" aria-label="Session contents">
-          <For each={itemTree()}>
-            {(item) => (
-              <SessionItem
-                item={item}
-                sessionActive={session.status === 'IN_PROGRESS'}
-                timingMode={session.timingMode}
-                hasActiveItem={hasActiveItem()}
-                onAction={queueAction}
-              />
-            )}
-          </For>
-        </section>
-      </Show>
+      <div class="running-session-workspace" classList={{ active: addingItem() }}>
+        <div class="running-session-outline-column">
+          <Show
+            when={itemTree().length > 0}
+            fallback={
+              <section class="empty-state">
+                <h2>No practice items</h2>
+                <p>This session does not have any copied exercises or repertoire yet.</p>
+              </section>
+            }
+          >
+            <section class="session-outline" aria-label="Session contents">
+              <For each={itemTree()}>
+                {(item) => (
+                  <SessionItem
+                    item={item}
+                    sessionActive={session.status === 'IN_PROGRESS'}
+                    addingItem={addingItem()}
+                    timingMode={session.timingMode}
+                    hasActiveItem={hasActiveItem()}
+                    onAction={queueAction}
+                    onRemove={removeItem}
+                    onDropLibraryItem={dropLibraryItem}
+                  />
+                )}
+              </For>
+            </section>
+          </Show>
+          <Show when={addingItem()}>
+            <div
+              class="running-drop-zone"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => dropLibraryItem(event, null)}
+            >
+              Drop here to add at the top level
+            </div>
+          </Show>
+
+          <Show when={session.status === 'IN_PROGRESS' && !addingItem()}>
+            <section class="session-add-item-card">
+              <button class="secondary-button" type="button" onClick={openItemPicker}>
+                + Add practice item
+              </button>
+            </section>
+          </Show>
+        </div>
+
+        <Show when={addingItem()}>
+          <PracticeLibraryPanel
+            class="running-library-panel"
+            items={library()}
+            type={libraryType()}
+            onTypeChange={setLibraryType}
+            onSelect={(item) => void addLibraryItem(item, null)}
+            loading={libraryLoading()}
+            disabled={structuralSaving()}
+            dragMode="native"
+            itemActionLabel="Drag"
+            onItemDragStart={dragLibraryItem}
+            headerAction={
+              <button class="text-button" type="button" onClick={() => setAddingItem(false)}>
+                Close
+              </button>
+            }
+            helpText="Drag an item into a section or the top-level drop zone. Click an item to add it at the top level."
+          />
+        </Show>
+      </div>
 
       <Show when={session.status === 'IN_PROGRESS'}>
         <section class="session-completion-card">
@@ -627,9 +770,12 @@ function flattenTree(items: SessionItemNode[]): SessionItemNode[] {
 function SessionItem(props: {
   item: SessionItemNode
   sessionActive: boolean
+  addingItem: boolean
   timingMode: SessionTimingMode | null
   hasActiveItem: boolean
   onAction: (itemId: string, action: SessionItemAction) => void
+  onRemove: (itemId: string) => Promise<void>
+  onDropLibraryItem: (event: DragEvent, parentId: string | null) => void
 }) {
   const isSection = props.item.type === 'SECTION'
   const [expanded, setExpanded] = createSignal(isSection)
@@ -681,6 +827,15 @@ function SessionItem(props: {
             <StatusIndicator status={status()} />
           </div>
         </div>
+        <Show when={props.addingItem}>
+          <div
+            class="running-drop-zone running-drop-zone-section"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => props.onDropLibraryItem(event, props.item.id)}
+          >
+            Drop here to add to {props.item.name}
+          </div>
+        </Show>
         <Show when={expanded()}>
           <div id={contentId}>
             <Show when={props.item.notes}>
@@ -765,6 +920,16 @@ function SessionItem(props: {
               onClick={() => props.onAction(props.item.id, 'RESET')}
             >
               Reset
+            </button>
+          </Show>
+          <Show when={props.sessionActive && props.item.addedDuringSession}>
+            <button
+              class="item-action item-action-remove"
+              type="button"
+              aria-label={`Remove ${props.item.name} from this session`}
+              onClick={() => void props.onRemove(props.item.id)}
+            >
+              Remove
             </button>
           </Show>
           <StatusIndicator status={props.item.status} />

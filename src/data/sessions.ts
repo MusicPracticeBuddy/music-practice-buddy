@@ -29,6 +29,7 @@ export type SessionDetailItem = {
   notation: string | null
   notationFormat: string | null
   status: SessionItemStatus
+  addedDuringSession: boolean
   startedAt: string | null
   endedAt: string | null
   durationMinutes: number | null
@@ -163,6 +164,7 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
         notation: string | null
         notationFormat: string | null
         status: SessionItemStatus
+        addedDuringSession: boolean
         startedAt: Date | null
         endedAt: Date | null
         durationMinutes: number | null
@@ -178,6 +180,7 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
             exercise.notation,
             exercise.notation_format AS "notationFormat",
             item.status::text,
+            item.added_during_session AS "addedDuringSession",
             item.started_at AS "startedAt",
             item.ended_at AS "endedAt",
             CASE
@@ -625,4 +628,125 @@ export const updateSessionName = createServerFn({ method: 'POST' })
     const session = result.rows[0]
     if (!session) throw new Error('Completed sessions cannot be renamed')
     return session
+  })
+
+export const addRunningSessionItem = createServerFn({ method: 'POST' })
+  .validator(
+    (input: {
+      sessionId: string
+      parentId: string | null
+      type: 'EXERCISE' | 'REPERTOIRE'
+      sourceId: string
+      notes: string
+    }) => {
+      if (!validId(input.sessionId)) throw new Error('Invalid session')
+      if (input.parentId !== null && !validId(input.parentId)) throw new Error('Invalid section')
+      if (!validId(input.sourceId)) throw new Error('Invalid practice item')
+      if (input.type !== 'EXERCISE' && input.type !== 'REPERTOIRE') {
+        throw new Error('Invalid practice item type')
+      }
+      if (input.notes.length > 2000) throw new Error('Notes must be 2000 characters or fewer')
+      return { ...input, notes: input.notes.trim() }
+    },
+  )
+  .handler(async ({ data }): Promise<{ id: string }> => {
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      const session = await client.query(
+        `SELECT 1 FROM session
+         WHERE id = $1 AND status = 'IN_PROGRESS'
+           AND musician_id = (
+             SELECT id FROM musician ORDER BY is_admin DESC, id LIMIT 1
+           )
+         FOR UPDATE`,
+        [data.sessionId],
+      )
+      if (!session.rowCount) throw new Error('Items can only be added to an in-progress session')
+
+      if (data.parentId) {
+        const parent = await client.query(
+          `SELECT 1 FROM session_item
+           WHERE id = $1 AND session_id = $2 AND type = 'SECTION'`,
+          [data.parentId, data.sessionId],
+        )
+        if (!parent.rowCount) throw new Error('Destination section not found')
+      }
+
+      const sourceTable = data.type === 'EXERCISE' ? 'exercise' : 'repertoire'
+      const source = await client.query(
+        `SELECT 1 FROM ${sourceTable} WHERE id = $1${data.type === 'EXERCISE' ? ' AND deleted_at IS NULL' : ''}`,
+        [data.sourceId],
+      )
+      if (!source.rowCount) throw new Error('Practice item not found')
+
+      const result = await client.query<{ id: string }>(
+        `INSERT INTO session_item
+          (session_id, parent_id, type, position, exercise_id, repertoire_id, notes,
+           added_during_session)
+         VALUES (
+           $1, $2, $3,
+           COALESCE((
+             SELECT max(position) + 1 FROM session_item
+             WHERE session_id = $1 AND parent_id IS NOT DISTINCT FROM $2::bigint
+           ), 1),
+           $4, $5, $6, TRUE
+         )
+         RETURNING id::text`,
+        [
+          data.sessionId,
+          data.parentId,
+          data.type,
+          data.type === 'EXERCISE' ? data.sourceId : null,
+          data.type === 'REPERTOIRE' ? data.sourceId : null,
+          data.notes || null,
+        ],
+      )
+      await startNextAutoItem(client, data.sessionId)
+      await refreshSectionStates(client, data.sessionId)
+      await client.query('COMMIT')
+      return { id: result.rows[0]!.id }
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
+  })
+
+export const removeRunningSessionItem = createServerFn({ method: 'POST' })
+  .validator((input: { sessionId: string; itemId: string }) => {
+    if (!validId(input.sessionId) || !validId(input.itemId)) throw new Error('Invalid session item')
+    return input
+  })
+  .handler(async ({ data }): Promise<SessionProgressUpdate & { removedItemId: string }> => {
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      const result = await client.query<{ id: string }>(
+        `DELETE FROM session_item item
+           USING session
+           WHERE item.id = $1 AND item.session_id = $2
+             AND item.added_during_session = TRUE
+             AND session.id = item.session_id AND session.status = 'IN_PROGRESS'
+             AND session.musician_id = (
+               SELECT id FROM musician ORDER BY is_admin DESC, id LIMIT 1
+             )
+           RETURNING item.id::text`,
+        [data.itemId, data.sessionId],
+      )
+      if (!result.rowCount) {
+        throw new Error('Only items added during an in-progress session can be removed')
+      }
+      await startNextAutoItem(client, data.sessionId)
+      await refreshSectionStates(client, data.sessionId)
+      const update = await progressUpdate(client, data.sessionId)
+      await client.query('COMMIT')
+      return { ...update, removedItemId: data.itemId }
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
   })

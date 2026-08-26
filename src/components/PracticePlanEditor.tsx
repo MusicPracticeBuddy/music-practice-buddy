@@ -3,6 +3,7 @@ import { createStore, produce } from 'solid-js/store'
 import { Link, useNavigate } from '@tanstack/solid-router'
 import * as Dialog from '@kobalte/core/dialog'
 import Sortable, { type MoveEvent, type SortableEvent } from 'sortablejs'
+import { PracticeLibraryPanel } from './PracticeLibraryPanel'
 import {
   createLibraryItem,
   createSessionTemplate,
@@ -180,35 +181,6 @@ function PlanSortableList(props: {
   )
 }
 
-function LibrarySortableList(props: { children: JSX.Element }) {
-  let element: HTMLDivElement | undefined
-
-  onMount(() => {
-    if (!element) return
-    const sortable = new Sortable(element, {
-      group: { name: 'practice-library', pull: 'clone', put: false },
-      sort: false,
-      animation: 150,
-      draggable: '.editor-library-item',
-      ghostClass: 'sortable-ghost',
-      chosenClass: 'sortable-chosen',
-    })
-    onCleanup(() => sortable.destroy())
-  })
-
-  return (
-    <div
-      ref={(node) => {
-        element = node
-      }}
-      class="editor-library-list"
-      data-sortable-kind="library"
-    >
-      {props.children}
-    </div>
-  )
-}
-
 export function PracticePlanEditor(props: {
   library: TemplateLibraryItem[]
   template?: SessionTemplateDetail
@@ -220,7 +192,6 @@ export function PracticePlanEditor(props: {
   const [library, setLibrary] = createStore<TemplateLibraryItem[]>([...props.library])
   const [name, setName] = createSignal(initialRecord?.name ?? '')
   const [assignedDate, setAssignedDate] = createSignal(props.session?.assignedDate ?? '')
-  const [search, setSearch] = createSignal('')
   const [libraryType, setLibraryType] = createSignal<'EXERCISE' | 'REPERTOIRE'>('EXERCISE')
   const [selectedParentId, setSelectedParentId] = createSignal<string | null>(null)
   const [savingAction, setSavingAction] = createSignal<'save' | 'save-and-use' | null>(null)
@@ -230,13 +201,6 @@ export function PracticePlanEditor(props: {
   const [newItemName, setNewItemName] = createSignal('')
   const [newItemNotes, setNewItemNotes] = createSignal('')
 
-  const filteredLibrary = createMemo(() => {
-    const query = search().trim().toLowerCase()
-    const selectedItems = library.filter((item) => item.type === libraryType())
-    return query
-      ? selectedItems.filter((item) => `${item.name} ${item.detail}`.toLowerCase().includes(query))
-      : selectedItems
-  })
   const itemCount = createMemo(
     () => flatten(nodes).filter((item) => item.type !== 'SECTION').length,
   )
@@ -608,117 +572,77 @@ export function PracticePlanEditor(props: {
           </PlanSortableList>
         </section>
 
-        <aside class="editor-panel library-panel">
-          <div class="editor-panel-header">
-            <strong>My library</strong>
-            <span>Adds to the selected section</span>
-          </div>
-          <div class="library-type-tabs" role="tablist" aria-label="Library type">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={libraryType() === 'EXERCISE'}
-              class={libraryType() === 'EXERCISE' ? 'active' : ''}
-              onClick={() => setLibraryType('EXERCISE')}
+        <PracticeLibraryPanel
+          class="library-panel"
+          title="My library"
+          subtitle="Adds to the selected section"
+          items={library}
+          type={libraryType()}
+          onTypeChange={setLibraryType}
+          onSelect={addLibraryEntry}
+          dragMode="sortable"
+          footer={
+            <Dialog.Root
+              open={creatingItem()}
+              onOpenChange={(open) => {
+                if (open) setNewItemType(libraryType())
+                setCreatingItem(open)
+              }}
             >
-              Exercises ({library.filter((item) => item.type === 'EXERCISE').length})
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={libraryType() === 'REPERTOIRE'}
-              class={libraryType() === 'REPERTOIRE' ? 'active' : ''}
-              onClick={() => setLibraryType('REPERTOIRE')}
-            >
-              Repertoire ({library.filter((item) => item.type === 'REPERTOIRE').length})
-            </button>
-          </div>
-          <input
-            class="text-input"
-            value={search()}
-            onInput={(event) => setSearch(event.currentTarget.value)}
-            placeholder={`Search ${libraryType() === 'EXERCISE' ? 'exercises' : 'repertoire'}`}
-            aria-label={`Search ${libraryType() === 'EXERCISE' ? 'exercises' : 'repertoire'}`}
-          />
-          <LibrarySortableList>
-            <For each={filteredLibrary()}>
-              {(item) => (
-                <button
-                  type="button"
-                  class="editor-library-item"
-                  data-library-id={item.id}
-                  data-library-type={item.type}
-                  onClick={() => addLibraryEntry(item)}
-                >
-                  <span>
-                    <strong>{item.name}</strong>
-                    <small>{item.detail}</small>
-                  </span>
-                  <b>+ Add</b>
-                </button>
-              )}
-            </For>
-          </LibrarySortableList>
-          <Dialog.Root
-            open={creatingItem()}
-            onOpenChange={(open) => {
-              if (open) setNewItemType(libraryType())
-              setCreatingItem(open)
-            }}
-          >
-            <Dialog.Trigger class="secondary-button full-button">
-              + Create new {libraryType() === 'EXERCISE' ? 'exercise' : 'repertoire'}
-            </Dialog.Trigger>
-            <Dialog.Portal>
-              <Dialog.Overlay class="modal-backdrop" />
-              <Dialog.Content class="editor-modal">
-                <form onSubmit={createAndAddItem}>
-                  <Dialog.Title>Create and add an item</Dialog.Title>
-                  <label class="field-label" for="new-item-type">
-                    Type
-                  </label>
-                  <select
-                    id="new-item-type"
-                    class="text-input"
-                    value={newItemType()}
-                    onChange={(event) =>
-                      setNewItemType(event.currentTarget.value as 'EXERCISE' | 'REPERTOIRE')
-                    }
-                  >
-                    <option value="EXERCISE">Exercise</option>
-                    <option value="REPERTOIRE">Repertoire</option>
-                  </select>
-                  <label class="field-label" for="new-item-name">
-                    Name
-                  </label>
-                  <input
-                    id="new-item-name"
-                    class="text-input"
-                    value={newItemName()}
-                    onInput={(event) => setNewItemName(event.currentTarget.value)}
-                    required
-                  />
-                  <label class="field-label" for="new-item-notes">
-                    Notes (optional)
-                  </label>
-                  <textarea
-                    id="new-item-notes"
-                    class="text-input"
-                    value={newItemNotes()}
-                    onInput={(event) => setNewItemNotes(event.currentTarget.value)}
-                    rows="3"
-                  />
-                  <div class="modal-actions">
-                    <Dialog.CloseButton class="secondary-button">Cancel</Dialog.CloseButton>
-                    <button type="submit" class="primary-button">
-                      Create and add
-                    </button>
-                  </div>
-                </form>
-              </Dialog.Content>
-            </Dialog.Portal>
-          </Dialog.Root>
-        </aside>
+              <Dialog.Trigger class="secondary-button full-button">
+                + Create new {libraryType() === 'EXERCISE' ? 'exercise' : 'repertoire'}
+              </Dialog.Trigger>
+              <Dialog.Portal>
+                <Dialog.Overlay class="modal-backdrop" />
+                <Dialog.Content class="editor-modal">
+                  <form onSubmit={createAndAddItem}>
+                    <Dialog.Title>Create and add an item</Dialog.Title>
+                    <label class="field-label" for="new-item-type">
+                      Type
+                    </label>
+                    <select
+                      id="new-item-type"
+                      class="text-input"
+                      value={newItemType()}
+                      onChange={(event) =>
+                        setNewItemType(event.currentTarget.value as 'EXERCISE' | 'REPERTOIRE')
+                      }
+                    >
+                      <option value="EXERCISE">Exercise</option>
+                      <option value="REPERTOIRE">Repertoire</option>
+                    </select>
+                    <label class="field-label" for="new-item-name">
+                      Name
+                    </label>
+                    <input
+                      id="new-item-name"
+                      class="text-input"
+                      value={newItemName()}
+                      onInput={(event) => setNewItemName(event.currentTarget.value)}
+                      required
+                    />
+                    <label class="field-label" for="new-item-notes">
+                      Notes (optional)
+                    </label>
+                    <textarea
+                      id="new-item-notes"
+                      class="text-input"
+                      value={newItemNotes()}
+                      onInput={(event) => setNewItemNotes(event.currentTarget.value)}
+                      rows="3"
+                    />
+                    <div class="modal-actions">
+                      <Dialog.CloseButton class="secondary-button">Cancel</Dialog.CloseButton>
+                      <button type="submit" class="primary-button">
+                        Create and add
+                      </button>
+                    </div>
+                  </form>
+                </Dialog.Content>
+              </Dialog.Portal>
+            </Dialog.Root>
+          }
+        />
       </div>
     </main>
   )

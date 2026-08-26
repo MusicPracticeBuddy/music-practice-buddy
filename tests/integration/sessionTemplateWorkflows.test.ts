@@ -2,9 +2,12 @@ import { readFile } from 'node:fs/promises'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { pool } from '../../src/data/db'
 import {
+  addRunningSessionItem,
   completePracticeSession,
   deletePlannedSession,
+  getSessionDetail,
   getSessions,
+  removeRunningSessionItem,
   startPracticeSession,
   updateSessionName,
   updateSessionProgress,
@@ -408,6 +411,88 @@ describe('session persistence', () => {
       data: { sessionId: created.id, changes: [{ itemId: secondItem.id, action: 'SKIP' }] },
     })
     expect((await completePracticeSession({ data: created.id })).status).toBe('COMPLETED')
+  })
+
+  it('only removes practice items that were added while the session was in progress', async () => {
+    const created = await createPracticeSession({
+      data: { templateId: null, assignedDate: null },
+    })
+    await updatePlannedSession({
+      data: {
+        id: created.id,
+        name: 'Expandable session',
+        assignedDate: null,
+        items: [
+          section('section', 'Main section', 1),
+          practiceItem('original', 'section', 'EXERCISE', exerciseId, 'Original item', 1),
+        ],
+      },
+    })
+    await startPracticeSession({
+      data: { sessionId: created.id, timingMode: 'MANUAL', localDate: '2030-01-01' },
+    })
+    const initial = await getSessionDetail({ data: created.id })
+    const sectionId = initial!.items.find((item) => item.type === 'SECTION')!.id
+    const originalId = initial!.items.find((item) => item.type !== 'SECTION')!.id
+
+    const added = await addRunningSessionItem({
+      data: {
+        sessionId: created.id,
+        parentId: sectionId,
+        type: 'REPERTOIRE',
+        sourceId: repertoireId,
+        notes: 'Added on the fly',
+      },
+    })
+    const expanded = await getSessionDetail({ data: created.id })
+    expect(expanded?.items.find((item) => item.id === originalId)?.addedDuringSession).toBe(false)
+    expect(expanded?.items.find((item) => item.id === added.id)).toMatchObject({
+      parentId: sectionId,
+      addedDuringSession: true,
+      notes: 'Added on the fly',
+    })
+
+    await expect(
+      removeRunningSessionItem({ data: { sessionId: created.id, itemId: originalId } }),
+    ).rejects.toThrow('Only items added during an in-progress session can be removed')
+    await removeRunningSessionItem({ data: { sessionId: created.id, itemId: added.id } })
+    expect(
+      (await getSessionDetail({ data: created.id }))?.items.some((item) => item.id === added.id),
+    ).toBe(false)
+
+    const finalAdded = await addRunningSessionItem({
+      data: {
+        sessionId: created.id,
+        parentId: null,
+        type: 'REPERTOIRE',
+        sourceId: repertoireId,
+        notes: '',
+      },
+    })
+    await updateSessionProgress({
+      data: {
+        sessionId: created.id,
+        changes: [
+          { itemId: originalId, action: 'COMPLETE' },
+          { itemId: finalAdded.id, action: 'SKIP' },
+        ],
+      },
+    })
+    await completePracticeSession({ data: created.id })
+    await expect(
+      addRunningSessionItem({
+        data: {
+          sessionId: created.id,
+          parentId: null,
+          type: 'EXERCISE',
+          sourceId: exerciseId,
+          notes: '',
+        },
+      }),
+    ).rejects.toThrow('Items can only be added to an in-progress session')
+    await expect(
+      removeRunningSessionItem({ data: { sessionId: created.id, itemId: finalAdded.id } }),
+    ).rejects.toThrow('Only items added during an in-progress session can be removed')
   })
 })
 
