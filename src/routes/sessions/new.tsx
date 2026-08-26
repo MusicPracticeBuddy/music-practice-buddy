@@ -1,6 +1,6 @@
 import { For, Show, createSignal } from 'solid-js'
 import { Link, createFileRoute, useNavigate } from '@tanstack/solid-router'
-import { createPracticeSession, getSessionTemplates } from '../../data/sessionTemplates'
+import { createPracticeSession, getSessionTemplates } from '@/data/sessionTemplates'
 
 export const Route = createFileRoute('/sessions/new')({
   validateSearch: (search: Record<string, unknown>): { template?: string } =>

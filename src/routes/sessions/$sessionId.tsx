@@ -8,8 +8,8 @@ import {
   useNavigate,
   useRouter,
 } from '@tanstack/solid-router'
-import { DeleteConfirmationDialog } from '../../components/DeleteConfirmationDialog'
-import { PracticeLibraryPanel } from '../../components/PracticeLibraryPanel'
+import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
+import { PracticeLibraryPanel } from '@/components/PracticeLibraryPanel'
 import {
   addRunningSessionItem,
   completePracticeSession,
@@ -27,8 +27,8 @@ import {
   type SessionItemStatus,
   type SessionProgressUpdate,
   type SessionTimingMode,
-} from '../../data/sessions'
-import { getTemplateLibrary, type TemplateLibraryItem } from '../../data/sessionTemplates'
+} from '@/data/sessions'
+import { getTemplateLibrary, type TemplateLibraryItem } from '@/data/sessionTemplates'
 import {
   LIBRARY_ITEM_TYPE,
   PRACTICE_ITEM_TYPE,
@@ -39,7 +39,7 @@ import {
   isLibraryItemType,
   isResolvedSessionItemStatus,
   type LibraryItemType,
-} from '../../domain/session'
+} from '@/domain/session'
 
 type SessionItemNode = SessionDetailItem & { children: SessionItemNode[] }
 

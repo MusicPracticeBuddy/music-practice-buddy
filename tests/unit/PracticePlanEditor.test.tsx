@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library'
 import type { JSX } from 'solid-js'
 import type { SortableEvent } from 'sortablejs'
-import type { SessionTemplateDetail, TemplateLibraryItem } from '../../src/data/sessionTemplates'
+import type { SessionTemplateDetail, TemplateLibraryItem } from '@/data/sessionTemplates'
 
 type SortableOptions = {
   onAdd?: (event: SortableEvent) => void
@@ -37,7 +37,7 @@ vi.mock('../../src/data/sessionTemplates', () => ({
   updateSessionTemplate: vi.fn(),
 }))
 
-import { PracticePlanEditor } from '../../src/components/PracticePlanEditor'
+import { PracticePlanEditor } from '@/components/PracticePlanEditor'
 
 const library: TemplateLibraryItem[] = [
   { id: '1', type: 'EXERCISE', name: 'Exercise One', detail: 'Exercise' },

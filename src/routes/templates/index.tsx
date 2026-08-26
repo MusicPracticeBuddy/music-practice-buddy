@@ -1,12 +1,12 @@
 import { For, Show, createSignal } from 'solid-js'
 import { Link, createFileRoute, useRouter } from '@tanstack/solid-router'
-import { DeleteConfirmationDialog } from '../../components/DeleteConfirmationDialog'
-import { SwipeToDelete } from '../../components/SwipeToDelete'
+import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
+import { SwipeToDelete } from '@/components/SwipeToDelete'
 import {
   deleteSessionTemplate,
   getSessionTemplates,
   type SessionTemplateSummary,
-} from '../../data/sessionTemplates'
+} from '@/data/sessionTemplates'
 
 export const Route = createFileRoute('/templates/')({
   loader: () => getSessionTemplates(),

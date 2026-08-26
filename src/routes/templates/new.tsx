@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/solid-router'
-import { PracticePlanEditor } from '../../components/PracticePlanEditor'
-import { getTemplateLibrary } from '../../data/sessionTemplates'
+import { PracticePlanEditor } from '@/components/PracticePlanEditor'
+import { getTemplateLibrary } from '@/data/sessionTemplates'
 
 export const Route = createFileRoute('/templates/new')({
   loader: () => getTemplateLibrary(),

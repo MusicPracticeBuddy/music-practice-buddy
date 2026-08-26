@@ -1,9 +1,9 @@
 import { For, Show, createSignal } from 'solid-js'
 import { Link, createFileRoute, useRouter } from '@tanstack/solid-router'
-import { DeleteConfirmationDialog } from '../../components/DeleteConfirmationDialog'
-import { SwipeToDelete } from '../../components/SwipeToDelete'
-import { deletePlannedSession, getSessions, type SessionRow } from '../../data/sessions'
-import { SESSION_STATUS } from '../../domain/session'
+import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
+import { SwipeToDelete } from '@/components/SwipeToDelete'
+import { deletePlannedSession, getSessions, type SessionRow } from '@/data/sessions'
+import { SESSION_STATUS } from '@/domain/session'
 
 export const Route = createFileRoute('/sessions/')({
   loader: () => getSessions(),

@@ -1,10 +1,10 @@
 import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js'
 import Sortable from 'sortablejs'
-import type { TemplateLibraryItem } from '../data/sessionTemplates'
+import type { TemplateLibraryItem } from '@/data/sessionTemplates'
 import {
   LIBRARY_ITEM_TYPE,
   type LibraryItemType as PracticeLibraryItemType,
-} from '../domain/session'
+} from '@/domain/session'
 
 export type { PracticeLibraryItemType }
 

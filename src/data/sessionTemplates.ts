@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/solid-start'
 import type { PoolClient } from 'pg'
-import { pool } from './db'
+import { pool } from '@/data/db'
 import {
   LIBRARY_ITEM_TYPE,
   PRACTICE_ITEM_TYPE,
@@ -8,7 +8,7 @@ import {
   isPracticeItemType,
   type LibraryItemType,
   type PracticeItemType,
-} from '../domain/session'
+} from '@/domain/session'
 
 export type TemplateItemInput = {
   clientId: string

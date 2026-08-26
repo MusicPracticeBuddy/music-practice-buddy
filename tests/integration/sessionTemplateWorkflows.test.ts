@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
-import { pool } from '../../src/data/db'
+import { pool } from '@/data/db'
 import {
   addRunningSessionItem,
   completePracticeSession,
@@ -13,7 +13,7 @@ import {
   startPracticeSession,
   updateSessionName,
   updateSessionProgress,
-} from '../../src/data/sessions'
+} from '@/data/sessions'
 import {
   createPracticeSession,
   createSessionTemplate,
@@ -21,7 +21,7 @@ import {
   updatePlannedSession,
   updateSessionTemplate,
   type TemplateItemInput,
-} from '../../src/data/sessionTemplates'
+} from '@/data/sessionTemplates'
 
 let exerciseId = ''
 let repertoireId = ''

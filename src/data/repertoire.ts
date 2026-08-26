@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/solid-start'
-import { pool, toIsoString } from './db'
+import { pool, toIsoString } from '@/data/db'
 
 type RepertoireRow = {
   id: string

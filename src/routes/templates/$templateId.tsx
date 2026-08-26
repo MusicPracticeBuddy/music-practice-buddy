@@ -1,13 +1,13 @@
 import { For, Show } from 'solid-js'
 import { Link, createFileRoute, notFound, useNavigate } from '@tanstack/solid-router'
-import { DeleteConfirmationDialog } from '../../components/DeleteConfirmationDialog'
+import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
 import {
   deleteSessionTemplate,
   getSessionTemplate,
   type SessionTemplateDetail,
   type TemplateItemInput,
-} from '../../data/sessionTemplates'
-import { PRACTICE_ITEM_TYPE } from '../../domain/session'
+} from '@/data/sessionTemplates'
+import { PRACTICE_ITEM_TYPE } from '@/domain/session'
 
 export const Route = createFileRoute('/templates/$templateId')({
   loader: async ({ params }) => {

@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/solid-start'
-import { pool } from './db'
+import { pool } from '@/data/db'
 
 type DashboardData = {
   counts: {

@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/solid-start'
 import type { PoolClient } from 'pg'
-import { pool, toIsoString } from './db'
+import { pool, toIsoString } from '@/data/db'
 import {
   LIBRARY_ITEM_TYPE,
   PRACTICE_ITEM_TYPE,
@@ -18,7 +18,7 @@ import {
   type SessionItemStatus,
   type SessionStatus,
   type SessionTimingMode,
-} from '../domain/session'
+} from '@/domain/session'
 
 export type { SessionItemAction, SessionItemStatus, SessionStatus, SessionTimingMode }
 

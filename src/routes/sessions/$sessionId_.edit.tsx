@@ -1,6 +1,6 @@
 import { createFileRoute, notFound } from '@tanstack/solid-router'
-import { getPlannedSessionForEdit, getTemplateLibrary } from '../../data/sessionTemplates'
-import { PracticePlanEditor } from '../../components/PracticePlanEditor'
+import { PracticePlanEditor } from '@/components/PracticePlanEditor'
+import { getPlannedSessionForEdit, getTemplateLibrary } from '@/data/sessionTemplates'
 
 export const Route = createFileRoute('/sessions/$sessionId_/edit')({
   loader: async ({ params }) => {

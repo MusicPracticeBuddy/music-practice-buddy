@@ -3,7 +3,7 @@ import { createStore, produce } from 'solid-js/store'
 import { Link, useNavigate } from '@tanstack/solid-router'
 import * as Dialog from '@kobalte/core/dialog'
 import Sortable, { type MoveEvent, type SortableEvent } from 'sortablejs'
-import { PracticeLibraryPanel } from './PracticeLibraryPanel'
+import { PracticeLibraryPanel } from '@/components/PracticeLibraryPanel'
 import {
   createLibraryItem,
   createSessionTemplate,
@@ -13,13 +13,13 @@ import {
   type TemplateItemInput,
   type TemplateLibraryItem,
   type SessionTemplateDetail,
-} from '../data/sessionTemplates'
+} from '@/data/sessionTemplates'
 import {
   LIBRARY_ITEM_TYPE,
   PRACTICE_ITEM_TYPE,
   isLibraryItemType,
   type LibraryItemType,
-} from '../domain/session'
+} from '@/domain/session'
 
 type EditorNode = Omit<TemplateItemInput, 'parentClientId' | 'position'> & {
   children: EditorNode[]

@@ -1,6 +1,6 @@
 import { Show } from 'solid-js'
 import { createFileRoute, Link } from '@tanstack/solid-router'
-import { getDashboard } from '../data/dashboard'
+import { getDashboard } from '@/data/dashboard'
 
 export const Route = createFileRoute('/')({
   loader: () => getDashboard(),
