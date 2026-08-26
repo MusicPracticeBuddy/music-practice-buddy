@@ -1,4 +1,4 @@
-import { For, Show, createMemo } from 'solid-js'
+import { For, Show, createMemo, createSignal } from 'solid-js'
 import { Link, createFileRoute, notFound } from '@tanstack/solid-router'
 import { getSessionDetail, type SessionDetailItem } from '../../data/sessions'
 
@@ -52,6 +52,33 @@ function itemState(item: SessionDetailItem) {
   if (item.endedAt) return 'Complete'
   if (item.startedAt) return 'In progress'
   return 'Remaining'
+}
+
+function descendants(item: SessionItemNode): SessionItemNode[] {
+  return item.children.flatMap((child) => [child, ...descendants(child)])
+}
+
+function nodeState(item: SessionItemNode): ReturnType<typeof itemState> {
+  if (item.type !== 'SECTION') return itemState(item)
+
+  const practiceItems = descendants(item).filter((child) => child.type !== 'SECTION')
+  if (practiceItems.length > 0 && practiceItems.every((child) => child.endedAt)) return 'Complete'
+  if (practiceItems.some((child) => child.startedAt || child.endedAt)) return 'In progress'
+  return 'Remaining'
+}
+
+function StatusIndicator(props: { state: ReturnType<typeof itemState> }) {
+  const className = () => props.state.toLowerCase().replace(' ', '-')
+
+  return (
+    <span
+      class={`item-state item-state-${className()}`}
+      aria-label={props.state}
+      title={props.state}
+    >
+      {props.state === 'Complete' ? '✓' : props.state === 'In progress' ? '◐' : '○'}
+    </span>
+  )
 }
 
 function SessionDetail() {
@@ -120,53 +147,85 @@ function SessionDetail() {
 }
 
 function SessionItem(props: { item: SessionItemNode }) {
+  const isSection = props.item.type === 'SECTION'
+  const [expanded, setExpanded] = createSignal(isSection)
+  const contentId = `session-item-${props.item.id}-content`
+
   if (props.item.type === 'SECTION') {
     return (
       <section class="practice-section">
-        <header class="practice-section-header">
+        <button
+          type="button"
+          class="practice-section-header"
+          aria-expanded={expanded()}
+          aria-controls={contentId}
+          onClick={() => setExpanded((value) => !value)}
+        >
           <div>
-            <span class="item-type">Section</span>
+            <span class="disclosure-icon" aria-hidden="true">
+              {expanded() ? '⌄' : '›'}
+            </span>
             <h2>{props.item.name}</h2>
           </div>
-          <span>{props.item.children.length} items</span>
-        </header>
-        <Show when={props.item.notes}>
-          <p class="practice-notes">{props.item.notes}</p>
+          <div class="disclosure-status">
+            <Show when={expanded()}>
+              <span>{props.item.children.length} items</span>
+            </Show>
+            <StatusIndicator state={nodeState(props.item)} />
+          </div>
+        </button>
+        <Show when={expanded()}>
+          <div id={contentId}>
+            <Show when={props.item.notes}>
+              <p class="practice-notes">{props.item.notes}</p>
+            </Show>
+            <div class="practice-items">
+              <For each={props.item.children}>{(child) => <SessionItem item={child} />}</For>
+            </div>
+          </div>
         </Show>
-        <div class="practice-items">
-          <For each={props.item.children}>{(child) => <SessionItem item={child} />}</For>
-        </div>
       </section>
     )
   }
 
   return (
     <article class="practice-item">
-      <div class={`item-state item-state-${itemState(props.item).toLowerCase().replace(' ', '-')}`}>
-        {props.item.endedAt ? '✓' : props.item.startedAt ? '◐' : '○'}
-      </div>
-      <div>
-        <div class="practice-item-heading">
+      <button
+        type="button"
+        class="practice-item-toggle"
+        aria-expanded={expanded()}
+        aria-controls={contentId}
+        onClick={() => setExpanded((value) => !value)}
+      >
+        <span class="disclosure-icon" aria-hidden="true">
+          {expanded() ? '⌄' : '›'}
+        </span>
+        <h3>{props.item.name}</h3>
+        <StatusIndicator state={itemState(props.item)} />
+      </button>
+      <Show when={expanded()}>
+        <div id={contentId} class="practice-item-details">
           <div>
-            <span class="item-type">{props.item.type.toLowerCase()}</span>
-            <h3>{props.item.name}</h3>
+            <div class="practice-item-heading">
+              <span class="item-type">{props.item.type.toLowerCase()}</span>
+              <span class="item-timing">
+                {props.item.durationMinutes !== null
+                  ? `${props.item.durationMinutes} min`
+                  : itemState(props.item)}
+              </span>
+            </div>
+            <Show when={props.item.notes}>
+              <p class="practice-notes">{props.item.notes}</p>
+            </Show>
+            <Show when={props.item.notation}>
+              <div class="notation-block">
+                <span>{props.item.notationFormat}</span>
+                <p>{props.item.notation}</p>
+              </div>
+            </Show>
           </div>
-          <span class="item-timing">
-            {props.item.durationMinutes !== null
-              ? `${props.item.durationMinutes} min`
-              : itemState(props.item)}
-          </span>
         </div>
-        <Show when={props.item.notes}>
-          <p class="practice-notes">{props.item.notes}</p>
-        </Show>
-        <Show when={props.item.notation}>
-          <div class="notation-block">
-            <span>{props.item.notationFormat}</span>
-            <p>{props.item.notation}</p>
-          </div>
-        </Show>
-      </div>
+      </Show>
     </article>
   )
 }

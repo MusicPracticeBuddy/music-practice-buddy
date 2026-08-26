@@ -548,20 +548,46 @@ h1 {
 
 .practice-section-header {
   display: flex;
+  width: 100%;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
   padding: 20px 22px;
+  border: 0;
   border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.practice-section-header:hover,
+.practice-item-toggle:hover {
+  background: #f1f3ed;
+}
+
+.practice-section-header > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .practice-section-header h2 {
-  margin: 3px 0 0;
+  margin: 0;
   font-size: 22px;
 }
 
 .practice-section-header > span,
 .item-timing {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.disclosure-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   color: var(--muted);
   font-size: 12px;
 }
@@ -578,10 +604,6 @@ h1 {
 }
 
 .practice-item {
-  display: grid;
-  grid-template-columns: 28px 1fr;
-  gap: 12px;
-  padding: 15px 10px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -611,6 +633,38 @@ h1 {
   color: var(--coral);
 }
 
+.disclosure-icon {
+  display: inline-grid;
+  width: 18px;
+  place-items: center;
+  color: var(--muted);
+  font-size: 18px;
+}
+
+.practice-item-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 10px;
+  border: 0;
+  border-radius: 8px;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.practice-item-details {
+  display: block;
+  padding: 0 10px 16px 38px;
+}
+
+.practice-item-toggle .item-state {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
 .item-type {
   color: var(--muted);
   font-size: 10px;
@@ -627,7 +681,7 @@ h1 {
 }
 
 .practice-item h3 {
-  margin: 3px 0 0;
+  margin: 0;
   font-family: 'Fraunces', serif;
   font-size: 18px;
 }
