@@ -672,7 +672,7 @@ h1 {
   background: transparent;
 }
 
-.template-outline-item .practice-notes {
+.template-outline-item .practice-instruction {
   margin: 5px 0 0;
 }
 
@@ -1560,12 +1560,34 @@ textarea.text-input {
   font-size: 12px;
 }
 
-.practice-notes {
+.practice-notes,
+.practice-instruction,
+.practice-session-note {
   margin: 14px 22px;
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
   white-space: pre-wrap;
+}
+
+.practice-instruction strong,
+.practice-session-note strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--ink);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.practice-instruction p,
+.practice-session-note p {
+  margin: 0;
+}
+
+.practice-session-note {
+  border-left: 2px solid var(--green);
+  padding-left: 10px;
 }
 
 .practice-note-action {

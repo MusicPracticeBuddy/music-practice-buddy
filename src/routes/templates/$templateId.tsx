@@ -117,8 +117,11 @@ function TemplateOutlineItem(props: { item: TemplateNode }) {
           </div>
           <span>{props.item.children.length} items</span>
         </div>
-        <Show when={props.item.notes}>
-          <p class="practice-notes">{props.item.notes}</p>
+        <Show when={props.item.instruction}>
+          <div class="practice-instruction">
+            <strong>Instruction</strong>
+            <p>{props.item.instruction}</p>
+          </div>
         </Show>
         <div class="practice-items">
           <For each={props.item.children}>{(child) => <TemplateOutlineItem item={child} />}</For>
@@ -132,8 +135,11 @@ function TemplateOutlineItem(props: { item: TemplateNode }) {
       <div class="practice-item-toggle">
         <div>
           <h3>{props.item.name}</h3>
-          <Show when={props.item.notes}>
-            <p class="practice-notes">{props.item.notes}</p>
+          <Show when={props.item.instruction}>
+            <div class="practice-instruction">
+              <strong>Instruction</strong>
+              <p>{props.item.instruction}</p>
+            </div>
           </Show>
         </div>
         <span class="item-type">{props.item.type.toLowerCase()}</span>

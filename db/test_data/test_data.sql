@@ -125,7 +125,7 @@ VALUES
     ((SELECT id FROM musician WHERE is_admin LIMIT 1), 'Daily Brass Practice'),
     ((SELECT id FROM musician WHERE is_admin LIMIT 1), 'Short Practice Session');
 
-INSERT INTO session_template_item (session_template_id, type, position, name, notes)
+INSERT INTO session_template_item (session_template_id, type, position, name, instruction)
 VALUES
     ((SELECT id FROM session_template WHERE name = 'Daily Brass Practice'), 'SECTION', 1, 'Warmup', 'Focus on relaxed sound and efficient breathing.'),
     ((SELECT id FROM session_template WHERE name = 'Daily Brass Practice'), 'SECTION', 2, 'Technical Studies', 'Articulation and flexibility.'),
@@ -133,7 +133,7 @@ VALUES
     ((SELECT id FROM session_template WHERE name = 'Short Practice Session'), 'SECTION', 1, 'Core Work', 'Keep the session focused.'),
     ((SELECT id FROM session_template WHERE name = 'Short Practice Session'), 'SECTION', 2, 'Repertoire', NULL);
 
-INSERT INTO session_template_item (session_template_id, parent_id, type, position, exercise_id, repertoire_id, notes)
+INSERT INTO session_template_item (session_template_id, parent_id, type, position, exercise_id, repertoire_id, instruction)
 VALUES
     ((SELECT id FROM session_template WHERE name = 'Daily Brass Practice'), (SELECT id FROM session_template_item WHERE name = 'Warmup'), 'EXERCISE', 1, (SELECT id FROM exercise WHERE name = 'Long tones'), NULL, 'Start quietly and gradually expand dynamics.'),
     ((SELECT id FROM session_template WHERE name = 'Daily Brass Practice'), (SELECT id FROM session_template_item WHERE name = 'Technical Studies'), 'EXERCISE', 1, (SELECT id FROM exercise WHERE name = 'Lip slurs'), NULL, NULL),
@@ -148,29 +148,29 @@ VALUES
     ((SELECT id FROM musician WHERE is_admin LIMIT 1), (SELECT id FROM session_template WHERE name = 'Daily Brass Practice'), 'Daily Brass Practice', 'IN_PROGRESS', 'AUTO', '2026-08-25', '2026-08-25 08:00:00-04', '2026-08-25 08:05:00-04', NULL),
     ((SELECT id FROM musician WHERE is_admin LIMIT 1), (SELECT id FROM session_template WHERE name = 'Short Practice Session'), 'Short Practice Session', 'PLANNED', NULL, '2026-08-26', '2026-08-26 08:00:00-04', NULL, NULL);
 
-INSERT INTO session_item (session_id, type, position, name, status, notes)
+INSERT INTO session_item (session_id, type, position, name, status, instruction, session_note)
 VALUES
-    ((SELECT id FROM session WHERE status = 'COMPLETED'), 'SECTION', 1, 'Warmup', 'COMPLETE', 'Completed comfortably.'),
-    ((SELECT id FROM session WHERE status = 'COMPLETED'), 'SECTION', 2, 'Technical Studies', 'COMPLETE', 'Added an extra articulation exercise.'),
-    ((SELECT id FROM session WHERE status = 'COMPLETED'), 'SECTION', 3, 'Repertoire', 'COMPLETE', 'Spent extra time on the study.'),
-    ((SELECT id FROM session WHERE status = 'IN_PROGRESS'), 'SECTION', 1, 'Warmup', 'COMPLETE', NULL),
-    ((SELECT id FROM session WHERE status = 'IN_PROGRESS'), 'SECTION', 2, 'Technical Studies', 'IN_PROGRESS', 'Going slower today.'),
-    ((SELECT id FROM session WHERE status = 'IN_PROGRESS'), 'SECTION', 3, 'Repertoire - Extended', 'NOT_STARTED', 'This section was renamed only for this session.'),
-    ((SELECT id FROM session WHERE status = 'PLANNED'), 'SECTION', 1, 'Core Work', 'NOT_STARTED', 'Keep the session focused.'),
-    ((SELECT id FROM session WHERE status = 'PLANNED'), 'SECTION', 2, 'Repertoire', 'NOT_STARTED', NULL);
+    ((SELECT id FROM session WHERE status = 'COMPLETED'), 'SECTION', 1, 'Warmup', 'COMPLETE', NULL, 'Completed comfortably.'),
+    ((SELECT id FROM session WHERE status = 'COMPLETED'), 'SECTION', 2, 'Technical Studies', 'COMPLETE', NULL, 'Added an extra articulation exercise.'),
+    ((SELECT id FROM session WHERE status = 'COMPLETED'), 'SECTION', 3, 'Repertoire', 'COMPLETE', NULL, 'Spent extra time on the study.'),
+    ((SELECT id FROM session WHERE status = 'IN_PROGRESS'), 'SECTION', 1, 'Warmup', 'COMPLETE', NULL, NULL),
+    ((SELECT id FROM session WHERE status = 'IN_PROGRESS'), 'SECTION', 2, 'Technical Studies', 'IN_PROGRESS', NULL, 'Going slower today.'),
+    ((SELECT id FROM session WHERE status = 'IN_PROGRESS'), 'SECTION', 3, 'Repertoire - Extended', 'NOT_STARTED', NULL, 'This section was renamed only for this session.'),
+    ((SELECT id FROM session WHERE status = 'PLANNED'), 'SECTION', 1, 'Core Work', 'NOT_STARTED', 'Keep the session focused.', NULL),
+    ((SELECT id FROM session WHERE status = 'PLANNED'), 'SECTION', 2, 'Repertoire', 'NOT_STARTED', NULL, NULL);
 
-INSERT INTO session_item (session_id, parent_id, type, position, exercise_id, repertoire_id, status, started_at, ended_at, notes)
+INSERT INTO session_item (session_id, parent_id, type, position, exercise_id, repertoire_id, status, started_at, ended_at, instruction, session_note)
 VALUES
-    ((SELECT id FROM session WHERE status = 'COMPLETED'), (SELECT id FROM session_item WHERE name = 'Warmup' AND session_id = (SELECT id FROM session WHERE status = 'COMPLETED')), 'EXERCISE', 1, (SELECT id FROM exercise WHERE name = 'Long tones'), NULL, 'COMPLETE', '2026-08-23 08:05:00-04', '2026-08-23 08:15:00-04', 'Good centered sound.'),
-    ((SELECT id FROM session WHERE status = 'COMPLETED'), (SELECT id FROM session_item WHERE name = 'Technical Studies' AND session_id = (SELECT id FROM session WHERE status = 'COMPLETED')), 'EXERCISE', 1, (SELECT id FROM exercise WHERE name = 'Lip slurs'), NULL, 'COMPLETE', '2026-08-23 08:15:00-04', '2026-08-23 08:25:00-04', NULL),
-    ((SELECT id FROM session WHERE status = 'COMPLETED'), (SELECT id FROM session_item WHERE name = 'Technical Studies' AND session_id = (SELECT id FROM session WHERE status = 'COMPLETED')), 'EXERCISE', 2, (SELECT id FROM exercise WHERE name = 'Double-tonguing'), NULL, 'COMPLETE', '2026-08-23 08:25:00-04', '2026-08-23 08:35:00-04', 'Reached 104 BPM.'),
-    ((SELECT id FROM session WHERE status = 'COMPLETED'), (SELECT id FROM session_item WHERE name = 'Technical Studies' AND session_id = (SELECT id FROM session WHERE status = 'COMPLETED')), 'EXERCISE', 3, (SELECT id FROM exercise WHERE name = 'Scale articulation'), NULL, 'COMPLETE', '2026-08-23 08:35:00-04', '2026-08-23 08:40:00-04', 'Added this directly to the session.'),
-    ((SELECT id FROM session WHERE status = 'COMPLETED'), (SELECT id FROM session_item WHERE name = 'Repertoire' AND session_id = (SELECT id FROM session WHERE status = 'COMPLETED')), 'REPERTOIRE', 1, NULL, (SELECT id FROM repertoire WHERE title = 'Arban Characteristic Study No. 1'), 'COMPLETE', '2026-08-23 08:40:00-04', '2026-08-23 08:55:00-04', 'Worked slowly with a metronome.'),
-    ((SELECT id FROM session WHERE status = 'IN_PROGRESS'), (SELECT id FROM session_item WHERE name = 'Warmup' AND session_id = (SELECT id FROM session WHERE status = 'IN_PROGRESS')), 'EXERCISE', 1, (SELECT id FROM exercise WHERE name = 'Long tones'), NULL, 'COMPLETE', '2026-08-25 08:05:00-04', '2026-08-25 08:15:00-04', NULL),
-    ((SELECT id FROM session WHERE status = 'IN_PROGRESS'), (SELECT id FROM session_item WHERE name = 'Technical Studies' AND session_id = (SELECT id FROM session WHERE status = 'IN_PROGRESS')), 'EXERCISE', 1, (SELECT id FROM exercise WHERE name = 'Lip slurs'), NULL, 'IN_PROGRESS', '2026-08-25 08:15:00-04', NULL, 'Currently working on this.'),
-    ((SELECT id FROM session WHERE status = 'IN_PROGRESS'), (SELECT id FROM session_item WHERE name = 'Repertoire - Extended'), 'REPERTOIRE', 1, NULL, (SELECT id FROM repertoire WHERE title = 'Arban Characteristic Study No. 1'), 'NOT_STARTED', NULL, NULL, 'Added directly to this session.'),
-    ((SELECT id FROM session WHERE status = 'PLANNED'), (SELECT id FROM session_item WHERE name = 'Core Work' AND session_id = (SELECT id FROM session WHERE status = 'PLANNED')), 'EXERCISE', 1, (SELECT id FROM exercise WHERE name = 'Long tones - adapted'), NULL, 'NOT_STARTED', NULL, NULL, 'Keep the session focused.'),
-    ((SELECT id FROM session WHERE status = 'PLANNED'), (SELECT id FROM session_item WHERE name = 'Repertoire' AND session_id = (SELECT id FROM session WHERE status = 'PLANNED')), 'REPERTOIRE', 1, NULL, (SELECT id FROM repertoire WHERE title = 'Arban Characteristic Study No. 1'), 'NOT_STARTED', NULL, NULL, 'One focused pass.');
+    ((SELECT id FROM session WHERE status = 'COMPLETED'), (SELECT id FROM session_item WHERE name = 'Warmup' AND session_id = (SELECT id FROM session WHERE status = 'COMPLETED')), 'EXERCISE', 1, (SELECT id FROM exercise WHERE name = 'Long tones'), NULL, 'COMPLETE', '2026-08-23 08:05:00-04', '2026-08-23 08:15:00-04', NULL, 'Good centered sound.'),
+    ((SELECT id FROM session WHERE status = 'COMPLETED'), (SELECT id FROM session_item WHERE name = 'Technical Studies' AND session_id = (SELECT id FROM session WHERE status = 'COMPLETED')), 'EXERCISE', 1, (SELECT id FROM exercise WHERE name = 'Lip slurs'), NULL, 'COMPLETE', '2026-08-23 08:15:00-04', '2026-08-23 08:25:00-04', NULL, NULL),
+    ((SELECT id FROM session WHERE status = 'COMPLETED'), (SELECT id FROM session_item WHERE name = 'Technical Studies' AND session_id = (SELECT id FROM session WHERE status = 'COMPLETED')), 'EXERCISE', 2, (SELECT id FROM exercise WHERE name = 'Double-tonguing'), NULL, 'COMPLETE', '2026-08-23 08:25:00-04', '2026-08-23 08:35:00-04', NULL, 'Reached 104 BPM.'),
+    ((SELECT id FROM session WHERE status = 'COMPLETED'), (SELECT id FROM session_item WHERE name = 'Technical Studies' AND session_id = (SELECT id FROM session WHERE status = 'COMPLETED')), 'EXERCISE', 3, (SELECT id FROM exercise WHERE name = 'Scale articulation'), NULL, 'COMPLETE', '2026-08-23 08:35:00-04', '2026-08-23 08:40:00-04', NULL, 'Added this directly to the session.'),
+    ((SELECT id FROM session WHERE status = 'COMPLETED'), (SELECT id FROM session_item WHERE name = 'Repertoire' AND session_id = (SELECT id FROM session WHERE status = 'COMPLETED')), 'REPERTOIRE', 1, NULL, (SELECT id FROM repertoire WHERE title = 'Arban Characteristic Study No. 1'), 'COMPLETE', '2026-08-23 08:40:00-04', '2026-08-23 08:55:00-04', NULL, 'Worked slowly with a metronome.'),
+    ((SELECT id FROM session WHERE status = 'IN_PROGRESS'), (SELECT id FROM session_item WHERE name = 'Warmup' AND session_id = (SELECT id FROM session WHERE status = 'IN_PROGRESS')), 'EXERCISE', 1, (SELECT id FROM exercise WHERE name = 'Long tones'), NULL, 'COMPLETE', '2026-08-25 08:05:00-04', '2026-08-25 08:15:00-04', NULL, NULL),
+    ((SELECT id FROM session WHERE status = 'IN_PROGRESS'), (SELECT id FROM session_item WHERE name = 'Technical Studies' AND session_id = (SELECT id FROM session WHERE status = 'IN_PROGRESS')), 'EXERCISE', 1, (SELECT id FROM exercise WHERE name = 'Lip slurs'), NULL, 'IN_PROGRESS', '2026-08-25 08:15:00-04', NULL, NULL, 'Currently working on this.'),
+    ((SELECT id FROM session WHERE status = 'IN_PROGRESS'), (SELECT id FROM session_item WHERE name = 'Repertoire - Extended'), 'REPERTOIRE', 1, NULL, (SELECT id FROM repertoire WHERE title = 'Arban Characteristic Study No. 1'), 'NOT_STARTED', NULL, NULL, NULL, 'Added directly to this session.'),
+    ((SELECT id FROM session WHERE status = 'PLANNED'), (SELECT id FROM session_item WHERE name = 'Core Work' AND session_id = (SELECT id FROM session WHERE status = 'PLANNED')), 'EXERCISE', 1, (SELECT id FROM exercise WHERE name = 'Long tones - adapted'), NULL, 'NOT_STARTED', NULL, NULL, 'Keep the session focused.', NULL),
+    ((SELECT id FROM session WHERE status = 'PLANNED'), (SELECT id FROM session_item WHERE name = 'Repertoire' AND session_id = (SELECT id FROM session WHERE status = 'PLANNED')), 'REPERTOIRE', 1, NULL, (SELECT id FROM repertoire WHERE title = 'Arban Characteristic Study No. 1'), 'NOT_STARTED', NULL, NULL, 'One focused pass.', NULL);
 
 UPDATE session_template_item item
 SET name = CASE

@@ -22,7 +22,7 @@ import {
   removeRunningSessionItem,
   startPracticeSession,
   updateSessionName,
-  updateRunningSessionItemNotes,
+  updateRunningSessionItemSessionNote,
   updateSessionProgress,
 } from '@/data/sessions'
 import {
@@ -46,7 +46,7 @@ function section(clientId: string, name: string, position: number): TemplateItem
     type: 'SECTION',
     sourceId: null,
     name,
-    notes: '',
+    instruction: '',
     position,
   }
 }
@@ -58,6 +58,7 @@ function practiceItem(
   sourceId: string,
   name: string,
   position: number,
+  instruction = '',
 ): TemplateItemInput {
   return {
     clientId,
@@ -65,7 +66,7 @@ function practiceItem(
     type,
     sourceId,
     name,
-    notes: '',
+    instruction,
     position,
   }
 }
@@ -330,7 +331,15 @@ describe('session persistence', () => {
         assignedDate: '2030-01-15',
         items: [
           section('section', 'Session section', 1),
-          practiceItem('exercise', 'section', 'EXERCISE', exerciseId, 'Test exercise', 1),
+          practiceItem(
+            'exercise',
+            'section',
+            'EXERCISE',
+            exerciseId,
+            'Test exercise',
+            1,
+            'Keep the air moving',
+          ),
         ],
       },
     })
@@ -367,7 +376,15 @@ describe('session persistence', () => {
         name: 'Source template',
         items: [
           section('section', 'Main section', 1),
-          practiceItem('exercise', 'section', 'EXERCISE', exerciseId, 'Test exercise', 1),
+          practiceItem(
+            'exercise',
+            'section',
+            'EXERCISE',
+            exerciseId,
+            'Test exercise',
+            1,
+            'Keep the air moving',
+          ),
           practiceItem('repertoire', 'section', 'REPERTOIRE', repertoireId, 'Test repertoire', 2),
         ],
       },
@@ -380,10 +397,13 @@ describe('session persistence', () => {
       type: string
       exerciseId: string | null
       repertoireId: string | null
+      instruction: string | null
+      sessionNote: string | null
     }>(
       `
         SELECT type::text, exercise_id::text AS "exerciseId",
-          repertoire_id::text AS "repertoireId"
+          repertoire_id::text AS "repertoireId", instruction,
+          session_note AS "sessionNote"
         FROM session_item
         WHERE session_id = $1
         ORDER BY position, id
@@ -394,6 +414,10 @@ describe('session persistence', () => {
     expect(copiedItems.rows.map((item) => item.type)).toEqual(['SECTION', 'EXERCISE', 'REPERTOIRE'])
     expect(copiedItems.rows.some((item) => item.exerciseId === exerciseId)).toBe(true)
     expect(copiedItems.rows.some((item) => item.repertoireId === repertoireId)).toBe(true)
+    expect(copiedItems.rows.find((item) => item.exerciseId === exerciseId)).toMatchObject({
+      instruction: 'Keep the air moving',
+      sessionNote: null,
+    })
   })
 
   it('duplicates a session without progress and creates an independent template from it', async () => {
@@ -424,7 +448,9 @@ describe('session persistence', () => {
            ELSE '2030-02-20T18:00:00Z'::timestamptz END,
          ended_at = CASE WHEN type = 'SECTION' THEN NULL
            ELSE '2030-02-20T18:20:00Z'::timestamptz END,
-         added_during_session = TRUE
+         added_during_session = TRUE,
+         session_note = CASE WHEN type = 'SECTION' THEN NULL
+           ELSE 'Session-only observation' END
        WHERE session_id = $1`,
       [source.id],
     )
@@ -461,9 +487,11 @@ describe('session persistence', () => {
       endedAt: Date | null
       addedDuringSession: boolean
       parentId: string | null
+      sessionNote: string | null
     }>(
       `SELECT status::text, started_at AS "startedAt", ended_at AS "endedAt",
-         added_during_session AS "addedDuringSession", parent_id::text AS "parentId"
+         added_during_session AS "addedDuringSession", parent_id::text AS "parentId",
+         session_note AS "sessionNote"
        FROM session_item WHERE session_id = $1 ORDER BY position, id`,
       [duplicated.id],
     )
@@ -473,6 +501,7 @@ describe('session persistence', () => {
       duplicateItems.rows.every((item) => item.startedAt === null && item.endedAt === null),
     ).toBe(true)
     expect(duplicateItems.rows.every((item) => !item.addedDuringSession)).toBe(true)
+    expect(duplicateItems.rows.every((item) => item.sessionNote === null)).toBe(true)
     expect(duplicateItems.rows.filter((item) => item.parentId !== null)).toHaveLength(2)
 
     const createdTemplate = await createTemplateFromSession({ data: source.id })
@@ -700,7 +729,7 @@ describe('session persistence', () => {
         parentId: sectionId,
         type: 'REPERTOIRE',
         sourceId: repertoireId,
-        notes: 'Added on the fly',
+        instruction: 'Added on the fly',
       },
     })
     const expanded = await getSessionDetail({ data: created.id })
@@ -708,7 +737,7 @@ describe('session persistence', () => {
     expect(expanded?.items.find((item) => item.id === added.id)).toMatchObject({
       parentId: sectionId,
       addedDuringSession: true,
-      notes: 'Added on the fly',
+      instruction: 'Added on the fly',
     })
 
     await expect(
@@ -725,7 +754,7 @@ describe('session persistence', () => {
         parentId: null,
         type: 'REPERTOIRE',
         sourceId: repertoireId,
-        notes: '',
+        instruction: '',
       },
     })
     await updateSessionProgress({
@@ -745,7 +774,7 @@ describe('session persistence', () => {
           parentId: null,
           type: 'EXERCISE',
           sourceId: exerciseId,
-          notes: '',
+          instruction: '',
         },
       }),
     ).rejects.toThrow('Items can only be added to an in-progress session')
@@ -754,7 +783,7 @@ describe('session persistence', () => {
     ).rejects.toThrow('Only items added during an in-progress session can be removed')
   })
 
-  it('adds, edits, and removes item notes while a session is in progress', async () => {
+  it('adds, edits, and removes session notes while a session is in progress', async () => {
     const created = await createPracticeSession({
       data: { templateId: null, assignedDate: null },
     })
@@ -776,31 +805,33 @@ describe('session persistence', () => {
     const itemId = started!.items.find((item) => item.type === 'EXERCISE')!.id
 
     await expect(
-      updateRunningSessionItemNotes({
-        data: { sessionId: created.id, itemId, notes: '  Begin slowly  ' },
+      updateRunningSessionItemSessionNote({
+        data: { sessionId: created.id, itemId, sessionNote: '  Begin slowly  ' },
       }),
-    ).resolves.toEqual({ notes: 'Begin slowly' })
+    ).resolves.toEqual({ sessionNote: 'Begin slowly' })
     expect(
       (await getSessionDetail({ data: created.id }))?.items.find((item) => item.id === itemId),
-    ).toMatchObject({ notes: 'Begin slowly' })
+    ).toMatchObject({ instruction: null, sessionNote: 'Begin slowly' })
 
     await expect(
-      updateRunningSessionItemNotes({
-        data: { sessionId: created.id, itemId, notes: 'Increase the tempo' },
+      updateRunningSessionItemSessionNote({
+        data: { sessionId: created.id, itemId, sessionNote: 'Increase the tempo' },
       }),
-    ).resolves.toEqual({ notes: 'Increase the tempo' })
+    ).resolves.toEqual({ sessionNote: 'Increase the tempo' })
 
     await expect(
-      updateRunningSessionItemNotes({ data: { sessionId: created.id, itemId, notes: '' } }),
-    ).resolves.toEqual({ notes: null })
+      updateRunningSessionItemSessionNote({
+        data: { sessionId: created.id, itemId, sessionNote: '' },
+      }),
+    ).resolves.toEqual({ sessionNote: null })
 
     await updateSessionProgress({
       data: { sessionId: created.id, changes: [{ itemId, action: 'COMPLETE' }] },
     })
     await completePracticeSession({ data: created.id })
     await expect(
-      updateRunningSessionItemNotes({
-        data: { sessionId: created.id, itemId, notes: 'Too late' },
+      updateRunningSessionItemSessionNote({
+        data: { sessionId: created.id, itemId, sessionNote: 'Too late' },
       }),
     ).rejects.toThrow('Notes can only be changed during an in-progress session')
   })

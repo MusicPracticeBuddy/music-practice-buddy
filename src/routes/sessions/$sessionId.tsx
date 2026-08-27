@@ -20,7 +20,7 @@ import {
   removeRunningSessionItem,
   startPracticeSession,
   updateSessionName,
-  updateRunningSessionItemNotes,
+  updateRunningSessionItemSessionNote,
   updateSessionProgress,
   type SessionDetail,
   type SessionDetailItem,
@@ -468,7 +468,7 @@ function SessionDetailPage() {
           parentId,
           type: item.type,
           sourceId: item.id,
-          notes: '',
+          instruction: '',
         },
       })
     })
@@ -493,10 +493,12 @@ function SessionDetailPage() {
     })
   }
 
-  async function updateItemNotes(itemId: string, notes: string) {
+  async function updateItemSessionNote(itemId: string, sessionNote: string) {
     if (activeStructuralChange) await activeStructuralChange
     return runStructuralChange(async () => {
-      await updateRunningSessionItemNotes({ data: { sessionId: session.id, itemId, notes } })
+      await updateRunningSessionItemSessionNote({
+        data: { sessionId: session.id, itemId, sessionNote },
+      })
     })
   }
 
@@ -810,7 +812,7 @@ function SessionDetailPage() {
                     hasActiveItem={hasActiveItem()}
                     onAction={queueAction}
                     onRemove={removeItem}
-                    onUpdateNotes={updateItemNotes}
+                    onUpdateSessionNote={updateItemSessionNote}
                     onDropLibraryItem={dropLibraryItem}
                   />
                 )}
@@ -904,16 +906,16 @@ function SessionItem(props: {
   hasActiveItem: boolean
   onAction: (itemId: string, action: SessionItemAction) => void
   onRemove: (itemId: string) => Promise<boolean>
-  onUpdateNotes: (itemId: string, notes: string) => Promise<boolean>
+  onUpdateSessionNote: (itemId: string, sessionNote: string) => Promise<boolean>
   onDropLibraryItem: (event: DragEvent, parentId: string | null) => void
 }) {
   const isSection = props.item.type === PRACTICE_ITEM_TYPE.SECTION
   const [expanded, setExpanded] = createSignal(isSection)
-  const [editingNotes, setEditingNotes] = createSignal(false)
-  const [noteDraft, setNoteDraft] = createSignal(props.item.notes ?? '')
-  const [savingNotes, setSavingNotes] = createSignal(false)
+  const [editingSessionNote, setEditingSessionNote] = createSignal(false)
+  const [sessionNoteDraft, setSessionNoteDraft] = createSignal(props.item.sessionNote ?? '')
+  const [savingSessionNote, setSavingSessionNote] = createSignal(false)
   const contentId = `session-item-${props.item.id}-content`
-  const notesId = `session-item-${props.item.id}-notes`
+  const sessionNoteId = `session-item-${props.item.id}-session-note`
   const status = () => (isSection ? derivedSectionStatus(props.item) : props.item.status)
   const sectionCanSkip = () => {
     const items = practiceDescendants(props.item)
@@ -927,16 +929,16 @@ function SessionItem(props: {
     )
   }
 
-  function editNotes() {
-    setNoteDraft(props.item.notes ?? '')
-    setEditingNotes(true)
+  function editSessionNote() {
+    setSessionNoteDraft(props.item.sessionNote ?? '')
+    setEditingSessionNote(true)
   }
 
-  async function saveNotes() {
-    setSavingNotes(true)
-    const saved = await props.onUpdateNotes(props.item.id, noteDraft())
-    setSavingNotes(false)
-    if (saved) setEditingNotes(false)
+  async function saveSessionNote() {
+    setSavingSessionNote(true)
+    const saved = await props.onUpdateSessionNote(props.item.id, sessionNoteDraft())
+    setSavingSessionNote(false)
+    if (saved) setEditingSessionNote(false)
   }
 
   if (isSection) {
@@ -992,8 +994,17 @@ function SessionItem(props: {
         </Show>
         <Show when={expanded()}>
           <div id={contentId}>
-            <Show when={props.item.notes}>
-              <p class="practice-notes">{props.item.notes}</p>
+            <Show when={props.item.instruction}>
+              <div class="practice-instruction">
+                <strong>Instruction</strong>
+                <p>{props.item.instruction}</p>
+              </div>
+            </Show>
+            <Show when={props.item.sessionNote}>
+              <div class="practice-session-note">
+                <strong>Session note</strong>
+                <p>{props.item.sessionNote}</p>
+              </div>
             </Show>
             <div class="practice-items">
               <For each={props.item.children}>
@@ -1101,43 +1112,56 @@ function SessionItem(props: {
                 : statusLabel(props.item.status)}
             </span>
           </div>
-          <Show when={props.item.notes && !editingNotes()}>
-            <p class="practice-notes">{props.item.notes}</p>
+          <Show when={props.item.instruction}>
+            <div class="practice-instruction">
+              <strong>Instruction</strong>
+              <p>{props.item.instruction}</p>
+            </div>
           </Show>
-          <Show when={props.sessionActive && !editingNotes()}>
-            <button class="text-button practice-note-action" type="button" onClick={editNotes}>
-              {props.item.notes ? 'Edit note' : '+ Add note'}
+          <Show when={props.item.sessionNote && !editingSessionNote()}>
+            <div class="practice-session-note">
+              <strong>Session note</strong>
+              <p>{props.item.sessionNote}</p>
+            </div>
+          </Show>
+          <Show when={props.sessionActive && !editingSessionNote()}>
+            <button
+              class="text-button practice-note-action"
+              type="button"
+              onClick={editSessionNote}
+            >
+              {props.item.sessionNote ? 'Edit session note' : '+ Add session note'}
             </button>
           </Show>
-          <Show when={props.sessionActive && editingNotes()}>
+          <Show when={props.sessionActive && editingSessionNote()}>
             <div class="running-note-editor">
-              <label class="field-label" for={notesId}>
-                Practice note
+              <label class="field-label" for={sessionNoteId}>
+                Session note
               </label>
               <textarea
-                id={notesId}
+                id={sessionNoteId}
                 class="text-input"
                 rows="3"
                 maxlength="2000"
-                value={noteDraft()}
-                onInput={(event) => setNoteDraft(event.currentTarget.value)}
+                value={sessionNoteDraft()}
+                onInput={(event) => setSessionNoteDraft(event.currentTarget.value)}
               />
               <div class="running-note-actions">
                 <button
                   class="secondary-button"
                   type="button"
-                  disabled={savingNotes()}
-                  onClick={() => setEditingNotes(false)}
+                  disabled={savingSessionNote()}
+                  onClick={() => setEditingSessionNote(false)}
                 >
                   Cancel
                 </button>
                 <button
                   class="primary-button"
                   type="button"
-                  disabled={savingNotes()}
-                  onClick={() => void saveNotes()}
+                  disabled={savingSessionNote()}
+                  onClick={() => void saveSessionNote()}
                 >
-                  {savingNotes() ? 'Saving…' : 'Save note'}
+                  {savingSessionNote() ? 'Saving…' : 'Save session note'}
                 </button>
               </div>
             </div>

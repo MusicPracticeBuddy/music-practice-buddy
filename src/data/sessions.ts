@@ -42,7 +42,8 @@ export type SessionDetailItem = {
   type: PracticeItemType
   position: number
   name: string
-  notes: string | null
+  instruction: string | null
+  sessionNote: string | null
   notation: string | null
   notationFormat: string | null
   status: SessionItemStatus
@@ -182,7 +183,8 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
         type: PracticeItemType
         position: number
         name: string
-        notes: string | null
+        instruction: string | null
+        sessionNote: string | null
         notation: string | null
         notationFormat: string | null
         status: SessionItemStatus
@@ -198,7 +200,8 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
             item.type::text,
             item.position::float8 AS position,
             COALESCE(item.name, 'Untitled item') AS name,
-            item.notes,
+            item.instruction,
+            item.session_note AS "sessionNote",
             exercise.notation,
             exercise.notation_format AS "notationFormat",
             item.status::text,
@@ -275,7 +278,7 @@ type SessionOutlineRow = {
   exerciseId: string | null
   repertoireId: string | null
   name: string | null
-  notes: string | null
+  instruction: string | null
 }
 
 async function copySessionOutline(
@@ -287,7 +290,7 @@ async function copySessionOutline(
     `
       SELECT id::text, parent_id::text AS "parentId", type::text,
         position::text, exercise_id::text AS "exerciseId",
-        repertoire_id::text AS "repertoireId", name, notes
+        repertoire_id::text AS "repertoireId", name, instruction
       FROM session_item
       WHERE session_id = $1
       ORDER BY parent_id NULLS FIRST, position, id
@@ -309,7 +312,7 @@ async function copySessionOutline(
         ? await client.query<{ id: string }>(
             `
               INSERT INTO session_item
-                (session_id, parent_id, type, position, exercise_id, repertoire_id, name, notes)
+                (session_id, parent_id, type, position, exercise_id, repertoire_id, name, instruction)
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
               RETURNING id::text
             `,
@@ -321,13 +324,13 @@ async function copySessionOutline(
               item.exerciseId,
               item.repertoireId,
               item.name,
-              item.notes,
+              item.instruction,
             ],
           )
         : await client.query<{ id: string }>(
             `
               INSERT INTO session_template_item
-                (session_template_id, parent_id, type, position, exercise_id, repertoire_id, name, notes)
+                (session_template_id, parent_id, type, position, exercise_id, repertoire_id, name, instruction)
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
               RETURNING id::text
             `,
@@ -339,7 +342,7 @@ async function copySessionOutline(
               item.exerciseId,
               item.repertoireId,
               item.name,
-              item.notes,
+              item.instruction,
             ],
           )
     const copiedId = result.rows[0]?.id
@@ -827,26 +830,28 @@ export const updateSessionName = createServerFn({ method: 'POST' })
     return session
   })
 
-export const updateRunningSessionItemNotes = createServerFn({ method: 'POST' })
+export const updateRunningSessionItemSessionNote = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .validator((input: { sessionId: string; itemId: string; notes: string }) => {
+  .validator((input: { sessionId: string; itemId: string; sessionNote: string }) => {
     if (!validId(input.sessionId) || !validId(input.itemId)) {
       throw new Error('Invalid session item')
     }
-    const notes = input.notes.trim()
-    if (notes.length > 2000) throw new Error('Notes must be 2000 characters or fewer')
-    return { ...input, notes }
+    const sessionNote = input.sessionNote.trim()
+    if (sessionNote.length > 2000) {
+      throw new Error('Session notes must be 2000 characters or fewer')
+    }
+    return { ...input, sessionNote }
   })
-  .handler(async ({ data, context }): Promise<{ notes: string | null }> => {
-    const result = await pool.query<{ notes: string | null }>(
+  .handler(async ({ data, context }): Promise<{ sessionNote: string | null }> => {
+    const result = await pool.query<{ sessionNote: string | null }>(
       `UPDATE session_item item
-       SET notes = NULLIF($3, '')
+       SET session_note = NULLIF($3, '')
        FROM session
        WHERE item.id = $2 AND item.session_id = $1 AND item.type <> 'SECTION'
          AND session.id = item.session_id AND session.status = 'IN_PROGRESS'
          AND session.musician_id = $4
-       RETURNING item.notes`,
-      [data.sessionId, data.itemId, data.notes, context.user.musicianId],
+       RETURNING item.session_note AS "sessionNote"`,
+      [data.sessionId, data.itemId, data.sessionNote, context.user.musicianId],
     )
     const item = result.rows[0]
     if (!item) throw new Error('Notes can only be changed during an in-progress session')
@@ -861,7 +866,7 @@ export const addRunningSessionItem = createServerFn({ method: 'POST' })
       parentId: string | null
       type: LibraryItemType
       sourceId: string
-      notes: string
+      instruction: string
     }) => {
       if (!validId(input.sessionId)) throw new Error('Invalid session')
       if (input.parentId !== null && !validId(input.parentId)) throw new Error('Invalid section')
@@ -869,8 +874,10 @@ export const addRunningSessionItem = createServerFn({ method: 'POST' })
       if (!isLibraryItemType(input.type)) {
         throw new Error('Invalid practice item type')
       }
-      if (input.notes.length > 2000) throw new Error('Notes must be 2000 characters or fewer')
-      return { ...input, notes: input.notes.trim() }
+      if (input.instruction.length > 2000) {
+        throw new Error('Instructions must be 2000 characters or fewer')
+      }
+      return { ...input, instruction: input.instruction.trim() }
     },
   )
   .handler(async ({ data, context }): Promise<{ id: string }> => {
@@ -921,7 +928,7 @@ export const addRunningSessionItem = createServerFn({ method: 'POST' })
 
       const result = await client.query<{ id: string }>(
         `INSERT INTO session_item
-          (session_id, parent_id, type, position, exercise_id, repertoire_id, name, notes,
+          (session_id, parent_id, type, position, exercise_id, repertoire_id, name, instruction,
            added_during_session)
          VALUES (
            $1, $2, $3,
@@ -939,7 +946,7 @@ export const addRunningSessionItem = createServerFn({ method: 'POST' })
           data.type === LIBRARY_ITEM_TYPE.EXERCISE ? data.sourceId : null,
           data.type === LIBRARY_ITEM_TYPE.REPERTOIRE ? data.sourceId : null,
           sourceName,
-          data.notes || null,
+          data.instruction || null,
         ],
       )
       await startNextAutoItem(client, data.sessionId)

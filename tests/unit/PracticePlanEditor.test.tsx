@@ -83,7 +83,7 @@ function section(
     type: 'SECTION' as const,
     sourceId: null,
     name,
-    notes: '',
+    instruction: '',
     position,
   }
 }
@@ -93,7 +93,7 @@ function exercise(
   name: string,
   position: number,
   parentClientId: string,
-  notes = '',
+  instruction = '',
 ) {
   return {
     clientId,
@@ -101,7 +101,7 @@ function exercise(
     type: 'EXERCISE' as const,
     sourceId: '1',
     name,
-    notes,
+    instruction,
     position,
   }
 }
@@ -311,7 +311,7 @@ describe('PracticePlanEditor', () => {
     expect(screen.getByText('Keep me')).toBeTruthy()
   })
 
-  it('adds, edits, and removes notes from items in the plan', async () => {
+  it('adds, edits, and removes instructions from items in the plan', async () => {
     render(() => (
       <PracticePlanEditor
         library={library}
@@ -331,20 +331,20 @@ describe('PracticePlanEditor', () => {
 
     expect(within(notedItem).getByText('Start slowly')).toBeTruthy()
 
-    fireEvent.click(within(unnotedItem).getByTitle('Add note'))
-    fireEvent.input(within(unnotedItem).getByLabelText('Practice plan note'), {
+    fireEvent.click(within(unnotedItem).getByTitle('Add instruction'))
+    fireEvent.input(within(unnotedItem).getByLabelText('Instruction'), {
       target: { value: 'Use a metronome' },
     })
     fireEvent.click(within(unnotedItem).getByRole('button', { name: 'Done' }))
     expect(within(unnotedItem).getByText('Use a metronome')).toBeTruthy()
 
-    fireEvent.click(within(notedItem).getByTitle('Edit note'))
-    fireEvent.input(within(notedItem).getByLabelText('Practice plan note'), {
+    fireEvent.click(within(notedItem).getByTitle('Edit instruction'))
+    fireEvent.input(within(notedItem).getByLabelText('Instruction'), {
       target: { value: '' },
     })
     fireEvent.click(within(notedItem).getByRole('button', { name: 'Done' }))
     expect(within(notedItem).queryByText('Start slowly')).toBeNull()
-    expect(within(notedItem).getByTitle('Add note')).toBeTruthy()
+    expect(within(notedItem).getByTitle('Add instruction')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Save template' }))
 
@@ -352,8 +352,11 @@ describe('PracticePlanEditor', () => {
       expect(updateSessionTemplate).toHaveBeenCalledWith({
         data: expect.objectContaining({
           items: expect.arrayContaining([
-            expect.objectContaining({ clientId: 'unnoted', notes: 'Use a metronome' }),
-            expect.objectContaining({ clientId: 'noted', notes: '' }),
+            expect.objectContaining({
+              clientId: 'unnoted',
+              instruction: 'Use a metronome',
+            }),
+            expect.objectContaining({ clientId: 'noted', instruction: '' }),
           ]),
         }),
       })

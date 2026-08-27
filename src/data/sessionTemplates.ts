@@ -18,7 +18,7 @@ export type TemplateItemInput = {
   type: PracticeItemType
   sourceId: string | null
   name: string
-  notes: string
+  instruction: string
   position: number
 }
 
@@ -83,6 +83,9 @@ function validateTemplate(input: SaveTemplateInput): Required<SaveTemplateInput>
     ids.add(item.clientId)
     if (!isPracticeItemType(item.type)) {
       throw new Error('Invalid template item type')
+    }
+    if (item.instruction.length > 2000) {
+      throw new Error('Instructions must be 2000 characters or fewer')
     }
     if (item.type === PRACTICE_ITEM_TYPE.SECTION && item.sourceId !== null) {
       throw new Error('Sections cannot reference library items')
@@ -169,7 +172,7 @@ async function insertTemplateItems(
     const result = await client.query<{ id: string }>(
       `
         INSERT INTO session_template_item
-          (session_template_id, parent_id, type, position, exercise_id, repertoire_id, name, notes)
+          (session_template_id, parent_id, type, position, exercise_id, repertoire_id, name, instruction)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id::text
       `,
@@ -183,7 +186,7 @@ async function insertTemplateItems(
         item.type === PRACTICE_ITEM_TYPE.SECTION
           ? item.name.trim() || 'Untitled section'
           : source!.name,
-        item.notes.trim() || null,
+        item.instruction.trim() || null,
       ],
     )
     const id = result.rows[0]?.id
@@ -215,7 +218,7 @@ async function insertSessionItems(
     const result = await client.query<{ id: string }>(
       `
         INSERT INTO session_item
-          (session_id, parent_id, type, position, exercise_id, repertoire_id, name, notes)
+          (session_id, parent_id, type, position, exercise_id, repertoire_id, name, instruction)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id::text
       `,
@@ -229,7 +232,7 @@ async function insertSessionItems(
         item.type === PRACTICE_ITEM_TYPE.SECTION
           ? item.name.trim() || 'Untitled section'
           : source!.name,
-        item.notes.trim() || null,
+        item.instruction.trim() || null,
       ],
     )
     const id = result.rows[0]?.id
@@ -360,7 +363,7 @@ export const getSessionTemplate = createServerFn({ method: 'GET' })
               ELSE NULL
             END AS "sourceId",
             COALESCE(item.name, 'Untitled item') AS name,
-            COALESCE(item.notes, '') AS notes,
+            COALESCE(item.instruction, '') AS instruction,
             item.position::float8 AS position
           FROM session_template_item item
           LEFT JOIN exercise ON exercise.id = item.exercise_id
@@ -430,7 +433,7 @@ export const getPlannedSessionForEdit = createServerFn({ method: 'GET' })
               ELSE NULL
             END AS "sourceId",
             COALESCE(item.name, 'Untitled item') AS name,
-            COALESCE(item.notes, '') AS notes,
+            COALESCE(item.instruction, '') AS instruction,
             item.position::float8 AS position
           FROM session_item item
           LEFT JOIN exercise ON exercise.id = item.exercise_id
@@ -645,11 +648,12 @@ export const createPracticeSession = createServerFn({ method: 'POST' })
           exerciseId: string | null
           repertoireId: string | null
           name: string | null
-          notes: string | null
+          instruction: string | null
         }>(
           `
           SELECT id::text, parent_id::text AS "parentId", type::text, position::text,
-            exercise_id::text AS "exerciseId", repertoire_id::text AS "repertoireId", name, notes
+            exercise_id::text AS "exerciseId", repertoire_id::text AS "repertoireId", name,
+            instruction
           FROM session_template_item
           WHERE session_template_id = ${'$'}1
           ORDER BY parent_id NULLS FIRST, position, id
@@ -668,7 +672,7 @@ export const createPracticeSession = createServerFn({ method: 'POST' })
           const result = await client.query<{ id: string }>(
             `
               INSERT INTO session_item
-                (session_id, parent_id, type, position, exercise_id, repertoire_id, name, notes)
+                (session_id, parent_id, type, position, exercise_id, repertoire_id, name, instruction)
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
               RETURNING id::text
             `,
@@ -680,7 +684,7 @@ export const createPracticeSession = createServerFn({ method: 'POST' })
               item.exerciseId,
               item.repertoireId,
               item.name,
-              item.notes,
+              item.instruction,
             ],
           )
           copiedIds.set(item.id, result.rows[0]!.id)

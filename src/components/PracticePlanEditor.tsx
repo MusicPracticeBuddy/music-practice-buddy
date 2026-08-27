@@ -44,7 +44,7 @@ function flatten(nodes: EditorNode[], parentClientId: string | null = null): Tem
       type: node.type,
       sourceId: node.sourceId,
       name: node.name,
-      notes: node.notes,
+      instruction: node.instruction,
       position: position + 1,
     },
     ...flatten(node.children, node.clientId),
@@ -93,7 +93,7 @@ function buildTree(items: TemplateItemInput[]): EditorNode[] {
       type: item.type,
       sourceId: item.sourceId,
       name: item.name,
-      notes: item.notes,
+      instruction: item.instruction,
       children: [],
     })
   }
@@ -204,7 +204,7 @@ export function PracticePlanEditor(props: {
   const [error, setError] = createSignal('')
   const [creatingItem, setCreatingItem] = createSignal(false)
   const [newItemType, setNewItemType] = createSignal<LibraryItemType>(LIBRARY_ITEM_TYPE.EXERCISE)
-  const [newItemNotes, setNewItemNotes] = createSignal('')
+  const [newItemInstruction, setNewItemInstruction] = createSignal('')
   const [instrumentOptions, setInstrumentOptions] = createSignal<InstrumentOption[]>([])
 
   const itemCount = createMemo(
@@ -231,7 +231,7 @@ export function PracticePlanEditor(props: {
         type: PRACTICE_ITEM_TYPE.SECTION,
         sourceId: null,
         name: 'New section',
-        notes: '',
+        instruction: '',
         children: [],
       },
       parentId,
@@ -240,7 +240,7 @@ export function PracticePlanEditor(props: {
 
   function addLibraryEntry(
     item: TemplateLibraryItem,
-    notes = '',
+    instruction = '',
     parentId = selectedParentId(),
     index?: number,
   ) {
@@ -250,7 +250,7 @@ export function PracticePlanEditor(props: {
         type: item.type,
         sourceId: item.id,
         name: item.name,
-        notes,
+        instruction,
         children: [],
       },
       parentId,
@@ -342,11 +342,11 @@ export function PracticePlanEditor(props: {
     )
   }
 
-  function updateItemNotes(id: string, value: string) {
+  function updateItemInstruction(id: string, value: string) {
     setNodes(
       produce((items) => {
         const item = findNode(items, id)
-        if (item && item.type !== PRACTICE_ITEM_TYPE.SECTION) item.notes = value
+        if (item && item.type !== PRACTICE_ITEM_TYPE.SECTION) item.instruction = value
       }),
     )
   }
@@ -394,14 +394,14 @@ export function PracticePlanEditor(props: {
   function addCreatedItem(item: TemplateLibraryItem) {
     setLibrary((items) => [...items, item])
     setLibraryType(item.type)
-    addLibraryEntry(item, newItemNotes())
-    setNewItemNotes('')
+    addLibraryEntry(item, newItemInstruction())
+    setNewItemInstruction('')
     setCreatingItem(false)
   }
 
   function resetNewItemForm(type = libraryType()) {
     setNewItemType(type)
-    setNewItemNotes('')
+    setNewItemInstruction('')
   }
 
   async function prepareNewItemForm() {
@@ -595,7 +595,7 @@ export function PracticePlanEditor(props: {
                     onRemove={removeNode}
                     onMove={moveNode}
                     onRename={renameSection}
-                    onUpdateNotes={updateItemNotes}
+                    onUpdateInstruction={updateItemInstruction}
                     canMove={canMoveNode}
                     onMoveNode={moveNodeTo}
                     onAddLibraryItem={addLibraryItemById}
@@ -656,15 +656,16 @@ export function PracticePlanEditor(props: {
                     }
                     afterFields={
                       <>
-                        <label class="field-label" for="new-item-notes">
-                          Practice plan notes (optional)
+                        <label class="field-label" for="new-item-instruction">
+                          Instruction (optional)
                         </label>
                         <textarea
-                          id="new-item-notes"
+                          id="new-item-instruction"
                           class="text-input"
-                          value={newItemNotes()}
-                          onInput={(event) => setNewItemNotes(event.currentTarget.value)}
+                          value={newItemInstruction()}
+                          onInput={(event) => setNewItemInstruction(event.currentTarget.value)}
                           rows="3"
+                          maxlength="2000"
                         />
                       </>
                     }
@@ -692,7 +693,7 @@ function TemplateNode(props: {
   onRemove: (id: string) => void
   onMove: (id: string, offset: -1 | 1) => void
   onRename: (id: string, value: string) => void
-  onUpdateNotes: (id: string, value: string) => void
+  onUpdateInstruction: (id: string, value: string) => void
   canMove: (nodeId: string, parentId: string | null) => boolean
   onMoveNode: (nodeId: string, parentId: string | null, index: number) => void
   onAddLibraryItem: (
@@ -703,8 +704,8 @@ function TemplateNode(props: {
   ) => void
 }) {
   const isSection = () => props.node.type === PRACTICE_ITEM_TYPE.SECTION
-  const [editingNotes, setEditingNotes] = createSignal(false)
-  const notesId = () => `practice-item-notes-${props.node.clientId}`
+  const [editingInstruction, setEditingInstruction] = createSignal(false)
+  const instructionId = () => `practice-item-instruction-${props.node.clientId}`
 
   return (
     <article
@@ -762,10 +763,10 @@ function TemplateNode(props: {
           <Show when={!isSection()}>
             <button
               type="button"
-              title={props.node.notes.trim() ? 'Edit note' : 'Add note'}
-              onClick={() => setEditingNotes(true)}
+              title={props.node.instruction.trim() ? 'Edit instruction' : 'Add instruction'}
+              onClick={() => setEditingInstruction(true)}
             >
-              {props.node.notes.trim() ? 'Edit note' : '+ Note'}
+              {props.node.instruction.trim() ? 'Edit instruction' : '+ Instruction'}
             </button>
           </Show>
           <button type="button" title="Remove" onClick={() => props.onRemove(props.node.clientId)}>
@@ -773,25 +774,32 @@ function TemplateNode(props: {
           </button>
         </div>
       </div>
-      <Show when={!isSection() && editingNotes()}>
+      <Show when={!isSection() && editingInstruction()}>
         <div class="plan-item-note-editor">
-          <label class="field-label" for={notesId()}>
-            Practice plan note
+          <label class="field-label" for={instructionId()}>
+            Instruction
           </label>
           <textarea
-            id={notesId()}
+            id={instructionId()}
             class="text-input"
             rows="3"
-            value={props.node.notes}
-            onInput={(event) => props.onUpdateNotes(props.node.clientId, event.currentTarget.value)}
+            maxlength="2000"
+            value={props.node.instruction}
+            onInput={(event) =>
+              props.onUpdateInstruction(props.node.clientId, event.currentTarget.value)
+            }
           />
-          <button class="secondary-button" type="button" onClick={() => setEditingNotes(false)}>
+          <button
+            class="secondary-button"
+            type="button"
+            onClick={() => setEditingInstruction(false)}
+          >
             Done
           </button>
         </div>
       </Show>
-      <Show when={!isSection() && !editingNotes() && props.node.notes.trim()}>
-        <p class="plan-item-note">{props.node.notes}</p>
+      <Show when={!isSection() && !editingInstruction() && props.node.instruction.trim()}>
+        <p class="plan-item-note">{props.node.instruction}</p>
       </Show>
       <Show when={isSection()}>
         <PlanSortableList
