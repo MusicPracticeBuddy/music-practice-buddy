@@ -40,7 +40,7 @@ VALUES
     ((SELECT id FROM musician WHERE is_admin LIMIT 1), 'Long tones', 'Whole notes at pp-mf-pp, 8 counts each', 'text', 'PRIVATE'),
     ((SELECT id FROM musician WHERE is_admin LIMIT 1), 'Lip slurs', 'Low to middle register, slow and relaxed', 'text', 'PRIVATE'),
     ((SELECT id FROM musician WHERE NOT is_admin ORDER BY id LIMIT 1), 'Double-tonguing', 'ta-ka, beginning at 80 BPM', 'text', 'PRIVATE'),
-    ((SELECT id FROM musician WHERE is_admin LIMIT 1), 'Scale articulation', 'Major scales, eighth notes, tongue every note', 'text', 'PUBLIC');
+    ((SELECT id FROM musician WHERE is_admin LIMIT 1), 'Scale articulation', E'X:1\nM:4/4\nL:1/8\nK:C\nCDEF GABc | cBAG FEDC |', 'abc', 'PUBLIC');
 
 INSERT INTO exercise (musician_id, name, notation, notation_format, copied_from_exercise_id, visibility)
 VALUES (

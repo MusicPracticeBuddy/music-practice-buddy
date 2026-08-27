@@ -166,7 +166,11 @@ describe('PracticePlanEditor', () => {
     const name = await screen.findByLabelText('Name')
     expect(name.getAttribute('maxlength')).toBe('200')
     expect(screen.getByLabelText('Instructions or notation (optional)')).toBeTruthy()
-    expect(screen.getByLabelText('Notation format')).toBeTruthy()
+    const notationFormat = screen.getByLabelText('Notation format')
+    expect(notationFormat.tagName).toBe('SELECT')
+    expect(
+      Array.from((notationFormat as HTMLSelectElement).options, (option) => option.value),
+    ).toEqual(['text', 'abc'])
     expect(
       screen.getByLabelText('Visibility', { selector: '#library-item-visibility' }),
     ).toBeTruthy()

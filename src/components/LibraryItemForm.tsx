@@ -1,6 +1,7 @@
 import { For, Show, createSignal, type JSX } from 'solid-js'
 import { Link, useNavigate } from '@tanstack/solid-router'
 import { createExercise, updateExercise, type ExerciseInput } from '@/data/exercises'
+import { EXERCISE_NOTATION_FORMAT, type ExerciseNotationFormat } from '@/domain/exercise'
 import {
   createRepertoire,
   updateRepertoire,
@@ -16,7 +17,7 @@ type LibraryItemFormProps = {
   id?: string
   name?: string
   notation?: string | null
-  notationFormat?: string
+  notationFormat?: ExerciseNotationFormat
   visibility?: 'PRIVATE' | 'PUBLIC'
   credits?: RepertoireCreditInput[]
   instruments?: RepertoireInstrumentInput[]
@@ -45,7 +46,9 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
   const label = () => (props.kind === 'exercise' ? 'exercise' : 'repertoire')
   const [name, setName] = createSignal(props.name ?? '')
   const [notation, setNotation] = createSignal(props.notation ?? '')
-  const [notationFormat, setNotationFormat] = createSignal(props.notationFormat ?? 'text')
+  const [notationFormat, setNotationFormat] = createSignal<ExerciseNotationFormat>(
+    props.notationFormat ?? EXERCISE_NOTATION_FORMAT.TEXT,
+  )
   const [visibility, setVisibility] = createSignal<'PRIVATE' | 'PUBLIC'>(
     props.visibility ?? 'PRIVATE',
   )
@@ -144,14 +147,17 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
         <label class="field-label" for="exercise-notation-format">
           Notation format
         </label>
-        <input
+        <select
           id="exercise-notation-format"
           class="text-input"
           value={notationFormat()}
-          onInput={(event) => setNotationFormat(event.currentTarget.value)}
-          maxlength="100"
-          required
-        />
+          onChange={(event) =>
+            setNotationFormat(event.currentTarget.value as ExerciseNotationFormat)
+          }
+        >
+          <option value={EXERCISE_NOTATION_FORMAT.TEXT}>Text</option>
+          <option value={EXERCISE_NOTATION_FORMAT.ABC}>ABC notation</option>
+        </select>
       </Show>
 
       <Show when={props.kind === 'repertoire'}>

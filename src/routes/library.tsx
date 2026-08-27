@@ -1,6 +1,7 @@
 import { For, Show } from 'solid-js'
 import { Link, createFileRoute } from '@tanstack/solid-router'
 import { RepertoireLibraryNote } from '@/components/RepertoireLibraryNote'
+import { ExerciseNotation } from '@/components/ExerciseNotation'
 import { getExercises } from '@/data/exercises'
 import { getRepertoire, type RepertoireRow } from '@/data/repertoire'
 
@@ -85,7 +86,12 @@ function Library() {
                         <span>{exercise.notationFormat}</span>
                       </div>
                       <h2>{exercise.name}</h2>
-                      <p>{exercise.notation ?? 'No notation added yet.'}</p>
+                      <Show when={exercise.notation} fallback={<p>No notation added yet.</p>}>
+                        <ExerciseNotation
+                          notation={exercise.notation ?? ''}
+                          format={exercise.notationFormat}
+                        />
+                      </Show>
                       {exercise.copiedFrom && <small>Adapted from {exercise.copiedFrom}</small>}
                     </div>
                   </Link>

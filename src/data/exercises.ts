@@ -2,12 +2,13 @@ import { createServerFn } from '@tanstack/solid-start'
 import { resourceAccess, type ResourceAccess, type Visibility } from '@/auth/authorization'
 import { authMiddleware } from '@/auth/middleware'
 import { pool, toIsoString } from '@/data/db'
+import { isExerciseNotationFormat, type ExerciseNotationFormat } from '@/domain/exercise'
 
 type ExerciseRow = {
   id: string
   name: string
   notation: string | null
-  notationFormat: string
+  notationFormat: ExerciseNotationFormat
   visibility: string
   owner: string
   ownerId: string
@@ -18,7 +19,7 @@ type ExerciseDetail = {
   id: string
   name: string
   notation: string | null
-  notationFormat: string
+  notationFormat: ExerciseNotationFormat
   visibility: string
   owner: string
   ownerId: string
@@ -36,7 +37,7 @@ type ExerciseDetail = {
 export type ExerciseInput = {
   name: string
   notation: string
-  notationFormat: string
+  notationFormat: ExerciseNotationFormat
   visibility: Visibility
 }
 
@@ -48,10 +49,7 @@ function validateExercise(input: ExerciseInput): ExerciseInput {
   const notationFormat = input.notationFormat.trim()
   if (!name) throw new Error('Exercise name is required')
   if (name.length > 200) throw new Error('Exercise name must be 200 characters or fewer')
-  if (!notationFormat) throw new Error('Notation format is required')
-  if (notationFormat.length > 100) {
-    throw new Error('Notation format must be 100 characters or fewer')
-  }
+  if (!isExerciseNotationFormat(notationFormat)) throw new Error('Invalid notation format')
   if (input.visibility !== 'PRIVATE' && input.visibility !== 'PUBLIC') {
     throw new Error('Invalid exercise visibility')
   }
@@ -109,7 +107,7 @@ export const getExerciseDetail = createServerFn({ method: 'GET' })
         id: string
         name: string
         notation: string | null
-        notationFormat: string
+        notationFormat: ExerciseNotationFormat
         visibility: string
         owner: string
         ownerId: string

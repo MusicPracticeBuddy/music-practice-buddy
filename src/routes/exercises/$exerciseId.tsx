@@ -1,6 +1,7 @@
 import { For, Show } from 'solid-js'
 import { Link, createFileRoute, notFound, useNavigate } from '@tanstack/solid-router'
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
+import { ExerciseNotation } from '@/components/ExerciseNotation'
 import { deleteExercise, getExerciseDetail } from '@/data/exercises'
 
 export const Route = createFileRoute('/exercises/$exerciseId')({
@@ -69,10 +70,10 @@ function ExerciseDetail() {
             when={exercise().notation}
             fallback={<p class="muted">No notation or instructions have been added.</p>}
           >
-            <div class="notation-block">
-              <span>{exercise().notationFormat}</span>
-              <p>{exercise().notation}</p>
-            </div>
+            <ExerciseNotation
+              notation={exercise().notation ?? ''}
+              format={exercise().notationFormat}
+            />
           </Show>
         </article>
 

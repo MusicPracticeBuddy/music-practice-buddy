@@ -21,6 +21,7 @@
     "@kobalte/core": "^0.13.13",
     "@tanstack/solid-router": "^1.170.30",
     "@tanstack/solid-start": "^1.168.47",
+    "abcjs": "^6.7.0",
     "pg": "^8.23.0",
     "solid-js": "^1.9.15",
     "sortablejs": "^1.15.7"
