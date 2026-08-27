@@ -1812,9 +1812,17 @@ textarea.text-input {
   color: var(--muted);
 }
 
+.key-mode-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
 .key-mode-switch {
   display: inline-flex;
-  margin-top: 10px;
   padding: 3px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -1834,6 +1842,10 @@ textarea.text-input {
   color: var(--ink);
   box-shadow: 0 2px 7px rgb(38 49 43 / 12%);
   background: var(--paper);
+}
+
+.random-key-button {
+  padding: 7px 13px;
 }
 
 .key-carousel {

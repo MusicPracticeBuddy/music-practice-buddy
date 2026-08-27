@@ -73,6 +73,17 @@ export function SessionExerciseNotation(props: SessionExerciseNotationProps) {
     if (target) setTargetKeyId(target.id)
   }
 
+  function selectRandomKey() {
+    const current = targetKey()
+    const candidates = [...abcKeyOptionsForMode('major'), ...abcKeyOptionsForMode('minor')].filter(
+      (key) => key.id !== current?.id,
+    )
+    const target = candidates[Math.floor(Math.random() * candidates.length)]
+    if (!target) return
+    setDisplayMode(target.mode)
+    setTargetKeyId(target.id)
+  }
+
   return (
     <div>
       <Show when={sourceKey()}>
@@ -83,20 +94,29 @@ export function SessionExerciseNotation(props: SessionExerciseNotationProps) {
             </span>
             <small>Display only · the saved ABC notation is unchanged</small>
           </div>
-          <div class="key-mode-switch" role="group" aria-label="Key mode">
+          <div class="key-mode-actions">
+            <div class="key-mode-switch" role="group" aria-label="Key mode">
+              <button
+                type="button"
+                aria-pressed={displayMode() === 'major'}
+                onClick={() => selectMode('major')}
+              >
+                Major
+              </button>
+              <button
+                type="button"
+                aria-pressed={displayMode() === 'minor'}
+                onClick={() => selectMode('minor')}
+              >
+                Minor
+              </button>
+            </div>
             <button
+              class="secondary-button random-key-button"
               type="button"
-              aria-pressed={displayMode() === 'major'}
-              onClick={() => selectMode('major')}
+              onClick={selectRandomKey}
             >
-              Major
-            </button>
-            <button
-              type="button"
-              aria-pressed={displayMode() === 'minor'}
-              onClick={() => selectMode('minor')}
-            >
-              Minor
+              Random key
             </button>
           </div>
           <div class="key-carousel" role="group" aria-labelledby={labelId}>

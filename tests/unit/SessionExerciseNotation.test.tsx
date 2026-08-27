@@ -14,7 +14,10 @@ vi.mock('../../src/components/ExerciseNotation', () => ({
 
 import { SessionExerciseNotation } from '@/components/SessionExerciseNotation'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
 
 describe('SessionExerciseNotation', () => {
   it('centers the current key and moves through same-mode circle-of-fifths keys', () => {
@@ -45,6 +48,26 @@ describe('SessionExerciseNotation', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Minor' }))
 
+    expect(
+      screen.getByRole('button', { name: 'Display in C minor' }).getAttribute('aria-pressed'),
+    ).toBe('true')
+    expect(screen.getByLabelText('Transposition').textContent).toBe(
+      JSON.stringify({
+        steps: 0,
+        sourceMode: 'major',
+        targetMode: 'minor',
+        targetTonic: 'C',
+      }),
+    )
+  })
+
+  it('can randomly choose another mode and applies that mode before transposing', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(18.1 / 29)
+    render(() => <SessionExerciseNotation notation={'K:C\nCDEF|'} format="abc" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Random key' }))
+
+    expect(screen.getByRole('button', { name: 'Minor' }).getAttribute('aria-pressed')).toBe('true')
     expect(
       screen.getByRole('button', { name: 'Display in C minor' }).getAttribute('aria-pressed'),
     ).toBe('true')
