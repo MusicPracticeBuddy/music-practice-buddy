@@ -46,6 +46,10 @@ export function PracticeLibraryPanel(props: {
   subtitle?: string
   class?: string
   loading?: boolean
+  publicRepertoireItems?: TemplateLibraryItem[]
+  searchPublicRepertoire?: boolean
+  publicRepertoireLoading?: boolean
+  onSearchPublicRepertoireChange?: (enabled: boolean) => void
   disabled?: boolean
   dragMode?: 'sortable' | 'native'
   itemActionLabel?: string
@@ -57,7 +61,10 @@ export function PracticeLibraryPanel(props: {
   const [search, setSearch] = createSignal('')
   const filteredItems = createMemo(() => {
     const query = search().trim().toLowerCase()
-    const selectedItems = props.items.filter((item) => item.type === props.type)
+    const selectedItems =
+      props.type === LIBRARY_ITEM_TYPE.REPERTOIRE && props.searchPublicRepertoire
+        ? (props.publicRepertoireItems ?? [])
+        : props.items.filter((item) => item.type === props.type)
     return query
       ? selectedItems.filter((item) => `${item.name} ${item.detail}`.toLowerCase().includes(query))
       : selectedItems
@@ -106,8 +113,25 @@ export function PracticeLibraryPanel(props: {
         placeholder={`Search ${typeLabel()}…`}
         aria-label={`Search ${typeLabel()}`}
       />
+      <Show
+        when={props.type === LIBRARY_ITEM_TYPE.REPERTOIRE && props.onSearchPublicRepertoireChange}
+      >
+        <label class="library-public-search-toggle">
+          <input
+            type="checkbox"
+            checked={props.searchPublicRepertoire}
+            onChange={(event) =>
+              props.onSearchPublicRepertoireChange?.(event.currentTarget.checked)
+            }
+          />
+          Search public repertoire
+        </label>
+      </Show>
       <PracticeLibraryList sortable={props.dragMode === 'sortable'}>
-        <Show when={!props.loading} fallback={<p class="editor-empty">Loading…</p>}>
+        <Show
+          when={!props.loading && !props.publicRepertoireLoading}
+          fallback={<p class="editor-empty">Loading…</p>}
+        >
           <For
             each={filteredItems()}
             fallback={<p class="editor-empty">No matching practice items</p>}

@@ -56,13 +56,13 @@ INSERT INTO musician_exercise_library (musician_id, exercise_id)
 SELECT musician_id, id
 FROM exercise;
 
-INSERT INTO repertoire (title, owner_musician_id, visibility, status)
+INSERT INTO repertoire (title, composition_year, owner_musician_id, visibility, status)
 VALUES
-    ('Bach Cello Suite No. 1 in G Major, BWV 1007', NULL, 'PUBLIC', 'APPROVED'),
-    ('Beethoven Sonata No. 8 in C Minor, Op. 13', NULL, 'PUBLIC', 'APPROVED'),
-    ('Arban Characteristic Study No. 1', (SELECT id FROM musician WHERE is_admin LIMIT 1), 'PRIVATE', 'APPROVED'),
-    ('Chopin Prelude in E Minor, Op. 28 No. 4', NULL, 'PUBLIC', 'APPROVED'),
-    ('Thirty Progressive Etudes', NULL, 'PUBLIC', 'APPROVED');
+    ('Bach Cello Suite No. 1 in G Major, BWV 1007', 1720, NULL, 'PUBLIC', 'APPROVED'),
+    ('Beethoven Sonata No. 8 in C Minor, Op. 13', 1798, NULL, 'PUBLIC', 'APPROVED'),
+    ('Arban Characteristic Study No. 1', NULL, (SELECT id FROM musician WHERE is_admin LIMIT 1), 'PRIVATE', 'APPROVED'),
+    ('Chopin Prelude in E Minor, Op. 28 No. 4', 1839, NULL, 'PUBLIC', 'APPROVED'),
+    ('Thirty Progressive Etudes', NULL, NULL, 'PUBLIC', 'APPROVED');
 
 INSERT INTO repertoire (title, parent_repertoire_id, start_measure, end_measure, owner_musician_id, visibility, status)
 VALUES (

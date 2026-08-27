@@ -41,6 +41,10 @@ function RepertoireDetail() {
             {repertoire()
               .credits.map((credit) => credit.person)
               .join(', ') || 'Unknown composer'}
+            <Show when={repertoire().compositionYear !== null}>
+              {' '}
+              · {repertoire().compositionYear}
+            </Show>
           </p>
         </div>
         <div class="record-statuses">

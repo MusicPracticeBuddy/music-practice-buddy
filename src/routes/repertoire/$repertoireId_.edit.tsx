@@ -22,6 +22,7 @@ function EditRepertoire() {
       kind="repertoire"
       id={repertoire().id}
       name={repertoire().title}
+      compositionYear={repertoire().compositionYear}
       visibility={repertoire().visibility}
       credits={repertoire().credits.map((credit) => ({
         person: credit.person,

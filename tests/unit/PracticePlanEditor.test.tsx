@@ -50,6 +50,16 @@ vi.mock('../../src/data/repertoire', () => ({
   getInstruments: vi
     .fn()
     .mockResolvedValue([{ id: '1', name: 'Trumpet in B-flat', family: 'BRASS' }]),
+  getPublicRepertoireCatalog: vi.fn().mockResolvedValue([
+    {
+      id: '2',
+      title: 'Public Repertoire Two',
+      compositionYear: 1900,
+      composers: [{ id: '2', name: 'Public Composer' }],
+      instruments: [],
+      inLibrary: false,
+    },
+  ]),
 }))
 
 import { PracticePlanEditor } from '@/components/PracticePlanEditor'
@@ -159,7 +169,7 @@ beforeEach(() => {
 })
 
 describe('PracticePlanEditor', () => {
-  it('uses the dedicated creation fields for exercises and repertoire', async () => {
+  it('searches My Library first and only offers repertoire creation from public search', async () => {
     render(() => <PracticePlanEditor library={library} template={template([])} />)
 
     fireEvent.click(screen.getByRole('button', { name: /Create new exercise/ }))
@@ -175,10 +185,21 @@ describe('PracticePlanEditor', () => {
     expect(
       screen.getByLabelText('Visibility', { selector: '#library-item-visibility' }),
     ).toBeTruthy()
+    expect(screen.queryByLabelText('Type')).toBeNull()
 
-    fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'REPERTOIRE' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    fireEvent.click(screen.getByRole('tab', { name: /Repertoire/ }))
 
-    expect(screen.getByLabelText('Title').getAttribute('maxlength')).toBe('300')
+    expect(screen.getByRole('button', { name: /Repertoire One/ })).toBeTruthy()
+    expect(screen.queryByText('Public Repertoire Two')).toBeNull()
+    expect(screen.queryByRole('button', { name: "Can't find what you're looking for?" })).toBeNull()
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Search public repertoire' }))
+
+    expect(await screen.findByText('Public Repertoire Two')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: "Can't find what you're looking for?" }))
+
+    expect((await screen.findByLabelText('Title')).getAttribute('maxlength')).toBe('300')
     expect(screen.queryByLabelText('Instructions or notation (optional)')).toBeNull()
     expect(screen.getByRole('heading', { name: 'Credits' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Instrumentation' })).toBeTruthy()
@@ -195,6 +216,29 @@ describe('PracticePlanEditor', () => {
     expect(screen.getByLabelText('Instrument 1 part name')).toBeTruthy()
     expect(screen.getByLabelText('Resource 1 type')).toBeTruthy()
     expect(screen.getByLabelText('Resource 1 URL')).toBeTruthy()
+  })
+
+  it('adds a public repertoire search result to the plan', async () => {
+    render(() => <PracticePlanEditor library={library} template={template([])} />)
+
+    fireEvent.click(screen.getByRole('tab', { name: /Repertoire/ }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Search public repertoire' }))
+    fireEvent.click(await screen.findByRole('button', { name: /Public Repertoire Two/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save template' }))
+
+    await waitFor(() => {
+      expect(updateSessionTemplate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          items: [
+            expect.objectContaining({
+              type: 'REPERTOIRE',
+              sourceId: '2',
+              name: 'Public Repertoire Two',
+            }),
+          ],
+        }),
+      })
+    })
   })
 
   it('drops the correct library type at the requested position and keeps the library interactive', async () => {

@@ -5,7 +5,11 @@ import * as Dialog from '@kobalte/core/dialog'
 import Sortable, { type MoveEvent, type SortableEvent } from 'sortablejs'
 import { LibraryItemForm } from '@/components/LibraryItemForm'
 import { PracticeLibraryPanel } from '@/components/PracticeLibraryPanel'
-import { getInstruments, type InstrumentOption } from '@/data/repertoire'
+import {
+  getInstruments,
+  getPublicRepertoireCatalog,
+  type InstrumentOption,
+} from '@/data/repertoire'
 import {
   createSessionTemplate,
   updatePlannedSession,
@@ -206,6 +210,15 @@ export function PracticePlanEditor(props: {
   const [newItemType, setNewItemType] = createSignal<LibraryItemType>(LIBRARY_ITEM_TYPE.EXERCISE)
   const [newItemInstruction, setNewItemInstruction] = createSignal('')
   const [instrumentOptions, setInstrumentOptions] = createSignal<InstrumentOption[]>([])
+  const [searchPublicRepertoire, setSearchPublicRepertoire] = createSignal(false)
+  const [publicRepertoire, setPublicRepertoire] = createSignal<TemplateLibraryItem[]>([])
+  const [loadingPublicRepertoire, setLoadingPublicRepertoire] = createSignal(false)
+
+  const searchableRepertoire = createMemo(() => {
+    const libraryRepertoire = library.filter((item) => item.type === LIBRARY_ITEM_TYPE.REPERTOIRE)
+    const libraryIds = new Set(libraryRepertoire.map((item) => item.id))
+    return [...libraryRepertoire, ...publicRepertoire().filter((item) => !libraryIds.has(item.id))]
+  })
 
   const itemCount = createMemo(
     () => flatten(nodes).filter((item) => item.type !== PRACTICE_ITEM_TYPE.SECTION).length,
@@ -282,7 +295,7 @@ export function PracticePlanEditor(props: {
     parentId: string | null,
     index: number,
   ) {
-    const item = library.find(
+    const item = [...library, ...publicRepertoire()].find(
       (candidate) => candidate.id === libraryId && candidate.type === itemType,
     )
     if (!item) return
@@ -399,17 +412,41 @@ export function PracticePlanEditor(props: {
     setCreatingItem(false)
   }
 
-  function resetNewItemForm(type = libraryType()) {
+  function resetNewItemForm(type: LibraryItemType) {
     setNewItemType(type)
     setNewItemInstruction('')
   }
 
-  async function prepareNewItemForm() {
-    resetNewItemForm()
+  async function prepareNewItemForm(type: LibraryItemType) {
+    resetNewItemForm(type)
+    if (type !== LIBRARY_ITEM_TYPE.REPERTOIRE || instrumentOptions().length > 0) return
     try {
       setInstrumentOptions(await getInstruments())
     } catch (caught) {
       setError(errorMessage(caught))
+    }
+  }
+
+  async function togglePublicRepertoireSearch(enabled: boolean) {
+    setSearchPublicRepertoire(enabled)
+    if (!enabled || publicRepertoire().length > 0) return
+    setLoadingPublicRepertoire(true)
+    setError('')
+    try {
+      const catalog = await getPublicRepertoireCatalog()
+      setPublicRepertoire(
+        catalog.map((item) => ({
+          id: item.id,
+          type: LIBRARY_ITEM_TYPE.REPERTOIRE,
+          name: item.title,
+          detail: item.composers.map((composer) => composer.name).join(', ') || 'Unknown composer',
+        })),
+      )
+    } catch (caught) {
+      setError(errorMessage(caught))
+      setSearchPublicRepertoire(false)
+    } finally {
+      setLoadingPublicRepertoire(false)
     }
   }
 
@@ -615,45 +652,36 @@ export function PracticePlanEditor(props: {
           onTypeChange={setLibraryType}
           onSelect={addLibraryEntry}
           dragMode="sortable"
+          publicRepertoireItems={searchableRepertoire()}
+          searchPublicRepertoire={searchPublicRepertoire()}
+          publicRepertoireLoading={loadingPublicRepertoire()}
+          onSearchPublicRepertoireChange={(enabled) => void togglePublicRepertoireSearch(enabled)}
           footer={
             <Dialog.Root
               open={creatingItem()}
               onOpenChange={(open) => {
-                if (open) void prepareNewItemForm()
+                if (open) void prepareNewItemForm(libraryType())
                 setCreatingItem(open)
               }}
             >
-              <Dialog.Trigger class="secondary-button full-button">
-                + Create new{' '}
-                {libraryType() === LIBRARY_ITEM_TYPE.EXERCISE ? 'exercise' : 'repertoire'}
-              </Dialog.Trigger>
+              <Show when={libraryType() === LIBRARY_ITEM_TYPE.EXERCISE || searchPublicRepertoire()}>
+                <Dialog.Trigger class="secondary-button full-button">
+                  {libraryType() === LIBRARY_ITEM_TYPE.EXERCISE
+                    ? '+ Create new exercise'
+                    : "Can't find what you're looking for?"}
+                </Dialog.Trigger>
+              </Show>
               <Dialog.Portal>
                 <Dialog.Overlay class="modal-backdrop" />
                 <Dialog.Content class="editor-modal library-item-modal">
-                  <Dialog.Title>Create and add an item</Dialog.Title>
+                  <Dialog.Title>
+                    Create and add{' '}
+                    {newItemType() === LIBRARY_ITEM_TYPE.EXERCISE ? 'an exercise' : 'repertoire'}
+                  </Dialog.Title>
                   <LibraryItemForm
                     embedded
                     kind={newItemType() === LIBRARY_ITEM_TYPE.EXERCISE ? 'exercise' : 'repertoire'}
                     instrumentOptions={instrumentOptions()}
-                    beforeFields={
-                      <>
-                        <label class="field-label" for="new-item-type">
-                          Type
-                        </label>
-                        <select
-                          id="new-item-type"
-                          class="text-input"
-                          value={newItemType()}
-                          onChange={(event) => {
-                            const type = event.currentTarget.value
-                            if (isLibraryItemType(type)) setNewItemType(type)
-                          }}
-                        >
-                          <option value={LIBRARY_ITEM_TYPE.EXERCISE}>Exercise</option>
-                          <option value={LIBRARY_ITEM_TYPE.REPERTOIRE}>Repertoire</option>
-                        </select>
-                      </>
-                    }
                     afterFields={
                       <>
                         <label class="field-label" for="new-item-instruction">

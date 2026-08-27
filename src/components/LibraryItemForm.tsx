@@ -17,6 +17,7 @@ type LibraryItemFormProps = {
   kind: 'exercise' | 'repertoire'
   id?: string
   name?: string
+  compositionYear?: number | null
   notation?: string | null
   notationFormat?: ExerciseNotationFormat
   visibility?: 'PRIVATE' | 'PUBLIC'
@@ -47,6 +48,9 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
   const editing = () => props.id !== undefined
   const label = () => (props.kind === 'exercise' ? 'exercise' : 'repertoire')
   const [name, setName] = createSignal(props.name ?? '')
+  const [compositionYear, setCompositionYear] = createSignal(
+    props.compositionYear?.toString() ?? '',
+  )
   const [notation, setNotation] = createSignal(props.notation ?? '')
   const [notationFormat, setNotationFormat] = createSignal<ExerciseNotationFormat>(
     props.notationFormat ?? EXERCISE_NOTATION_FORMAT.TEXT,
@@ -64,6 +68,7 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
 
   createEffect(() => {
     setName(props.name ?? '')
+    setCompositionYear(props.compositionYear?.toString() ?? '')
     setNotation(props.notation ?? '')
     setNotationFormat(props.notationFormat ?? EXERCISE_NOTATION_FORMAT.TEXT)
     setVisibility(props.visibility ?? 'PRIVATE')
@@ -101,6 +106,7 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
       } else {
         const data: RepertoireInput = {
           title: name(),
+          compositionYear: compositionYear() ? Number(compositionYear()) : null,
           visibility: visibility(),
           credits: credits(),
           instruments: instruments(),
@@ -145,6 +151,22 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
         maxlength={props.kind === 'exercise' ? 200 : 300}
         required
       />
+
+      <Show when={props.kind === 'repertoire'}>
+        <label class="field-label" for="repertoire-composition-year">
+          Composition or publication year (optional)
+        </label>
+        <input
+          id="repertoire-composition-year"
+          class="text-input"
+          type="number"
+          min="-9999"
+          max="9999"
+          step="1"
+          value={compositionYear()}
+          onInput={(event) => setCompositionYear(event.currentTarget.value)}
+        />
+      </Show>
 
       <Show when={props.kind === 'exercise'}>
         <label class="field-label" for="exercise-instructions">
