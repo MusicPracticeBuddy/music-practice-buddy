@@ -5,7 +5,12 @@ import { createSignal, type JSX } from 'solid-js'
 const mocks = vi.hoisted(() => ({
   invalidate: vi.fn(async () => undefined),
   navigate: vi.fn(async () => undefined),
+  renderAbc: vi.fn(),
   updateExercise: vi.fn(async () => ({ id: '42' })),
+}))
+
+vi.mock('abcjs', () => ({
+  default: { renderAbc: mocks.renderAbc },
 }))
 
 vi.mock('@tanstack/solid-router', () => ({
@@ -79,6 +84,39 @@ describe('LibraryItemForm', () => {
 
     await waitFor(() => {
       expect((textarea as HTMLTextAreaElement).value).toBe('X:1\nK:G\nGABc|')
+    })
+  })
+
+  it('updates the rendered preview while editing ABC notation', async () => {
+    const initialNotation = 'X:1\nK:C\nCDEF|'
+    const updatedNotation = 'X:1\nK:G\nGABc|'
+    render(() => (
+      <LibraryItemForm
+        kind="exercise"
+        id="42"
+        name="Scales"
+        notation={initialNotation}
+        notationFormat="abc"
+        visibility="PRIVATE"
+      />
+    ))
+
+    expect(screen.getByText('Preview')).toBeTruthy()
+    const score = screen.getByLabelText('Rendered music notation')
+    await waitFor(() => {
+      expect(mocks.renderAbc).toHaveBeenCalledWith(score, initialNotation, {
+        responsive: 'resize',
+      })
+    })
+
+    fireEvent.input(screen.getByLabelText('Instructions or notation (optional)'), {
+      target: { value: updatedNotation },
+    })
+
+    await waitFor(() => {
+      expect(mocks.renderAbc).toHaveBeenLastCalledWith(score, updatedNotation, {
+        responsive: 'resize',
+      })
     })
   })
 })

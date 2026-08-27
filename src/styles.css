@@ -1785,6 +1785,132 @@ textarea.text-input {
   max-width: 100%;
 }
 
+.exercise-notation-preview {
+  margin-top: 18px;
+}
+
+.exercise-notation-preview > .eyebrow {
+  margin-bottom: 8px;
+}
+
+.session-notation-transpose {
+  margin-top: 12px;
+}
+
+.session-notation-transpose-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.session-notation-transpose-header .field-label {
+  margin: 0;
+}
+
+.session-notation-transpose-header small {
+  color: var(--muted);
+}
+
+.key-carousel {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.key-carousel-window {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(54px, 1fr));
+  align-items: center;
+  min-height: 72px;
+}
+
+.key-carousel-window::before {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: #c9cec2;
+  content: '';
+}
+
+.key-carousel-key,
+.key-carousel-placeholder {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  min-height: 52px;
+}
+
+.key-carousel-key {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 7px 5px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--muted);
+  background: #f1f3ed;
+  cursor: pointer;
+}
+
+.key-carousel-key::before {
+  position: absolute;
+  top: -7px;
+  width: 1px;
+  height: 7px;
+  background: #aeb5a6;
+  content: '';
+}
+
+.key-carousel-key strong {
+  color: var(--ink);
+  font-family: 'Fraunces', serif;
+  font-size: 17px;
+}
+
+.key-carousel-key small {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.key-carousel-key-selected {
+  min-height: 68px;
+  border-color: var(--coral);
+  box-shadow: 0 5px 14px rgb(38 49 43 / 12%);
+  background: var(--paper);
+  transform: translateY(-2px);
+}
+
+.key-carousel-key-selected strong {
+  color: var(--coral-dark);
+  font-size: 21px;
+}
+
+.key-carousel-arrow {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--ink);
+  background: var(--paper);
+  font-size: 25px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.key-carousel-arrow:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 .empty-state {
   margin-top: 18px;
   padding: 40px;

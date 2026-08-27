@@ -1,5 +1,6 @@
 import { For, Show, createEffect, createSignal, type JSX } from 'solid-js'
 import { Link, useNavigate, useRouter } from '@tanstack/solid-router'
+import { ExerciseNotation } from '@/components/ExerciseNotation'
 import { createExercise, updateExercise, type ExerciseInput } from '@/data/exercises'
 import { EXERCISE_NOTATION_FORMAT, type ExerciseNotationFormat } from '@/domain/exercise'
 import {
@@ -171,6 +172,20 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
           <option value={EXERCISE_NOTATION_FORMAT.TEXT}>Text</option>
           <option value={EXERCISE_NOTATION_FORMAT.ABC}>ABC notation</option>
         </select>
+
+        <Show when={notationFormat() === EXERCISE_NOTATION_FORMAT.ABC}>
+          <section class="exercise-notation-preview" aria-labelledby="exercise-preview-heading">
+            <p class="eyebrow" id="exercise-preview-heading">
+              Preview
+            </p>
+            <Show
+              when={notation().trim()}
+              fallback={<p class="muted">Enter ABC notation above to preview the score.</p>}
+            >
+              <ExerciseNotation notation={notation()} format={EXERCISE_NOTATION_FORMAT.ABC} />
+            </Show>
+          </section>
+        </Show>
       </Show>
 
       <Show when={props.kind === 'repertoire'}>

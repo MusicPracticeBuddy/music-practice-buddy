@@ -4,6 +4,16 @@ import { EXERCISE_NOTATION_FORMAT } from '@/domain/exercise'
 type ExerciseNotationProps = {
   notation: string
   format: string | null
+  transpose?: {
+    steps: number
+    targetTonic: string
+  }
+}
+
+function notationForTransposition(notation: string) {
+  return /^X:/m.test(notation)
+    ? { notation, addedReference: false }
+    : { notation: `X:1\n${notation}`, addedReference: true }
 }
 
 export function ExerciseNotation(props: ExerciseNotationProps) {
@@ -16,6 +26,7 @@ export function ExerciseNotation(props: ExerciseNotationProps) {
     createEffect(() => {
       const format = props.format
       const notation = props.notation
+      const transpose = props.transpose
       const target = scoreElement
       const version = ++renderVersion
 
@@ -25,10 +36,37 @@ export function ExerciseNotation(props: ExerciseNotationProps) {
         return
       }
 
-      void import('abcjs').then(({ default: abcjs }) => {
-        if (!active || version !== renderVersion) return
-        abcjs.renderAbc(target, notation, { responsive: 'resize' })
-      })
+      const transposer = transpose ? import('abc-notation-transposition') : Promise.resolve(null)
+      void Promise.all([import('abcjs'), transposer]).then(
+        ([{ default: abcjs }, transposeModule]) => {
+          if (!active || version !== renderVersion) return
+          let renderedNotation = notation
+          if (transpose && transposeModule) {
+            try {
+              const source = notationForTransposition(notation)
+              const prefersFlats = transpose.targetTonic.includes('b')
+              const prefersSharps = transpose.targetTonic.includes('#')
+              renderedNotation = transposeModule.transposeABC(source.notation, transpose.steps, {
+                accidentalNumberPreference:
+                  prefersFlats || prefersSharps
+                    ? transposeModule.ACCIDENTAL_NUMBER_PREFERENCES.NO_PREFERENCE
+                    : transposeModule.ACCIDENTAL_NUMBER_PREFERENCES.PREFER_FEWER,
+                preferSharpsOrFlats: prefersFlats
+                  ? transposeModule.SHARPS_OR_FLATS_PREFERENCES.PREFER_FLATS
+                  : prefersSharps
+                    ? transposeModule.SHARPS_OR_FLATS_PREFERENCES.PREFER_SHARPS
+                    : transposeModule.SHARPS_OR_FLATS_PREFERENCES.PRESERVE_ORIGINAL,
+              })
+              if (source.addedReference) {
+                renderedNotation = renderedNotation.replace(/^X:1\r?\n/, '')
+              }
+            } catch {
+              renderedNotation = notation
+            }
+          }
+          abcjs.renderAbc(target, renderedNotation, { responsive: 'resize' })
+        },
+      )
     })
 
     onCleanup(() => {

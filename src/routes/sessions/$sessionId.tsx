@@ -9,8 +9,8 @@ import {
   useRouter,
 } from '@tanstack/solid-router'
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
-import { ExerciseNotation } from '@/components/ExerciseNotation'
 import { PracticeLibraryPanel } from '@/components/PracticeLibraryPanel'
+import { SessionExerciseNotation } from '@/components/SessionExerciseNotation'
 import {
   addRunningSessionItem,
   completePracticeSession,
@@ -1168,7 +1168,7 @@ function SessionItem(props: {
             </div>
           </Show>
           <Show when={props.item.notation}>
-            <ExerciseNotation
+            <SessionExerciseNotation
               notation={props.item.notation ?? ''}
               format={props.item.notationFormat}
             />

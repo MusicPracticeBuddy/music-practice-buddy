@@ -51,4 +51,39 @@ describe('ExerciseNotation', () => {
       })
     })
   })
+
+  it('preserves the selected sharp enharmonic in the visual renderer', async () => {
+    const notation = 'X:1\nK:C\nCDEF|'
+
+    render(() => (
+      <ExerciseNotation
+        notation={notation}
+        format="abc"
+        transpose={{ steps: 6, targetTonic: 'F#' }}
+      />
+    ))
+
+    const score = screen.getByLabelText('Rendered music notation')
+    await waitFor(() => {
+      const renderedNotation = renderAbc.mock.calls.find(([target]) => target === score)?.[1]
+      expect(renderedNotation).toContain('K:F#major')
+    })
+  })
+
+  it('preserves the selected flat enharmonic in the visual renderer', async () => {
+    const notation = 'X:1\nK:C\nCDEF|'
+    render(() => (
+      <ExerciseNotation
+        notation={notation}
+        format="abc"
+        transpose={{ steps: 6, targetTonic: 'Gb' }}
+      />
+    ))
+
+    const score = screen.getByLabelText('Rendered music notation')
+    await waitFor(() => {
+      const renderedNotation = renderAbc.mock.calls.find(([target]) => target === score)?.[1]
+      expect(renderedNotation).toContain('K:Gbmajor')
+    })
+  })
 })
