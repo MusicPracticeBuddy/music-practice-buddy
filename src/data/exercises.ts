@@ -33,6 +33,31 @@ type ExerciseDetail = {
   }[]
 } & ResourceAccess
 
+export type ExerciseInput = {
+  name: string
+  notation: string
+  notationFormat: string
+  visibility: Visibility
+}
+
+type UpdateExerciseInput = ExerciseInput & { id: string }
+
+function validateExercise(input: ExerciseInput): ExerciseInput {
+  const name = input.name.trim()
+  const notation = input.notation.trim()
+  const notationFormat = input.notationFormat.trim()
+  if (!name) throw new Error('Exercise name is required')
+  if (name.length > 200) throw new Error('Exercise name must be 200 characters or fewer')
+  if (!notationFormat) throw new Error('Notation format is required')
+  if (notationFormat.length > 100) {
+    throw new Error('Notation format must be 100 characters or fewer')
+  }
+  if (input.visibility !== 'PRIVATE' && input.visibility !== 'PUBLIC') {
+    throw new Error('Invalid exercise visibility')
+  }
+  return { name, notation, notationFormat, visibility: input.visibility }
+}
+
 export const getExercises = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(async ({ context }): Promise<ExerciseRow[]> => {
@@ -167,4 +192,67 @@ export const getExerciseDetail = createServerFn({ method: 'GET' })
       })),
       ...resourceAccess(context.user, exercise.ownerId, exercise.visibility as Visibility),
     }
+  })
+
+export const createExercise = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .validator(validateExercise)
+  .handler(async ({ data, context }): Promise<{ id: string }> => {
+    const result = await pool.query<{ id: string }>(
+      `INSERT INTO exercise (musician_id, name, notation, notation_format, visibility)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id::text`,
+      [
+        context.user.musicianId,
+        data.name,
+        data.notation || null,
+        data.notationFormat,
+        data.visibility,
+      ],
+    )
+    return result.rows[0]!
+  })
+
+export const updateExercise = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .validator((input: UpdateExerciseInput) => {
+    if (!/^\d+$/.test(input.id)) throw new Error('Invalid exercise')
+    return { id: input.id, ...validateExercise(input) }
+  })
+  .handler(async ({ data, context }): Promise<{ id: string }> => {
+    const result = await pool.query<{ id: string }>(
+      `UPDATE exercise
+       SET name = $1, notation = $2, notation_format = $3, visibility = $4
+       WHERE id = $5 AND musician_id = $6 AND deleted_at IS NULL
+       RETURNING id::text`,
+      [
+        data.name,
+        data.notation || null,
+        data.notationFormat,
+        data.visibility,
+        data.id,
+        context.user.musicianId,
+      ],
+    )
+    const exercise = result.rows[0]
+    if (!exercise) throw new Error('Exercise not found')
+    return exercise
+  })
+
+export const deleteExercise = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .validator((exerciseId: string) => {
+    if (!/^\d+$/.test(exerciseId)) throw new Error('Invalid exercise')
+    return exerciseId
+  })
+  .handler(async ({ data: exerciseId, context }): Promise<{ id: string }> => {
+    const result = await pool.query<{ id: string }>(
+      `UPDATE exercise SET deleted_at = CURRENT_TIMESTAMP
+       WHERE id = $1 AND musician_id = $2 AND deleted_at IS NULL
+       RETURNING id::text`,
+      [exerciseId, context.user.musicianId],
+    )
+    const exercise = result.rows[0]
+    if (!exercise) throw new Error('Exercise not found')
+    return exercise
   })

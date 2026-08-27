@@ -880,10 +880,11 @@ export const addRunningSessionItem = createServerFn({ method: 'POST' })
           : await client.query<{ name: string }>(
               `WITH RECURSIVE access AS (
                  SELECT id, title, owner_musician_id, visibility
-                 FROM repertoire WHERE parent_repertoire_id IS NULL
+                 FROM repertoire WHERE parent_repertoire_id IS NULL AND deleted_at IS NULL
                  UNION ALL
                  SELECT child.id, child.title, access.owner_musician_id, access.visibility
                  FROM repertoire child JOIN access ON access.id = child.parent_repertoire_id
+                 WHERE child.deleted_at IS NULL
                )
                SELECT title AS name FROM access
                WHERE id = $1 AND (owner_musician_id = $2 OR visibility = 'PUBLIC')`,

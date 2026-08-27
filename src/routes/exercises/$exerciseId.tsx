@@ -1,6 +1,7 @@
 import { For, Show } from 'solid-js'
-import { Link, createFileRoute, notFound } from '@tanstack/solid-router'
-import { getExerciseDetail } from '@/data/exercises'
+import { Link, createFileRoute, notFound, useNavigate } from '@tanstack/solid-router'
+import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
+import { deleteExercise, getExerciseDetail } from '@/data/exercises'
 
 export const Route = createFileRoute('/exercises/$exerciseId')({
   loader: async ({ params }) => {
@@ -23,6 +24,7 @@ function formatDate(value: string | null) {
 
 function ExerciseDetail() {
   const exercise = Route.useLoaderData()
+  const navigate = useNavigate()
 
   return (
     <main class="page detail-page">
@@ -35,7 +37,29 @@ function ExerciseDetail() {
           <p class="eyebrow">Exercise #{exercise().id}</p>
           <h1>{exercise().name}</h1>
         </div>
-        <span class="tag">{exercise().visibility.toLowerCase()}</span>
+        <div class="header-actions">
+          <span class="tag">{exercise().visibility.toLowerCase()}</span>
+          <Show when={exercise().canManage}>
+            <Link
+              class="secondary-button"
+              to="/exercises/$exerciseId/edit"
+              params={{ exerciseId: exercise().id }}
+            >
+              Edit exercise
+            </Link>
+            <DeleteConfirmationDialog
+              triggerLabel="Delete exercise"
+              title="Delete this exercise?"
+              itemName={exercise().name}
+              description="This removes the exercise from your library. Historical session entries will remain."
+              confirmLabel="Delete exercise"
+              onConfirm={async () => {
+                await deleteExercise({ data: exercise().id })
+                await navigate({ to: '/library' })
+              }}
+            />
+          </Show>
+        </div>
       </header>
 
       <section class="detail-grid">

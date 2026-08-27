@@ -1,6 +1,7 @@
 import { For, Show } from 'solid-js'
-import { Link, createFileRoute, notFound } from '@tanstack/solid-router'
-import { getRepertoireDetail } from '@/data/repertoire'
+import { Link, createFileRoute, notFound, useNavigate } from '@tanstack/solid-router'
+import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
+import { deleteRepertoire, getRepertoireDetail } from '@/data/repertoire'
 
 export const Route = createFileRoute('/repertoire/$repertoireId')({
   loader: async ({ params }) => {
@@ -23,6 +24,7 @@ function formatDate(value: string | null) {
 
 function RepertoireDetail() {
   const repertoire = Route.useLoaderData()
+  const navigate = useNavigate()
 
   return (
     <main class="page detail-page">
@@ -43,6 +45,26 @@ function RepertoireDetail() {
         <div class="record-statuses">
           <span class="tag">{repertoire().visibility.toLowerCase()}</span>
           <span class="tag">{repertoire().status.toLowerCase()}</span>
+          <Show when={repertoire().canManage && !repertoire().parent}>
+            <Link
+              class="secondary-button"
+              to="/repertoire/$repertoireId/edit"
+              params={{ repertoireId: repertoire().id }}
+            >
+              Edit repertoire
+            </Link>
+            <DeleteConfirmationDialog
+              triggerLabel="Delete repertoire"
+              title="Delete this repertoire?"
+              itemName={repertoire().title}
+              description="This removes the repertoire from your library. Historical session entries will remain."
+              confirmLabel="Delete repertoire"
+              onConfirm={async () => {
+                await deleteRepertoire({ data: repertoire().id })
+                await navigate({ to: '/library' })
+              }}
+            />
+          </Show>
         </div>
       </header>
 

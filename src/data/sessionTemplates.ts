@@ -128,10 +128,11 @@ async function resolveLibrarySource(
     const result = await client.query<{ name: string; visibility: Visibility }>(
       `WITH RECURSIVE access AS (
          SELECT id, title, owner_musician_id, visibility
-         FROM repertoire WHERE parent_repertoire_id IS NULL
+         FROM repertoire WHERE parent_repertoire_id IS NULL AND deleted_at IS NULL
          UNION ALL
          SELECT child.id, child.title, access.owner_musician_id, access.visibility
          FROM repertoire child JOIN access ON access.id = child.parent_repertoire_id
+         WHERE child.deleted_at IS NULL
        )
        SELECT title AS name, visibility::text FROM access
        WHERE id = $1 AND (owner_musician_id = $2 OR visibility = 'PUBLIC')`,
@@ -163,7 +164,7 @@ async function insertTemplateItems(
       item.type === PRACTICE_ITEM_TYPE.SECTION
         ? null
         : await resolveLibrarySource(client, user, item.type, item.sourceId!)
-    if (templateVisibility === 'PUBLIC' && source?.visibility !== 'PUBLIC') {
+    if (source && templateVisibility === 'PUBLIC' && source.visibility !== 'PUBLIC') {
       throw new Error('Public templates can only reference public library items')
     }
     const result = await client.query<{ id: string }>(
@@ -293,10 +294,11 @@ export const getTemplateLibrary = createServerFn({ method: 'GET' })
         `
         WITH RECURSIVE access AS (
           SELECT id, owner_musician_id, visibility
-          FROM repertoire WHERE parent_repertoire_id IS NULL
+          FROM repertoire WHERE parent_repertoire_id IS NULL AND deleted_at IS NULL
           UNION ALL
           SELECT child.id, access.owner_musician_id, access.visibility
           FROM repertoire child JOIN access ON access.id = child.parent_repertoire_id
+          WHERE child.deleted_at IS NULL
         )
         SELECT
           repertoire.id::text,
@@ -337,11 +339,12 @@ export const getSessionTemplate = createServerFn({ method: 'GET' })
         `
           WITH RECURSIVE repertoire_access AS (
             SELECT id, owner_musician_id, visibility
-            FROM repertoire WHERE parent_repertoire_id IS NULL
+            FROM repertoire WHERE parent_repertoire_id IS NULL AND deleted_at IS NULL
             UNION ALL
             SELECT child.id, access.owner_musician_id, access.visibility
             FROM repertoire child
             JOIN repertoire_access access ON access.id = child.parent_repertoire_id
+            WHERE child.deleted_at IS NULL
           )
           SELECT
             item.id::text AS "clientId",
@@ -406,11 +409,12 @@ export const getPlannedSessionForEdit = createServerFn({ method: 'GET' })
         `
           WITH RECURSIVE repertoire_access AS (
             SELECT id, owner_musician_id, visibility
-            FROM repertoire WHERE parent_repertoire_id IS NULL
+            FROM repertoire WHERE parent_repertoire_id IS NULL AND deleted_at IS NULL
             UNION ALL
             SELECT child.id, access.owner_musician_id, access.visibility
             FROM repertoire child
             JOIN repertoire_access access ON access.id = child.parent_repertoire_id
+            WHERE child.deleted_at IS NULL
           )
           SELECT
             item.id::text AS "clientId",

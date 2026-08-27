@@ -423,6 +423,13 @@ h1 {
   font-size: 36px;
 }
 
+.library-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
 .library-toggle {
   display: inline-flex;
   align-items: center;
@@ -1671,6 +1678,9 @@ textarea.text-input {
 .record-statuses {
   display: flex;
   gap: 7px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .parent-record {

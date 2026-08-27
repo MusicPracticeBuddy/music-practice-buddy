@@ -43,15 +43,35 @@ type RepertoireDetail = {
   }[]
 } & ResourceAccess
 
+export type RepertoireInput = {
+  title: string
+  libraryNotes: string
+  visibility: Visibility
+}
+
+type UpdateRepertoireInput = RepertoireInput & { id: string }
+
+function validateRepertoire(input: RepertoireInput): RepertoireInput {
+  const title = input.title.trim()
+  const libraryNotes = input.libraryNotes.trim()
+  if (!title) throw new Error('Repertoire title is required')
+  if (title.length > 300) throw new Error('Repertoire title must be 300 characters or fewer')
+  if (input.visibility !== 'PRIVATE' && input.visibility !== 'PUBLIC') {
+    throw new Error('Invalid repertoire visibility')
+  }
+  return { title, libraryNotes, visibility: input.visibility }
+}
+
 const ACCESS_CTE = `
   WITH RECURSIVE repertoire_access AS (
     SELECT id, owner_musician_id, visibility
     FROM repertoire
-    WHERE parent_repertoire_id IS NULL
+    WHERE parent_repertoire_id IS NULL AND deleted_at IS NULL
     UNION ALL
     SELECT child.id, access.owner_musician_id, access.visibility
     FROM repertoire child
     JOIN repertoire_access access ON access.id = child.parent_repertoire_id
+    WHERE child.deleted_at IS NULL
   )
 `
 
@@ -205,7 +225,7 @@ export const getRepertoireDetail = createServerFn({ method: 'GET' })
       }>(
         `SELECT id::text, title, start_measure AS "startMeasure",
            end_measure AS "endMeasure"
-         FROM repertoire WHERE parent_repertoire_id = $1
+         FROM repertoire WHERE parent_repertoire_id = $1 AND deleted_at IS NULL
          ORDER BY start_measure NULLS LAST, title`,
         [repertoireId],
       ),
@@ -250,4 +270,90 @@ export const getRepertoireDetail = createServerFn({ method: 'GET' })
       })),
       ...resourceAccess(context.user, repertoire.ownerId, repertoire.visibility),
     }
+  })
+
+export const createRepertoire = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .validator(validateRepertoire)
+  .handler(async ({ data, context }): Promise<{ id: string }> => {
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      const result = await client.query<{ id: string }>(
+        `INSERT INTO repertoire (title, owner_musician_id, visibility, status)
+         VALUES ($1, $2, $3, 'APPROVED')
+         RETURNING id::text`,
+        [data.title, context.user.musicianId, data.visibility],
+      )
+      const repertoire = result.rows[0]
+      if (!repertoire) throw new Error('Repertoire could not be created')
+      await client.query(
+        `INSERT INTO musician_repertoire_library (musician_id, repertoire_id, notes)
+         VALUES ($1, $2, $3)`,
+        [context.user.musicianId, repertoire.id, data.libraryNotes || null],
+      )
+      await client.query('COMMIT')
+      return repertoire
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
+  })
+
+export const updateRepertoire = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .validator((input: UpdateRepertoireInput) => {
+    if (!/^\d+$/.test(input.id)) throw new Error('Invalid repertoire')
+    return { id: input.id, ...validateRepertoire(input) }
+  })
+  .handler(async ({ data, context }): Promise<{ id: string }> => {
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      const result = await client.query<{ id: string }>(
+        `UPDATE repertoire
+         SET title = $1, visibility = $2
+         WHERE id = $3 AND owner_musician_id = $4
+           AND parent_repertoire_id IS NULL AND deleted_at IS NULL
+         RETURNING id::text`,
+        [data.title, data.visibility, data.id, context.user.musicianId],
+      )
+      const repertoire = result.rows[0]
+      if (!repertoire) throw new Error('Repertoire not found')
+      await client.query(
+        `INSERT INTO musician_repertoire_library (musician_id, repertoire_id, notes)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (musician_id, repertoire_id)
+         DO UPDATE SET notes = EXCLUDED.notes`,
+        [context.user.musicianId, data.id, data.libraryNotes || null],
+      )
+      await client.query('COMMIT')
+      return repertoire
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
+  })
+
+export const deleteRepertoire = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .validator((repertoireId: string) => {
+    if (!/^\d+$/.test(repertoireId)) throw new Error('Invalid repertoire')
+    return repertoireId
+  })
+  .handler(async ({ data: repertoireId, context }): Promise<{ id: string }> => {
+    const result = await pool.query<{ id: string }>(
+      `UPDATE repertoire SET deleted_at = CURRENT_TIMESTAMP
+       WHERE id = $1 AND owner_musician_id = $2
+         AND parent_repertoire_id IS NULL AND deleted_at IS NULL
+       RETURNING id::text`,
+      [repertoireId, context.user.musicianId],
+    )
+    const repertoire = result.rows[0]
+    if (!repertoire) throw new Error('Repertoire not found')
+    return repertoire
   })

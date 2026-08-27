@@ -34,11 +34,12 @@ export const getDashboard = createServerFn({ method: 'GET' })
         WITH RECURSIVE repertoire_access AS (
           SELECT id, owner_musician_id, visibility
           FROM repertoire
-          WHERE parent_repertoire_id IS NULL
+          WHERE parent_repertoire_id IS NULL AND deleted_at IS NULL
           UNION ALL
           SELECT child.id, access.owner_musician_id, access.visibility
           FROM repertoire child
           JOIN repertoire_access access ON access.id = child.parent_repertoire_id
+          WHERE child.deleted_at IS NULL
         )
         SELECT
           (SELECT count(*)::int FROM repertoire_access

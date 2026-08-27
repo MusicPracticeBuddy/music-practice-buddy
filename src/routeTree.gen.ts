@@ -18,13 +18,17 @@ import { Route as RepertoireRouteImport } from './routes/repertoire'
 import { Route as SessionsRouteImport } from './routes/sessions'
 import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as ExercisesExerciseIdRouteImport } from './routes/exercises/$exerciseId'
+import { Route as ExercisesNewRouteImport } from './routes/exercises/new'
 import { Route as RepertoireRepertoireIdRouteImport } from './routes/repertoire/$repertoireId'
+import { Route as RepertoireNewRouteImport } from './routes/repertoire/new'
 import { Route as SessionsIndexRouteImport } from './routes/sessions/index'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessionId'
 import { Route as SessionsNewRouteImport } from './routes/sessions/new'
 import { Route as TemplatesIndexRouteImport } from './routes/templates/index'
 import { Route as TemplatesTemplateIdRouteImport } from './routes/templates/$templateId'
 import { Route as TemplatesNewRouteImport } from './routes/templates/new'
+import { Route as ExercisesExerciseIdEditRouteImport } from './routes/exercises/$exerciseId_.edit'
+import { Route as RepertoireRepertoireIdEditRouteImport } from './routes/repertoire/$repertoireId_.edit'
 import { Route as SessionsSessionIdEditRouteImport } from './routes/sessions/$sessionId_.edit'
 import { Route as TemplatesTemplateIdEditRouteImport } from './routes/templates/$templateId_.edit'
 
@@ -73,9 +77,19 @@ const ExercisesExerciseIdRoute = ExercisesExerciseIdRouteImport.update({
   path: '/$exerciseId',
   getParentRoute: () => ExercisesRoute,
 } as any)
+const ExercisesNewRoute = ExercisesNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => ExercisesRoute,
+} as any)
 const RepertoireRepertoireIdRoute = RepertoireRepertoireIdRouteImport.update({
   id: '/$repertoireId',
   path: '/$repertoireId',
+  getParentRoute: () => RepertoireRoute,
+} as any)
+const RepertoireNewRoute = RepertoireNewRouteImport.update({
+  id: '/new',
+  path: '/new',
   getParentRoute: () => RepertoireRoute,
 } as any)
 const SessionsIndexRoute = SessionsIndexRouteImport.update({
@@ -108,6 +122,17 @@ const TemplatesNewRoute = TemplatesNewRouteImport.update({
   path: '/new',
   getParentRoute: () => TemplatesRoute,
 } as any)
+const ExercisesExerciseIdEditRoute = ExercisesExerciseIdEditRouteImport.update({
+  id: '/$exerciseId_/edit',
+  path: '/$exerciseId/edit',
+  getParentRoute: () => ExercisesRoute,
+} as any)
+const RepertoireRepertoireIdEditRoute =
+  RepertoireRepertoireIdEditRouteImport.update({
+    id: '/$repertoireId_/edit',
+    path: '/$repertoireId/edit',
+    getParentRoute: () => RepertoireRoute,
+  } as any)
 const SessionsSessionIdEditRoute = SessionsSessionIdEditRouteImport.update({
   id: '/$sessionId_/edit',
   path: '/$sessionId/edit',
@@ -129,13 +154,17 @@ export interface FileRoutesByFullPath {
   '/sessions': typeof SessionsRouteWithChildren
   '/templates': typeof TemplatesRouteWithChildren
   '/exercises/$exerciseId': typeof ExercisesExerciseIdRoute
+  '/exercises/new': typeof ExercisesNewRoute
   '/repertoire/$repertoireId': typeof RepertoireRepertoireIdRoute
+  '/repertoire/new': typeof RepertoireNewRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/sessions/new': typeof SessionsNewRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRoute
   '/templates/new': typeof TemplatesNewRoute
   '/sessions/': typeof SessionsIndexRoute
   '/templates/': typeof TemplatesIndexRoute
+  '/exercises/$exerciseId/edit': typeof ExercisesExerciseIdEditRoute
+  '/repertoire/$repertoireId/edit': typeof RepertoireRepertoireIdEditRoute
   '/sessions/$sessionId/edit': typeof SessionsSessionIdEditRoute
   '/templates/$templateId/edit': typeof TemplatesTemplateIdEditRoute
 }
@@ -147,13 +176,17 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/repertoire': typeof RepertoireRouteWithChildren
   '/exercises/$exerciseId': typeof ExercisesExerciseIdRoute
+  '/exercises/new': typeof ExercisesNewRoute
   '/repertoire/$repertoireId': typeof RepertoireRepertoireIdRoute
+  '/repertoire/new': typeof RepertoireNewRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/sessions/new': typeof SessionsNewRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRoute
   '/templates/new': typeof TemplatesNewRoute
   '/sessions': typeof SessionsIndexRoute
   '/templates': typeof TemplatesIndexRoute
+  '/exercises/$exerciseId/edit': typeof ExercisesExerciseIdEditRoute
+  '/repertoire/$repertoireId/edit': typeof RepertoireRepertoireIdEditRoute
   '/sessions/$sessionId/edit': typeof SessionsSessionIdEditRoute
   '/templates/$templateId/edit': typeof TemplatesTemplateIdEditRoute
 }
@@ -168,13 +201,17 @@ export interface FileRoutesById {
   '/sessions': typeof SessionsRouteWithChildren
   '/templates': typeof TemplatesRouteWithChildren
   '/exercises/$exerciseId': typeof ExercisesExerciseIdRoute
+  '/exercises/new': typeof ExercisesNewRoute
   '/repertoire/$repertoireId': typeof RepertoireRepertoireIdRoute
+  '/repertoire/new': typeof RepertoireNewRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/sessions/new': typeof SessionsNewRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRoute
   '/templates/new': typeof TemplatesNewRoute
   '/sessions/': typeof SessionsIndexRoute
   '/templates/': typeof TemplatesIndexRoute
+  '/exercises/$exerciseId_/edit': typeof ExercisesExerciseIdEditRoute
+  '/repertoire/$repertoireId_/edit': typeof RepertoireRepertoireIdEditRoute
   '/sessions/$sessionId_/edit': typeof SessionsSessionIdEditRoute
   '/templates/$templateId_/edit': typeof TemplatesTemplateIdEditRoute
 }
@@ -190,13 +227,17 @@ export interface FileRouteTypes {
     | '/sessions'
     | '/templates'
     | '/exercises/$exerciseId'
+    | '/exercises/new'
     | '/repertoire/$repertoireId'
+    | '/repertoire/new'
     | '/sessions/$sessionId'
     | '/sessions/new'
     | '/templates/$templateId'
     | '/templates/new'
     | '/sessions/'
     | '/templates/'
+    | '/exercises/$exerciseId/edit'
+    | '/repertoire/$repertoireId/edit'
     | '/sessions/$sessionId/edit'
     | '/templates/$templateId/edit'
   fileRoutesByTo: FileRoutesByTo
@@ -208,13 +249,17 @@ export interface FileRouteTypes {
     | '/login'
     | '/repertoire'
     | '/exercises/$exerciseId'
+    | '/exercises/new'
     | '/repertoire/$repertoireId'
+    | '/repertoire/new'
     | '/sessions/$sessionId'
     | '/sessions/new'
     | '/templates/$templateId'
     | '/templates/new'
     | '/sessions'
     | '/templates'
+    | '/exercises/$exerciseId/edit'
+    | '/repertoire/$repertoireId/edit'
     | '/sessions/$sessionId/edit'
     | '/templates/$templateId/edit'
   id:
@@ -228,13 +273,17 @@ export interface FileRouteTypes {
     | '/sessions'
     | '/templates'
     | '/exercises/$exerciseId'
+    | '/exercises/new'
     | '/repertoire/$repertoireId'
+    | '/repertoire/new'
     | '/sessions/$sessionId'
     | '/sessions/new'
     | '/templates/$templateId'
     | '/templates/new'
     | '/sessions/'
     | '/templates/'
+    | '/exercises/$exerciseId_/edit'
+    | '/repertoire/$repertoireId_/edit'
     | '/sessions/$sessionId_/edit'
     | '/templates/$templateId_/edit'
   fileRoutesById: FileRoutesById
@@ -315,11 +364,25 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof ExercisesExerciseIdRouteImport
       parentRoute: typeof ExercisesRoute
     }
+    '/exercises/new': {
+      id: '/exercises/new'
+      path: '/new'
+      fullPath: '/exercises/new'
+      preLoaderRoute: typeof ExercisesNewRouteImport
+      parentRoute: typeof ExercisesRoute
+    }
     '/repertoire/$repertoireId': {
       id: '/repertoire/$repertoireId'
       path: '/$repertoireId'
       fullPath: '/repertoire/$repertoireId'
       preLoaderRoute: typeof RepertoireRepertoireIdRouteImport
+      parentRoute: typeof RepertoireRoute
+    }
+    '/repertoire/new': {
+      id: '/repertoire/new'
+      path: '/new'
+      fullPath: '/repertoire/new'
+      preLoaderRoute: typeof RepertoireNewRouteImport
       parentRoute: typeof RepertoireRoute
     }
     '/sessions/': {
@@ -364,6 +427,20 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof TemplatesNewRouteImport
       parentRoute: typeof TemplatesRoute
     }
+    '/exercises/$exerciseId_/edit': {
+      id: '/exercises/$exerciseId_/edit'
+      path: '/$exerciseId/edit'
+      fullPath: '/exercises/$exerciseId/edit'
+      preLoaderRoute: typeof ExercisesExerciseIdEditRouteImport
+      parentRoute: typeof ExercisesRoute
+    }
+    '/repertoire/$repertoireId_/edit': {
+      id: '/repertoire/$repertoireId_/edit'
+      path: '/$repertoireId/edit'
+      fullPath: '/repertoire/$repertoireId/edit'
+      preLoaderRoute: typeof RepertoireRepertoireIdEditRouteImport
+      parentRoute: typeof RepertoireRoute
+    }
     '/sessions/$sessionId_/edit': {
       id: '/sessions/$sessionId_/edit'
       path: '/$sessionId/edit'
@@ -383,10 +460,14 @@ declare module '@tanstack/solid-router' {
 
 interface ExercisesRouteChildren {
   ExercisesExerciseIdRoute: typeof ExercisesExerciseIdRoute
+  ExercisesNewRoute: typeof ExercisesNewRoute
+  ExercisesExerciseIdEditRoute: typeof ExercisesExerciseIdEditRoute
 }
 
 const ExercisesRouteChildren: ExercisesRouteChildren = {
   ExercisesExerciseIdRoute: ExercisesExerciseIdRoute,
+  ExercisesNewRoute: ExercisesNewRoute,
+  ExercisesExerciseIdEditRoute: ExercisesExerciseIdEditRoute,
 }
 
 const ExercisesRouteWithChildren = ExercisesRoute._addFileChildren(
@@ -395,10 +476,14 @@ const ExercisesRouteWithChildren = ExercisesRoute._addFileChildren(
 
 interface RepertoireRouteChildren {
   RepertoireRepertoireIdRoute: typeof RepertoireRepertoireIdRoute
+  RepertoireNewRoute: typeof RepertoireNewRoute
+  RepertoireRepertoireIdEditRoute: typeof RepertoireRepertoireIdEditRoute
 }
 
 const RepertoireRouteChildren: RepertoireRouteChildren = {
   RepertoireRepertoireIdRoute: RepertoireRepertoireIdRoute,
+  RepertoireNewRoute: RepertoireNewRoute,
+  RepertoireRepertoireIdEditRoute: RepertoireRepertoireIdEditRoute,
 }
 
 const RepertoireRouteWithChildren = RepertoireRoute._addFileChildren(

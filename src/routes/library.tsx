@@ -61,11 +61,16 @@ function Library() {
               <h2 id="repertoire-heading">Repertoire</h2>
               <span class="count-badge">{repertoire().length} entries</span>
             </div>
-            <LibraryToggle
-              checked={includePublicRepertoire()}
-              label="Include public repertoire"
-              onChange={setIncludePublicRepertoire}
-            />
+            <div class="library-section-actions">
+              <LibraryToggle
+                checked={includePublicRepertoire()}
+                label="Include public repertoire"
+                onChange={setIncludePublicRepertoire}
+              />
+              <Link class="primary-button" to="/repertoire/new">
+                + Add repertoire
+              </Link>
+            </div>
           </header>
 
           <Show
@@ -110,11 +115,16 @@ function Library() {
               <h2 id="exercises-heading">Exercises</h2>
               <span class="count-badge">{exercises().length} exercises</span>
             </div>
-            <LibraryToggle
-              checked={includePublicExercises()}
-              label="Include public exercises"
-              onChange={setIncludePublicExercises}
-            />
+            <div class="library-section-actions">
+              <LibraryToggle
+                checked={includePublicExercises()}
+                label="Include public exercises"
+                onChange={setIncludePublicExercises}
+              />
+              <Link class="primary-button" to="/exercises/new">
+                + Add exercise
+              </Link>
+            </div>
           </header>
 
           <Show

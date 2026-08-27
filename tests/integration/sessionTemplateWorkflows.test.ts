@@ -2,6 +2,13 @@ import { readFile } from 'node:fs/promises'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { pool } from '@/data/db'
 import { createDevelopmentUser } from '@/data/auth'
+import { createExercise, deleteExercise, getExercises, updateExercise } from '@/data/exercises'
+import {
+  createRepertoire,
+  deleteRepertoire,
+  getRepertoire,
+  updateRepertoire,
+} from '@/data/repertoire'
 import {
   addRunningSessionItem,
   completePracticeSession,
@@ -93,6 +100,103 @@ beforeEach(async () => {
   await resetDatabase()
 })
 afterAll(() => pool.end())
+
+describe('library item persistence', () => {
+  it('creates, edits, and soft-deletes an exercise while preserving references', async () => {
+    const created = await createExercise({
+      data: {
+        name: 'Created exercise',
+        notation: 'Slowly, at 60 BPM',
+        notationFormat: 'text',
+        visibility: 'PRIVATE',
+      },
+    })
+    await updateExercise({
+      data: {
+        id: created.id,
+        name: 'Edited exercise',
+        notation: 'Slowly, at 72 BPM',
+        notationFormat: 'text',
+        visibility: 'PUBLIC',
+      },
+    })
+    const template = await createSessionTemplate({
+      data: {
+        name: 'Exercise reference',
+        items: [
+          section('section', 'Warmup', 1),
+          practiceItem('exercise', 'section', 'EXERCISE', created.id, 'Edited exercise', 1),
+        ],
+      },
+    })
+
+    await deleteExercise({ data: created.id })
+
+    const row = await pool.query<{ name: string; deleted: boolean }>(
+      `SELECT name, deleted_at IS NOT NULL AS deleted FROM exercise WHERE id = $1`,
+      [created.id],
+    )
+    const reference = await pool.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM session_template_item
+       WHERE session_template_id = $1 AND exercise_id = $2`,
+      [template.id, created.id],
+    )
+    expect(row.rows[0]).toEqual({ name: 'Edited exercise', deleted: true })
+    expect(reference.rows[0]?.count).toBe(1)
+    expect((await getExercises()).some((exercise) => exercise.id === created.id)).toBe(false)
+  })
+
+  it('creates, edits, and soft-deletes repertoire while preserving references', async () => {
+    const created = await createRepertoire({
+      data: {
+        title: 'Created repertoire',
+        libraryNotes: 'First notes',
+        visibility: 'PRIVATE',
+      },
+    })
+    await updateRepertoire({
+      data: {
+        id: created.id,
+        title: 'Edited repertoire',
+        libraryNotes: 'Updated notes',
+        visibility: 'PUBLIC',
+      },
+    })
+    const template = await createSessionTemplate({
+      data: {
+        name: 'Repertoire reference',
+        visibility: 'PUBLIC',
+        items: [
+          section('section', 'Repertoire', 1),
+          practiceItem('repertoire', 'section', 'REPERTOIRE', created.id, 'Edited repertoire', 1),
+        ],
+      },
+    })
+
+    await deleteRepertoire({ data: created.id })
+
+    const row = await pool.query<{ title: string; notes: string; deleted: boolean }>(
+      `SELECT repertoire.title, library.notes,
+         repertoire.deleted_at IS NOT NULL AS deleted
+       FROM repertoire
+       JOIN musician_repertoire_library library ON library.repertoire_id = repertoire.id
+       WHERE repertoire.id = $1`,
+      [created.id],
+    )
+    const reference = await pool.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM session_template_item
+       WHERE session_template_id = $1 AND repertoire_id = $2`,
+      [template.id, created.id],
+    )
+    expect(row.rows[0]).toEqual({
+      title: 'Edited repertoire',
+      notes: 'Updated notes',
+      deleted: true,
+    })
+    expect(reference.rows[0]?.count).toBe(1)
+    expect((await getRepertoire()).some((repertoire) => repertoire.id === created.id)).toBe(false)
+  })
+})
 
 describe('template persistence', () => {
   it('creates, edits, and deletes a template with cascading item cleanup', async () => {
