@@ -32,6 +32,7 @@ vi.mock('@tanstack/solid-router', () => ({
     <a class={props.class}>{props.children}</a>
   ),
   useNavigate: () => async () => undefined,
+  useRouter: () => ({ invalidate: async () => undefined }),
 }))
 
 vi.mock('../../src/data/sessionTemplates', () => ({

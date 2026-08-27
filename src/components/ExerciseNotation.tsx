@@ -1,4 +1,4 @@
-import { Show, onCleanup, onMount } from 'solid-js'
+import { createEffect, onCleanup, onMount } from 'solid-js'
 import { EXERCISE_NOTATION_FORMAT } from '@/domain/exercise'
 
 type ExerciseNotationProps = {
@@ -10,14 +10,25 @@ export function ExerciseNotation(props: ExerciseNotationProps) {
   let scoreElement: HTMLDivElement | undefined
 
   onMount(() => {
-    if (props.format !== EXERCISE_NOTATION_FORMAT.ABC || !scoreElement) return
-
     let active = true
-    const target = scoreElement
+    let renderVersion = 0
 
-    void import('abcjs').then(({ default: abcjs }) => {
-      if (!active) return
-      abcjs.renderAbc(target, props.notation, { responsive: 'resize' })
+    createEffect(() => {
+      const format = props.format
+      const notation = props.notation
+      const target = scoreElement
+      const version = ++renderVersion
+
+      if (!target) return
+      if (format !== EXERCISE_NOTATION_FORMAT.ABC) {
+        target.replaceChildren()
+        return
+      }
+
+      void import('abcjs').then(({ default: abcjs }) => {
+        if (!active || version !== renderVersion) return
+        abcjs.renderAbc(target, notation, { responsive: 'resize' })
+      })
     })
 
     onCleanup(() => {
@@ -28,15 +39,15 @@ export function ExerciseNotation(props: ExerciseNotationProps) {
   return (
     <div class="notation-block">
       <span>{props.format === EXERCISE_NOTATION_FORMAT.ABC ? 'ABC notation' : 'Text'}</span>
-      <Show when={props.format === EXERCISE_NOTATION_FORMAT.ABC} fallback={<p>{props.notation}</p>}>
-        <div
-          class="abc-notation"
-          aria-label="Rendered music notation"
-          ref={(element) => {
-            scoreElement = element
-          }}
-        />
-      </Show>
+      <p hidden={props.format === EXERCISE_NOTATION_FORMAT.ABC}>{props.notation}</p>
+      <div
+        class="abc-notation"
+        aria-label="Rendered music notation"
+        hidden={props.format !== EXERCISE_NOTATION_FORMAT.ABC}
+        ref={(element) => {
+          scoreElement = element
+        }}
+      />
     </div>
   )
 }

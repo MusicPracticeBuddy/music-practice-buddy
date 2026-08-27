@@ -1,5 +1,5 @@
-import { For, Show, createSignal, type JSX } from 'solid-js'
-import { Link, useNavigate } from '@tanstack/solid-router'
+import { For, Show, createEffect, createSignal, type JSX } from 'solid-js'
+import { Link, useNavigate, useRouter } from '@tanstack/solid-router'
 import { createExercise, updateExercise, type ExerciseInput } from '@/data/exercises'
 import { EXERCISE_NOTATION_FORMAT, type ExerciseNotationFormat } from '@/domain/exercise'
 import {
@@ -42,6 +42,7 @@ function errorMessage(caught: unknown) {
 
 export function LibraryItemForm(props: LibraryItemFormProps) {
   const navigate = useNavigate()
+  const router = useRouter()
   const editing = () => props.id !== undefined
   const label = () => (props.kind === 'exercise' ? 'exercise' : 'repertoire')
   const [name, setName] = createSignal(props.name ?? '')
@@ -59,6 +60,16 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
   const [resources, setResources] = createSignal<RepertoireResourceInput[]>(props.resources ?? [])
   const [saving, setSaving] = createSignal(false)
   const [error, setError] = createSignal('')
+
+  createEffect(() => {
+    setName(props.name ?? '')
+    setNotation(props.notation ?? '')
+    setNotationFormat(props.notationFormat ?? EXERCISE_NOTATION_FORMAT.TEXT)
+    setVisibility(props.visibility ?? 'PRIVATE')
+    setCredits(props.credits ?? [])
+    setInstruments(props.instruments ?? [])
+    setResources(props.resources ?? [])
+  })
 
   async function submit(event: SubmitEvent) {
     event.preventDefault()
@@ -84,6 +95,7 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
           })
           return
         }
+        await router.invalidate({ sync: true })
         await navigate({ to: '/exercises/$exerciseId', params: { exerciseId: result.id } })
       } else {
         const data: RepertoireInput = {
@@ -105,6 +117,7 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
           })
           return
         }
+        await router.invalidate({ sync: true })
         await navigate({
           to: '/repertoire/$repertoireId',
           params: { repertoireId: result.id },

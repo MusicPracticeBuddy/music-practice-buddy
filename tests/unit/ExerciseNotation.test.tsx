@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@solidjs/testing-library'
+import { createSignal } from 'solid-js'
 import { ExerciseNotation } from '@/components/ExerciseNotation'
 
 const renderAbc = vi.fn()
@@ -28,6 +29,26 @@ describe('ExerciseNotation', () => {
     const score = screen.getByLabelText('Rendered music notation')
     await waitFor(() => {
       expect(renderAbc).toHaveBeenCalledWith(score, notation, { responsive: 'resize' })
+    })
+  })
+
+  it('re-renders when the ABC notation changes', async () => {
+    const initialNotation = 'X:1\nK:C\nCDEF|'
+    const updatedNotation = 'X:1\nK:G\nGABc|'
+    const [notation, setNotation] = createSignal(initialNotation)
+    render(() => <ExerciseNotation notation={notation()} format="abc" />)
+
+    const score = screen.getByLabelText('Rendered music notation')
+    await waitFor(() => {
+      expect(renderAbc).toHaveBeenCalledWith(score, initialNotation, { responsive: 'resize' })
+    })
+
+    setNotation(updatedNotation)
+
+    await waitFor(() => {
+      expect(renderAbc).toHaveBeenLastCalledWith(score, updatedNotation, {
+        responsive: 'resize',
+      })
     })
   })
 })
