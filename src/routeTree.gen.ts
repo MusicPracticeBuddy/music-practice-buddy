@@ -12,13 +12,12 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DemoRouteImport } from './routes/demo'
 import { Route as ExercisesRouteImport } from './routes/exercises'
+import { Route as LibraryRouteImport } from './routes/library'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RepertoireRouteImport } from './routes/repertoire'
 import { Route as SessionsRouteImport } from './routes/sessions'
 import { Route as TemplatesRouteImport } from './routes/templates'
-import { Route as ExercisesIndexRouteImport } from './routes/exercises/index'
 import { Route as ExercisesExerciseIdRouteImport } from './routes/exercises/$exerciseId'
-import { Route as RepertoireIndexRouteImport } from './routes/repertoire/index'
 import { Route as RepertoireRepertoireIdRouteImport } from './routes/repertoire/$repertoireId'
 import { Route as SessionsIndexRouteImport } from './routes/sessions/index'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessionId'
@@ -44,6 +43,11 @@ const ExercisesRoute = ExercisesRouteImport.update({
   path: '/exercises',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LibraryRoute = LibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -64,20 +68,10 @@ const TemplatesRoute = TemplatesRouteImport.update({
   path: '/templates',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ExercisesIndexRoute = ExercisesIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ExercisesRoute,
-} as any)
 const ExercisesExerciseIdRoute = ExercisesExerciseIdRouteImport.update({
   id: '/$exerciseId',
   path: '/$exerciseId',
   getParentRoute: () => ExercisesRoute,
-} as any)
-const RepertoireIndexRoute = RepertoireIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => RepertoireRoute,
 } as any)
 const RepertoireRepertoireIdRoute = RepertoireRepertoireIdRouteImport.update({
   id: '/$repertoireId',
@@ -129,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
   '/exercises': typeof ExercisesRouteWithChildren
+  '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/repertoire': typeof RepertoireRouteWithChildren
   '/sessions': typeof SessionsRouteWithChildren
@@ -139,8 +134,6 @@ export interface FileRoutesByFullPath {
   '/sessions/new': typeof SessionsNewRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRoute
   '/templates/new': typeof TemplatesNewRoute
-  '/exercises/': typeof ExercisesIndexRoute
-  '/repertoire/': typeof RepertoireIndexRoute
   '/sessions/': typeof SessionsIndexRoute
   '/templates/': typeof TemplatesIndexRoute
   '/sessions/$sessionId/edit': typeof SessionsSessionIdEditRoute
@@ -149,15 +142,16 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
+  '/exercises': typeof ExercisesRouteWithChildren
+  '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
+  '/repertoire': typeof RepertoireRouteWithChildren
   '/exercises/$exerciseId': typeof ExercisesExerciseIdRoute
   '/repertoire/$repertoireId': typeof RepertoireRepertoireIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/sessions/new': typeof SessionsNewRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRoute
   '/templates/new': typeof TemplatesNewRoute
-  '/exercises': typeof ExercisesIndexRoute
-  '/repertoire': typeof RepertoireIndexRoute
   '/sessions': typeof SessionsIndexRoute
   '/templates': typeof TemplatesIndexRoute
   '/sessions/$sessionId/edit': typeof SessionsSessionIdEditRoute
@@ -168,6 +162,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
   '/exercises': typeof ExercisesRouteWithChildren
+  '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/repertoire': typeof RepertoireRouteWithChildren
   '/sessions': typeof SessionsRouteWithChildren
@@ -178,8 +173,6 @@ export interface FileRoutesById {
   '/sessions/new': typeof SessionsNewRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRoute
   '/templates/new': typeof TemplatesNewRoute
-  '/exercises/': typeof ExercisesIndexRoute
-  '/repertoire/': typeof RepertoireIndexRoute
   '/sessions/': typeof SessionsIndexRoute
   '/templates/': typeof TemplatesIndexRoute
   '/sessions/$sessionId_/edit': typeof SessionsSessionIdEditRoute
@@ -191,6 +184,7 @@ export interface FileRouteTypes {
     | '/'
     | '/demo'
     | '/exercises'
+    | '/library'
     | '/login'
     | '/repertoire'
     | '/sessions'
@@ -201,8 +195,6 @@ export interface FileRouteTypes {
     | '/sessions/new'
     | '/templates/$templateId'
     | '/templates/new'
-    | '/exercises/'
-    | '/repertoire/'
     | '/sessions/'
     | '/templates/'
     | '/sessions/$sessionId/edit'
@@ -211,15 +203,16 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/demo'
+    | '/exercises'
+    | '/library'
     | '/login'
+    | '/repertoire'
     | '/exercises/$exerciseId'
     | '/repertoire/$repertoireId'
     | '/sessions/$sessionId'
     | '/sessions/new'
     | '/templates/$templateId'
     | '/templates/new'
-    | '/exercises'
-    | '/repertoire'
     | '/sessions'
     | '/templates'
     | '/sessions/$sessionId/edit'
@@ -229,6 +222,7 @@ export interface FileRouteTypes {
     | '/'
     | '/demo'
     | '/exercises'
+    | '/library'
     | '/login'
     | '/repertoire'
     | '/sessions'
@@ -239,8 +233,6 @@ export interface FileRouteTypes {
     | '/sessions/new'
     | '/templates/$templateId'
     | '/templates/new'
-    | '/exercises/'
-    | '/repertoire/'
     | '/sessions/'
     | '/templates/'
     | '/sessions/$sessionId_/edit'
@@ -251,6 +243,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DemoRoute: typeof DemoRoute
   ExercisesRoute: typeof ExercisesRouteWithChildren
+  LibraryRoute: typeof LibraryRoute
   LoginRoute: typeof LoginRoute
   RepertoireRoute: typeof RepertoireRouteWithChildren
   SessionsRoute: typeof SessionsRouteWithChildren
@@ -278,6 +271,13 @@ declare module '@tanstack/solid-router' {
       path: '/exercises'
       fullPath: '/exercises'
       preLoaderRoute: typeof ExercisesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/library': {
+      id: '/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof LibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -308,26 +308,12 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof TemplatesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/exercises/': {
-      id: '/exercises/'
-      path: '/'
-      fullPath: '/exercises/'
-      preLoaderRoute: typeof ExercisesIndexRouteImport
-      parentRoute: typeof ExercisesRoute
-    }
     '/exercises/$exerciseId': {
       id: '/exercises/$exerciseId'
       path: '/$exerciseId'
       fullPath: '/exercises/$exerciseId'
       preLoaderRoute: typeof ExercisesExerciseIdRouteImport
       parentRoute: typeof ExercisesRoute
-    }
-    '/repertoire/': {
-      id: '/repertoire/'
-      path: '/'
-      fullPath: '/repertoire/'
-      preLoaderRoute: typeof RepertoireIndexRouteImport
-      parentRoute: typeof RepertoireRoute
     }
     '/repertoire/$repertoireId': {
       id: '/repertoire/$repertoireId'
@@ -397,12 +383,10 @@ declare module '@tanstack/solid-router' {
 
 interface ExercisesRouteChildren {
   ExercisesExerciseIdRoute: typeof ExercisesExerciseIdRoute
-  ExercisesIndexRoute: typeof ExercisesIndexRoute
 }
 
 const ExercisesRouteChildren: ExercisesRouteChildren = {
   ExercisesExerciseIdRoute: ExercisesExerciseIdRoute,
-  ExercisesIndexRoute: ExercisesIndexRoute,
 }
 
 const ExercisesRouteWithChildren = ExercisesRoute._addFileChildren(
@@ -411,12 +395,10 @@ const ExercisesRouteWithChildren = ExercisesRoute._addFileChildren(
 
 interface RepertoireRouteChildren {
   RepertoireRepertoireIdRoute: typeof RepertoireRepertoireIdRoute
-  RepertoireIndexRoute: typeof RepertoireIndexRoute
 }
 
 const RepertoireRouteChildren: RepertoireRouteChildren = {
   RepertoireRepertoireIdRoute: RepertoireRepertoireIdRoute,
-  RepertoireIndexRoute: RepertoireIndexRoute,
 }
 
 const RepertoireRouteWithChildren = RepertoireRoute._addFileChildren(
@@ -463,6 +445,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DemoRoute: DemoRoute,
   ExercisesRoute: ExercisesRouteWithChildren,
+  LibraryRoute: LibraryRoute,
   LoginRoute: LoginRoute,
   RepertoireRoute: RepertoireRouteWithChildren,
   SessionsRoute: SessionsRouteWithChildren,

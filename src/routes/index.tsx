@@ -29,12 +29,12 @@ function Dashboard() {
       </section>
 
       <section class="stat-grid" aria-label="Practice statistics">
-        <Link class="stat-card" to="/repertoire">
+        <Link class="stat-card" to="/library">
           <span>Repertoire</span>
           <strong>{data().counts.repertoire}</strong>
           <small>pieces and excerpts</small>
         </Link>
-        <Link class="stat-card" to="/exercises">
+        <Link class="stat-card" to="/library">
           <span>Exercises</span>
           <strong>{data().counts.exercises}</strong>
           <small>in the library</small>

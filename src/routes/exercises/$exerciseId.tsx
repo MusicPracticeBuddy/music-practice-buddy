@@ -26,8 +26,8 @@ function ExerciseDetail() {
 
   return (
     <main class="page detail-page">
-      <Link class="back-link" to="/exercises">
-        ← All exercises
+      <Link class="back-link" to="/library">
+        ← My Library
       </Link>
 
       <header class="record-header">
@@ -116,8 +116,8 @@ function ExerciseNotFound() {
     <main class="page empty-state">
       <h1>Exercise not found</h1>
       <p>The requested exercise does not exist.</p>
-      <Link class="text-link" to="/exercises">
-        Return to exercises
+      <Link class="text-link" to="/library">
+        Return to My Library
       </Link>
     </main>
   )

@@ -389,6 +389,105 @@ h1 {
   font-size: clamp(48px, 6vw, 72px);
 }
 
+.library-page-header .lede {
+  margin-top: 16px;
+}
+
+.library-sections {
+  display: grid;
+  gap: 72px;
+}
+
+.library-section-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.library-section-header > div {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.library-section-header .eyebrow {
+  width: 100%;
+  margin-bottom: -4px;
+}
+
+.library-section-header h2 {
+  margin: 0;
+  font-size: 36px;
+}
+
+.library-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.library-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.library-toggle span {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #d7d8d2;
+  transition: background 160ms ease;
+}
+
+.library-toggle span::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgb(37 51 46 / 22%);
+  content: '';
+  transition: transform 160ms ease;
+}
+
+.library-toggle input:checked + span {
+  border-color: var(--green);
+  background: var(--green);
+}
+
+.library-toggle input:checked + span::after {
+  transform: translateX(18px);
+}
+
+.library-toggle input:focus-visible + span {
+  outline: 3px solid rgb(49 92 77 / 24%);
+  outline-offset: 2px;
+}
+
+.library-empty {
+  padding: 28px;
+  border: 1px dashed var(--line);
+  border-radius: 18px;
+  color: var(--muted);
+  background: rgb(255 253 248 / 45%);
+}
+
 .count-badge,
 .tag,
 .status {
@@ -1711,6 +1810,7 @@ textarea.text-input {
 
   .feature-card,
   .page-header,
+  .library-section-header,
   .session-detail-header,
   .session-completion-card,
   .record-header,

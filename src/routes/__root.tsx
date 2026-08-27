@@ -81,11 +81,8 @@ function AuthenticatedShell({ user }: Readonly<{ user: AuthenticatedUser }>) {
           <Link to="/" activeOptions={{ exact: true }} activeProps={{ class: 'active' }}>
             Overview
           </Link>
-          <Link to="/repertoire" activeProps={{ class: 'active' }}>
-            Repertoire
-          </Link>
-          <Link to="/exercises" activeProps={{ class: 'active' }}>
-            Exercises
+          <Link to="/library" activeProps={{ class: 'active' }}>
+            My Library
           </Link>
           <Link to="/sessions" activeProps={{ class: 'active' }}>
             Sessions

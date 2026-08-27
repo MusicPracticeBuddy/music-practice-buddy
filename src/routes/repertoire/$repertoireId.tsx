@@ -26,8 +26,8 @@ function RepertoireDetail() {
 
   return (
     <main class="page detail-page">
-      <Link class="back-link" to="/repertoire">
-        ← All repertoire
+      <Link class="back-link" to="/library">
+        ← My Library
       </Link>
 
       <header class="record-header">
@@ -198,8 +198,8 @@ function RepertoireNotFound() {
     <main class="page empty-state">
       <h1>Repertoire not found</h1>
       <p>The requested repertoire entry does not exist.</p>
-      <Link class="text-link" to="/repertoire">
-        Return to repertoire
+      <Link class="text-link" to="/library">
+        Return to My Library
       </Link>
     </main>
   )
