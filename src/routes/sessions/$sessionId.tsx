@@ -20,6 +20,7 @@ import {
   removeRunningSessionItem,
   startPracticeSession,
   updateSessionName,
+  updateRunningSessionItemNotes,
   updateSessionProgress,
   type SessionDetail,
   type SessionDetailItem,
@@ -202,7 +203,7 @@ function SessionDetailPage() {
   let activeFlush: Promise<void> | undefined
   let nameFlushTimer: ReturnType<typeof setTimeout> | undefined
   let activeNameFlush: Promise<void> | undefined
-  let activeStructuralChange: Promise<void> | undefined
+  let activeStructuralChange: Promise<boolean> | undefined
 
   const itemTree = createMemo(() => buildItemTree(session.items))
   const practiceItems = createMemo(() =>
@@ -425,7 +426,7 @@ function SessionDetailPage() {
     setRouteDataDirty(true)
   }
 
-  function runStructuralChange(change: () => Promise<void>) {
+  function runStructuralChange(change: () => Promise<void>): Promise<boolean> {
     if (activeStructuralChange) return activeStructuralChange
     activeStructuralChange = (async () => {
       setStructuralSaving(true)
@@ -433,8 +434,10 @@ function SessionDetailPage() {
       try {
         await change()
         await refreshSession()
+        return true
       } catch (caught) {
         setError(errorMessage(caught))
+        return false
       } finally {
         setStructuralSaving(false)
         activeStructuralChange = undefined
@@ -487,6 +490,13 @@ function SessionDetailPage() {
   function removeItem(itemId: string) {
     return runStructuralChange(async () => {
       await removeRunningSessionItem({ data: { sessionId: session.id, itemId } })
+    })
+  }
+
+  async function updateItemNotes(itemId: string, notes: string) {
+    if (activeStructuralChange) await activeStructuralChange
+    return runStructuralChange(async () => {
+      await updateRunningSessionItemNotes({ data: { sessionId: session.id, itemId, notes } })
     })
   }
 
@@ -800,6 +810,7 @@ function SessionDetailPage() {
                     hasActiveItem={hasActiveItem()}
                     onAction={queueAction}
                     onRemove={removeItem}
+                    onUpdateNotes={updateItemNotes}
                     onDropLibraryItem={dropLibraryItem}
                   />
                 )}
@@ -892,12 +903,17 @@ function SessionItem(props: {
   timingMode: SessionTimingMode | null
   hasActiveItem: boolean
   onAction: (itemId: string, action: SessionItemAction) => void
-  onRemove: (itemId: string) => Promise<void>
+  onRemove: (itemId: string) => Promise<boolean>
+  onUpdateNotes: (itemId: string, notes: string) => Promise<boolean>
   onDropLibraryItem: (event: DragEvent, parentId: string | null) => void
 }) {
   const isSection = props.item.type === PRACTICE_ITEM_TYPE.SECTION
   const [expanded, setExpanded] = createSignal(isSection)
+  const [editingNotes, setEditingNotes] = createSignal(false)
+  const [noteDraft, setNoteDraft] = createSignal(props.item.notes ?? '')
+  const [savingNotes, setSavingNotes] = createSignal(false)
   const contentId = `session-item-${props.item.id}-content`
+  const notesId = `session-item-${props.item.id}-notes`
   const status = () => (isSection ? derivedSectionStatus(props.item) : props.item.status)
   const sectionCanSkip = () => {
     const items = practiceDescendants(props.item)
@@ -909,6 +925,18 @@ function SessionItem(props: {
           item.status === SESSION_ITEM_STATUS.SKIPPED,
       )
     )
+  }
+
+  function editNotes() {
+    setNoteDraft(props.item.notes ?? '')
+    setEditingNotes(true)
+  }
+
+  async function saveNotes() {
+    setSavingNotes(true)
+    const saved = await props.onUpdateNotes(props.item.id, noteDraft())
+    setSavingNotes(false)
+    if (saved) setEditingNotes(false)
   }
 
   if (isSection) {
@@ -1073,8 +1101,46 @@ function SessionItem(props: {
                 : statusLabel(props.item.status)}
             </span>
           </div>
-          <Show when={props.item.notes}>
+          <Show when={props.item.notes && !editingNotes()}>
             <p class="practice-notes">{props.item.notes}</p>
+          </Show>
+          <Show when={props.sessionActive && !editingNotes()}>
+            <button class="text-button practice-note-action" type="button" onClick={editNotes}>
+              {props.item.notes ? 'Edit note' : '+ Add note'}
+            </button>
+          </Show>
+          <Show when={props.sessionActive && editingNotes()}>
+            <div class="running-note-editor">
+              <label class="field-label" for={notesId}>
+                Practice note
+              </label>
+              <textarea
+                id={notesId}
+                class="text-input"
+                rows="3"
+                maxlength="2000"
+                value={noteDraft()}
+                onInput={(event) => setNoteDraft(event.currentTarget.value)}
+              />
+              <div class="running-note-actions">
+                <button
+                  class="secondary-button"
+                  type="button"
+                  disabled={savingNotes()}
+                  onClick={() => setEditingNotes(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  class="primary-button"
+                  type="button"
+                  disabled={savingNotes()}
+                  onClick={() => void saveNotes()}
+                >
+                  {savingNotes() ? 'Saving…' : 'Save note'}
+                </button>
+              </div>
+            </div>
           </Show>
           <Show when={props.item.notation}>
             <div class="notation-block">

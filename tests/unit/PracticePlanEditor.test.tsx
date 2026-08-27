@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library'
 import type { JSX } from 'solid-js'
 import type { SortableEvent } from 'sortablejs'
-import type { SessionTemplateDetail, TemplateLibraryItem } from '@/data/sessionTemplates'
+import {
+  updateSessionTemplate,
+  type SessionTemplateDetail,
+  type TemplateLibraryItem,
+} from '@/data/sessionTemplates'
 
 type SortableOptions = {
   onAdd?: (event: SortableEvent) => void
@@ -84,14 +88,20 @@ function section(
   }
 }
 
-function exercise(clientId: string, name: string, position: number, parentClientId: string) {
+function exercise(
+  clientId: string,
+  name: string,
+  position: number,
+  parentClientId: string,
+  notes = '',
+) {
   return {
     clientId,
     parentClientId,
     type: 'EXERCISE' as const,
     sourceId: '1',
     name,
-    notes: '',
+    notes,
     position,
   }
 }
@@ -143,6 +153,7 @@ function simulatePlanMove(item: HTMLElement, destination: HTMLElement, newIndex:
 afterEach(cleanup)
 
 beforeEach(() => {
+  vi.clearAllMocks()
   sortableMock.instances.length = 0
 })
 
@@ -298,6 +309,55 @@ describe('PracticePlanEditor', () => {
     await waitFor(() => expect(screen.queryByText('Remove me')).toBeNull())
     expect(screen.getByDisplayValue('Main section')).toBeTruthy()
     expect(screen.getByText('Keep me')).toBeTruthy()
+  })
+
+  it('adds, edits, and removes notes from items in the plan', async () => {
+    render(() => (
+      <PracticePlanEditor
+        library={library}
+        template={template([
+          section('section', 'Main section', 1),
+          exercise('unnoted', 'Unnoted exercise', 1, 'section'),
+          exercise('noted', 'Noted exercise', 2, 'section', 'Start slowly'),
+        ])}
+      />
+    ))
+
+    const unnotedItem = screen.getByText('Unnoted exercise').closest('.editor-node')
+    const notedItem = screen.getByText('Noted exercise').closest('.editor-node')
+    if (!(unnotedItem instanceof HTMLElement) || !(notedItem instanceof HTMLElement)) {
+      throw new Error('Practice items not found')
+    }
+
+    expect(within(notedItem).getByText('Start slowly')).toBeTruthy()
+
+    fireEvent.click(within(unnotedItem).getByTitle('Add note'))
+    fireEvent.input(within(unnotedItem).getByLabelText('Practice plan note'), {
+      target: { value: 'Use a metronome' },
+    })
+    fireEvent.click(within(unnotedItem).getByRole('button', { name: 'Done' }))
+    expect(within(unnotedItem).getByText('Use a metronome')).toBeTruthy()
+
+    fireEvent.click(within(notedItem).getByTitle('Edit note'))
+    fireEvent.input(within(notedItem).getByLabelText('Practice plan note'), {
+      target: { value: '' },
+    })
+    fireEvent.click(within(notedItem).getByRole('button', { name: 'Done' }))
+    expect(within(notedItem).queryByText('Start slowly')).toBeNull()
+    expect(within(notedItem).getByTitle('Add note')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save template' }))
+
+    await waitFor(() => {
+      expect(updateSessionTemplate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          items: expect.arrayContaining([
+            expect.objectContaining({ clientId: 'unnoted', notes: 'Use a metronome' }),
+            expect.objectContaining({ clientId: 'noted', notes: '' }),
+          ]),
+        }),
+      })
+    })
   })
 
   it('removes a section and all of its descendants', async () => {

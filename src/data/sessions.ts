@@ -827,6 +827,32 @@ export const updateSessionName = createServerFn({ method: 'POST' })
     return session
   })
 
+export const updateRunningSessionItemNotes = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .validator((input: { sessionId: string; itemId: string; notes: string }) => {
+    if (!validId(input.sessionId) || !validId(input.itemId)) {
+      throw new Error('Invalid session item')
+    }
+    const notes = input.notes.trim()
+    if (notes.length > 2000) throw new Error('Notes must be 2000 characters or fewer')
+    return { ...input, notes }
+  })
+  .handler(async ({ data, context }): Promise<{ notes: string | null }> => {
+    const result = await pool.query<{ notes: string | null }>(
+      `UPDATE session_item item
+       SET notes = NULLIF($3, '')
+       FROM session
+       WHERE item.id = $2 AND item.session_id = $1 AND item.type <> 'SECTION'
+         AND session.id = item.session_id AND session.status = 'IN_PROGRESS'
+         AND session.musician_id = $4
+       RETURNING item.notes`,
+      [data.sessionId, data.itemId, data.notes, context.user.musicianId],
+    )
+    const item = result.rows[0]
+    if (!item) throw new Error('Notes can only be changed during an in-progress session')
+    return item
+  })
+
 export const addRunningSessionItem = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .validator(

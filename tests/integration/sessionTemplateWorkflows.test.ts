@@ -22,6 +22,7 @@ import {
   removeRunningSessionItem,
   startPracticeSession,
   updateSessionName,
+  updateRunningSessionItemNotes,
   updateSessionProgress,
 } from '@/data/sessions'
 import {
@@ -751,6 +752,57 @@ describe('session persistence', () => {
     await expect(
       removeRunningSessionItem({ data: { sessionId: created.id, itemId: finalAdded.id } }),
     ).rejects.toThrow('Only items added during an in-progress session can be removed')
+  })
+
+  it('adds, edits, and removes item notes while a session is in progress', async () => {
+    const created = await createPracticeSession({
+      data: { templateId: null, assignedDate: null },
+    })
+    await updatePlannedSession({
+      data: {
+        id: created.id,
+        name: 'Session note test',
+        assignedDate: null,
+        items: [
+          section('section', 'Main section', 1),
+          practiceItem('exercise', 'section', 'EXERCISE', exerciseId, 'Exercise', 1),
+        ],
+      },
+    })
+    await startPracticeSession({
+      data: { sessionId: created.id, timingMode: 'MANUAL', localDate: '2030-01-01' },
+    })
+    const started = await getSessionDetail({ data: created.id })
+    const itemId = started!.items.find((item) => item.type === 'EXERCISE')!.id
+
+    await expect(
+      updateRunningSessionItemNotes({
+        data: { sessionId: created.id, itemId, notes: '  Begin slowly  ' },
+      }),
+    ).resolves.toEqual({ notes: 'Begin slowly' })
+    expect(
+      (await getSessionDetail({ data: created.id }))?.items.find((item) => item.id === itemId),
+    ).toMatchObject({ notes: 'Begin slowly' })
+
+    await expect(
+      updateRunningSessionItemNotes({
+        data: { sessionId: created.id, itemId, notes: 'Increase the tempo' },
+      }),
+    ).resolves.toEqual({ notes: 'Increase the tempo' })
+
+    await expect(
+      updateRunningSessionItemNotes({ data: { sessionId: created.id, itemId, notes: '' } }),
+    ).resolves.toEqual({ notes: null })
+
+    await updateSessionProgress({
+      data: { sessionId: created.id, changes: [{ itemId, action: 'COMPLETE' }] },
+    })
+    await completePracticeSession({ data: created.id })
+    await expect(
+      updateRunningSessionItemNotes({
+        data: { sessionId: created.id, itemId, notes: 'Too late' },
+      }),
+    ).rejects.toThrow('Notes can only be changed during an in-progress session')
   })
 })
 

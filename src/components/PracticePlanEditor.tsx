@@ -342,6 +342,15 @@ export function PracticePlanEditor(props: {
     )
   }
 
+  function updateItemNotes(id: string, value: string) {
+    setNodes(
+      produce((items) => {
+        const item = findNode(items, id)
+        if (item && item.type !== PRACTICE_ITEM_TYPE.SECTION) item.notes = value
+      }),
+    )
+  }
+
   async function saveTemplate(action: 'save' | 'save-and-use') {
     setError('')
     if (!name().trim()) {
@@ -586,6 +595,7 @@ export function PracticePlanEditor(props: {
                     onRemove={removeNode}
                     onMove={moveNode}
                     onRename={renameSection}
+                    onUpdateNotes={updateItemNotes}
                     canMove={canMoveNode}
                     onMoveNode={moveNodeTo}
                     onAddLibraryItem={addLibraryItemById}
@@ -682,6 +692,7 @@ function TemplateNode(props: {
   onRemove: (id: string) => void
   onMove: (id: string, offset: -1 | 1) => void
   onRename: (id: string, value: string) => void
+  onUpdateNotes: (id: string, value: string) => void
   canMove: (nodeId: string, parentId: string | null) => boolean
   onMoveNode: (nodeId: string, parentId: string | null, index: number) => void
   onAddLibraryItem: (
@@ -692,6 +703,8 @@ function TemplateNode(props: {
   ) => void
 }) {
   const isSection = () => props.node.type === PRACTICE_ITEM_TYPE.SECTION
+  const [editingNotes, setEditingNotes] = createSignal(false)
+  const notesId = () => `practice-item-notes-${props.node.clientId}`
 
   return (
     <article
@@ -746,11 +759,40 @@ function TemplateNode(props: {
               + Section
             </button>
           </Show>
+          <Show when={!isSection()}>
+            <button
+              type="button"
+              title={props.node.notes.trim() ? 'Edit note' : 'Add note'}
+              onClick={() => setEditingNotes(true)}
+            >
+              {props.node.notes.trim() ? 'Edit note' : '+ Note'}
+            </button>
+          </Show>
           <button type="button" title="Remove" onClick={() => props.onRemove(props.node.clientId)}>
             ×
           </button>
         </div>
       </div>
+      <Show when={!isSection() && editingNotes()}>
+        <div class="plan-item-note-editor">
+          <label class="field-label" for={notesId()}>
+            Practice plan note
+          </label>
+          <textarea
+            id={notesId()}
+            class="text-input"
+            rows="3"
+            value={props.node.notes}
+            onInput={(event) => props.onUpdateNotes(props.node.clientId, event.currentTarget.value)}
+          />
+          <button class="secondary-button" type="button" onClick={() => setEditingNotes(false)}>
+            Done
+          </button>
+        </div>
+      </Show>
+      <Show when={!isSection() && !editingNotes() && props.node.notes.trim()}>
+        <p class="plan-item-note">{props.node.notes}</p>
+      </Show>
       <Show when={isSection()}>
         <PlanSortableList
           parentId={props.node.clientId}
