@@ -59,7 +59,7 @@ describe('ExerciseNotation', () => {
       <ExerciseNotation
         notation={notation}
         format="abc"
-        transpose={{ steps: 6, targetTonic: 'F#' }}
+        transpose={{ steps: 6, sourceMode: 'major', targetMode: 'major', targetTonic: 'F#' }}
       />
     ))
 
@@ -76,7 +76,7 @@ describe('ExerciseNotation', () => {
       <ExerciseNotation
         notation={notation}
         format="abc"
-        transpose={{ steps: 6, targetTonic: 'Gb' }}
+        transpose={{ steps: 6, sourceMode: 'major', targetMode: 'major', targetTonic: 'Gb' }}
       />
     ))
 
@@ -85,5 +85,23 @@ describe('ExerciseNotation', () => {
       const renderedNotation = renderAbc.mock.calls.find(([target]) => target === score)?.[1]
       expect(renderedNotation).toContain('K:Gbmajor')
     })
+  })
+
+  it('renders a parallel minor key without changing the stored notation', async () => {
+    const notation = 'X:1\nK:C\nCDEF|'
+    render(() => (
+      <ExerciseNotation
+        notation={notation}
+        format="abc"
+        transpose={{ steps: 0, sourceMode: 'major', targetMode: 'minor', targetTonic: 'C' }}
+      />
+    ))
+
+    const score = screen.getByLabelText('Rendered music notation')
+    await waitFor(() => {
+      const renderedNotation = renderAbc.mock.calls.find(([target]) => target === score)?.[1]
+      expect(renderedNotation).toContain('K:Cminor')
+    })
+    expect(notation).toContain('K:C\n')
   })
 })

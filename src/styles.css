@@ -1812,6 +1812,30 @@ textarea.text-input {
   color: var(--muted);
 }
 
+.key-mode-switch {
+  display: inline-flex;
+  margin-top: 10px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #e8ebe4;
+}
+
+.key-mode-switch button {
+  padding: 6px 13px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.key-mode-switch button[aria-pressed='true'] {
+  color: var(--ink);
+  box-shadow: 0 2px 7px rgb(38 49 43 / 12%);
+  background: var(--paper);
+}
+
 .key-carousel {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr) 36px;

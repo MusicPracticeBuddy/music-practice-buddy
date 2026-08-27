@@ -1,4 +1,5 @@
 import { createEffect, onCleanup, onMount } from 'solid-js'
+import { changeAbcMode, type AbcKeyMode } from '@/domain/abcTranspose'
 import { EXERCISE_NOTATION_FORMAT } from '@/domain/exercise'
 
 type ExerciseNotationProps = {
@@ -6,6 +7,8 @@ type ExerciseNotationProps = {
   format: string | null
   transpose?: {
     steps: number
+    sourceMode: AbcKeyMode
+    targetMode: AbcKeyMode
     targetTonic: string
   }
 }
@@ -43,7 +46,11 @@ export function ExerciseNotation(props: ExerciseNotationProps) {
           let renderedNotation = notation
           if (transpose && transposeModule) {
             try {
-              const source = notationForTransposition(notation)
+              const notationInTargetMode =
+                transpose.sourceMode === transpose.targetMode
+                  ? notation
+                  : changeAbcMode(notation, transpose.targetMode)
+              const source = notationForTransposition(notationInTargetMode)
               const prefersFlats = transpose.targetTonic.includes('b')
               const prefersSharps = transpose.targetTonic.includes('#')
               renderedNotation = transposeModule.transposeABC(source.notation, transpose.steps, {

@@ -101,6 +101,20 @@ export function abcKeyOptions(source: AbcKey): AbcKey[] {
   return source.mode === 'major' ? MAJOR_KEYS : MINOR_KEYS
 }
 
+export function abcKeyOptionsForMode(mode: AbcKeyMode): AbcKey[] {
+  return mode === 'major' ? MAJOR_KEYS : MINOR_KEYS
+}
+
+export function changeAbcMode(notation: string, targetMode: AbcKeyMode) {
+  return notation.replace(
+    /^K:(\s*)([A-Ga-g])([#b]?)(major|maj|minor|min|m)?([^%\r\n]*)(?=%|$)/im,
+    (_field, spacing: string, letter: string, accidental: string, _mode: string, rest: string) => {
+      const remainingFields = rest.replace(/^\s*(?:major|maj|minor|min|m)\b/i, '')
+      return `K:${spacing}${letter.toUpperCase()}${accidental}${targetMode === 'minor' ? 'm' : ''}${remainingFields}`
+    },
+  )
+}
+
 function centeredRank(pitchClass: number, mode: AbcKeyMode) {
   const center = mode === 'major' ? 0 : 9
   const rank = (pitchClass - center + 12) % 12

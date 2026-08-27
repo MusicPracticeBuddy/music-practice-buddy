@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { abcKeyOptions, abcTransposeSteps, parseAbcKey } from '@/domain/abcTranspose'
+import { abcKeyOptions, abcTransposeSteps, changeAbcMode, parseAbcKey } from '@/domain/abcTranspose'
 
 describe('ABC transposition', () => {
   it('recognizes major and minor key fields but excludes other modes', () => {
@@ -37,5 +37,12 @@ describe('ABC transposition', () => {
     expect(abcTransposeSteps(cMajor, gFlatMajor)).toBe(6)
     expect(fSharpMajor.id).not.toBe(gFlatMajor.id)
     expect(abcTransposeSteps(fSharpMajor, cMajor)).toBe(-6)
+  })
+
+  it('changes the displayed mode without modifying the source tonic or other key fields', () => {
+    expect(changeAbcMode('X:1\nK:C major clef=bass\nCDEF|', 'minor')).toBe(
+      'X:1\nK:Cm clef=bass\nCDEF|',
+    )
+    expect(changeAbcMode('X:1\nK:Cm clef=bass\nCDEF|', 'major')).toBe('X:1\nK:C clef=bass\nCDEF|')
   })
 })

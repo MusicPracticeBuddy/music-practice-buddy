@@ -2,9 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library'
 
 vi.mock('../../src/components/ExerciseNotation', () => ({
-  ExerciseNotation: (props: { transpose?: { steps: number; targetTonic: string } }) => (
-    <output aria-label="Transposition">{JSON.stringify(props.transpose)}</output>
-  ),
+  ExerciseNotation: (props: {
+    transpose?: {
+      steps: number
+      sourceMode: string
+      targetMode: string
+      targetTonic: string
+    }
+  }) => <output aria-label="Transposition">{JSON.stringify(props.transpose)}</output>,
 }))
 
 import { SessionExerciseNotation } from '@/components/SessionExerciseNotation'
@@ -26,7 +31,30 @@ describe('SessionExerciseNotation', () => {
       screen.getByRole('button', { name: 'Display in G major' }).getAttribute('aria-pressed'),
     ).toBe('true')
     expect(screen.getByLabelText('Transposition').textContent).toBe(
-      JSON.stringify({ steps: -5, targetTonic: 'G' }),
+      JSON.stringify({
+        steps: -5,
+        sourceMode: 'major',
+        targetMode: 'major',
+        targetTonic: 'G',
+      }),
+    )
+  })
+
+  it('switches to the parallel minor key', () => {
+    render(() => <SessionExerciseNotation notation={'K:C\nCDEF|'} format="abc" />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Minor' }))
+
+    expect(
+      screen.getByRole('button', { name: 'Display in C minor' }).getAttribute('aria-pressed'),
+    ).toBe('true')
+    expect(screen.getByLabelText('Transposition').textContent).toBe(
+      JSON.stringify({
+        steps: 0,
+        sourceMode: 'major',
+        targetMode: 'minor',
+        targetTonic: 'C',
+      }),
     )
   })
 })
