@@ -1,6 +1,7 @@
 import { For, Show } from 'solid-js'
 import { Link, createFileRoute, notFound, useNavigate } from '@tanstack/solid-router'
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
+import { RepertoireLibraryNote } from '@/components/RepertoireLibraryNote'
 import { deleteRepertoire, getRepertoireDetail } from '@/data/repertoire'
 
 export const Route = createFileRoute('/repertoire/$repertoireId')({
@@ -141,7 +142,11 @@ function RepertoireDetail() {
                   <Show when={entry.acquiredOn}>
                     <small>Acquired {entry.acquiredOn}</small>
                   </Show>
-                  <p>{entry.notes ?? 'No library notes.'}</p>
+                  <RepertoireLibraryNote
+                    repertoireId={repertoire().id}
+                    repertoireTitle={repertoire().title}
+                    initialNote={entry.notes}
+                  />
                 </div>
               )}
             </For>

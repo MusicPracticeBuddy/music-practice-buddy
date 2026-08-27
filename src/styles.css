@@ -502,11 +502,60 @@ h1 {
   font-size: 13px;
 }
 
-.note {
+.library-note {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   margin: 18px 0;
   padding-left: 14px;
   border-left: 3px solid var(--coral);
   line-height: 1.55;
+}
+
+.library-note p {
+  margin: 0;
+  flex: 1;
+  white-space: pre-wrap;
+}
+
+.library-note-empty {
+  margin: 12px 0 2px;
+  padding: 0;
+  border: 0;
+}
+
+.note-icon-button {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--green);
+  background: var(--paper);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.note-icon-button:hover {
+  border-color: var(--green);
+  background: #f1f5e5;
+}
+
+.library-note-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: end;
+  margin: 18px 0 2px;
+}
+
+.save-note-button {
+  margin-bottom: 4px;
 }
 
 .text-link {
@@ -665,6 +714,10 @@ h1 {
   max-width: 760px;
 }
 
+.repertoire-form-page {
+  max-width: 980px;
+}
+
 .creation-form {
   padding: 28px;
   border: 1px solid var(--line);
@@ -716,6 +769,69 @@ textarea.text-input {
   margin: 12px 0;
   color: #9a382d;
   font-size: 13px;
+}
+
+.repertoire-editor-section {
+  margin-top: 30px;
+  padding-top: 26px;
+  border-top: 1px solid var(--line);
+}
+
+.repertoire-editor-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.repertoire-editor-section-header h2 {
+  margin-bottom: 4px;
+  font-size: 24px;
+}
+
+.repertoire-editor-section-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.repertoire-editor-rows {
+  display: grid;
+  gap: 10px;
+}
+
+.repertoire-editor-row {
+  display: grid;
+  gap: 9px;
+  align-items: center;
+}
+
+.credit-row {
+  grid-template-columns: minmax(180px, 1fr) 180px auto;
+}
+
+.instrument-row {
+  grid-template-columns: minmax(180px, 1fr) 170px minmax(160px, 1fr) auto;
+}
+
+.resource-row {
+  grid-template-columns: 160px minmax(220px, 1fr) auto;
+}
+
+.row-remove-button {
+  padding: 8px 6px;
+  border: 0;
+  color: #9a382d;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.row-remove-button:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .template-editor-page {
@@ -999,6 +1115,12 @@ textarea.text-input {
   border-radius: 16px;
   background: var(--paper);
   box-shadow: 0 30px 80px rgb(0 0 0 / 18%);
+}
+
+.library-item-modal {
+  width: min(920px, calc(100% - 40px));
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
 }
 
 .editor-modal h2 {
@@ -1764,6 +1886,7 @@ textarea.text-input {
   .feature-card,
   .page-header,
   .library-section-header,
+  .repertoire-editor-section-header,
   .session-detail-header,
   .session-completion-card,
   .record-header,
@@ -1772,6 +1895,18 @@ textarea.text-input {
     align-items: flex-start;
     gap: 22px;
     flex-direction: column;
+  }
+
+  .credit-row,
+  .instrument-row,
+  .resource-row {
+    grid-template-columns: 1fr;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .row-remove-button {
+    width: fit-content;
   }
 
   .detail-grid {

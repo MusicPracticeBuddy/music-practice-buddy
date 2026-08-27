@@ -1,9 +1,10 @@
 import { createServerFn } from '@tanstack/solid-start'
+import type { PoolClient } from 'pg'
 import { resourceAccess, type ResourceAccess, type Visibility } from '@/auth/authorization'
 import { authMiddleware } from '@/auth/middleware'
 import { pool, toIsoString } from '@/data/db'
 
-type RepertoireRow = {
+export type RepertoireRow = {
   id: string
   title: string
   parentTitle: string | null
@@ -30,9 +31,9 @@ type RepertoireDetail = {
   ownerId: string | null
   createdAt: string
   parent: { id: string; title: string } | null
-  credits: { person: string; role: string; biographyLink: string | null }[]
-  instruments: { name: string; family: string; role: string; partName: string | null }[]
-  resources: { id: string; type: string; url: string }[]
+  credits: RepertoireCredit[]
+  instruments: RepertoireInstrument[]
+  resources: RepertoireResource[]
   libraryEntries: { acquiredOn: string | null; notes: string | null }[]
   excerpts: { id: string; title: string; startMeasure: number | null; endMeasure: number | null }[]
   sessions: {
@@ -43,24 +44,185 @@ type RepertoireDetail = {
   }[]
 } & ResourceAccess
 
-export type RepertoireInput = {
-  title: string
-  libraryNotes: string
-  visibility: Visibility
+export type RepertoireCreditRole = 'COMPOSER' | 'ARRANGER' | 'EDITOR' | 'TRANSCRIBER' | 'OTHER'
+export type RepertoireInstrumentRole = 'SOLO' | 'ACCOMPANIMENT' | 'OTHER'
+export type RepertoireResourceType = 'SCORE' | 'RECORDING' | 'VIDEO' | 'AUDIO' | 'LINK' | 'OTHER'
+
+export type RepertoireCredit = {
+  person: string
+  role: RepertoireCreditRole
+  biographyLink: string | null
 }
 
+export type RepertoireInstrument = {
+  instrumentId: string
+  name: string
+  family: string
+  role: RepertoireInstrumentRole
+  partName: string | null
+}
+
+export type RepertoireResource = {
+  id: string
+  type: RepertoireResourceType
+  url: string
+}
+
+export type InstrumentOption = {
+  id: string
+  name: string
+  family: string
+}
+
+export type RepertoireCreditInput = Pick<RepertoireCredit, 'person' | 'role'>
+export type RepertoireInstrumentInput = Pick<
+  RepertoireInstrument,
+  'instrumentId' | 'role' | 'partName'
+>
+export type RepertoireResourceInput = Pick<RepertoireResource, 'type' | 'url'>
+
+export type RepertoireInput = {
+  title: string
+  visibility: Visibility
+  credits?: RepertoireCreditInput[]
+  instruments?: RepertoireInstrumentInput[]
+  resources?: RepertoireResourceInput[]
+}
+
+type ValidatedRepertoireInput = Required<RepertoireInput>
 type UpdateRepertoireInput = RepertoireInput & { id: string }
 
-function validateRepertoire(input: RepertoireInput): RepertoireInput {
+const creditRoles = new Set<RepertoireCreditRole>([
+  'COMPOSER',
+  'ARRANGER',
+  'EDITOR',
+  'TRANSCRIBER',
+  'OTHER',
+])
+const instrumentRoles = new Set<RepertoireInstrumentRole>(['SOLO', 'ACCOMPANIMENT', 'OTHER'])
+const resourceTypes = new Set<RepertoireResourceType>([
+  'SCORE',
+  'RECORDING',
+  'VIDEO',
+  'AUDIO',
+  'LINK',
+  'OTHER',
+])
+
+function validateRepertoire(input: RepertoireInput): ValidatedRepertoireInput {
   const title = input.title.trim()
-  const libraryNotes = input.libraryNotes.trim()
   if (!title) throw new Error('Repertoire title is required')
   if (title.length > 300) throw new Error('Repertoire title must be 300 characters or fewer')
   if (input.visibility !== 'PRIVATE' && input.visibility !== 'PUBLIC') {
     throw new Error('Invalid repertoire visibility')
   }
-  return { title, libraryNotes, visibility: input.visibility }
+  const credits = (input.credits ?? []).map((credit) => ({
+    person: credit.person.trim(),
+    role: credit.role,
+  }))
+  const instruments = (input.instruments ?? []).map((instrument) => ({
+    instrumentId: instrument.instrumentId,
+    role: instrument.role,
+    partName: instrument.partName?.trim() || null,
+  }))
+  const resources = (input.resources ?? []).map((resource) => ({
+    type: resource.type,
+    url: resource.url.trim(),
+  }))
+  if (credits.length > 50 || instruments.length > 50 || resources.length > 50) {
+    throw new Error('Repertoire can contain at most 50 entries in each detail section')
+  }
+  for (const credit of credits) {
+    if (!credit.person) throw new Error('Credit names are required')
+    if (credit.person.length > 200) throw new Error('Credit names must be 200 characters or fewer')
+    if (!creditRoles.has(credit.role)) throw new Error('Invalid credit role')
+  }
+  const uniqueCredits = new Set(
+    credits.map((credit) => `${credit.person.toLocaleLowerCase()}\u0000${credit.role}`),
+  )
+  if (uniqueCredits.size !== credits.length) throw new Error('Duplicate credits are not allowed')
+  for (const instrument of instruments) {
+    if (!/^\d+$/.test(instrument.instrumentId)) throw new Error('Invalid instrument')
+    if (!instrumentRoles.has(instrument.role)) throw new Error('Invalid instrument role')
+    if (instrument.partName && instrument.partName.length > 200) {
+      throw new Error('Part names must be 200 characters or fewer')
+    }
+  }
+  for (const resource of resources) {
+    if (!resourceTypes.has(resource.type)) throw new Error('Invalid resource type')
+    let url: URL
+    try {
+      url = new URL(resource.url)
+    } catch {
+      throw new Error('Resource URLs must be valid URLs')
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      throw new Error('Resource URLs must use HTTP or HTTPS')
+    }
+  }
+  return {
+    title,
+    visibility: input.visibility,
+    credits,
+    instruments,
+    resources,
+  }
 }
+
+async function replaceRepertoireDetails(
+  client: PoolClient,
+  repertoireId: string,
+  data: ValidatedRepertoireInput,
+) {
+  await client.query(`DELETE FROM repertoire_credit WHERE repertoire_id = $1`, [repertoireId])
+  await client.query(`DELETE FROM repertoire_instrument WHERE repertoire_id = $1`, [repertoireId])
+  await client.query(`DELETE FROM repertoire_resource WHERE repertoire_id = $1`, [repertoireId])
+
+  for (const [index, credit] of data.credits.entries()) {
+    let person = await client.query<{ id: string }>(
+      `SELECT id::text FROM person WHERE lower(name) = lower($1) ORDER BY id LIMIT 1`,
+      [credit.person],
+    )
+    if (!person.rows[0]) {
+      person = await client.query<{ id: string }>(
+        `INSERT INTO person (name) VALUES ($1) RETURNING id::text`,
+        [credit.person],
+      )
+    }
+    await client.query(
+      `INSERT INTO repertoire_credit (repertoire_id, person_id, role, position)
+       VALUES ($1, $2, $3, $4)`,
+      [repertoireId, person.rows[0]!.id, credit.role, index + 1],
+    )
+  }
+
+  for (const [index, instrument] of data.instruments.entries()) {
+    const result = await client.query(
+      `INSERT INTO repertoire_instrument
+         (repertoire_id, instrument_id, role, position, part_name)
+       SELECT $1, id, $2, $3, $4 FROM instrument WHERE id = $5`,
+      [repertoireId, instrument.role, index + 1, instrument.partName, instrument.instrumentId],
+    )
+    if (result.rowCount === 0) throw new Error('Instrument not found')
+  }
+
+  for (const [index, resource] of data.resources.entries()) {
+    await client.query(
+      `INSERT INTO repertoire_resource (repertoire_id, type, url, position)
+       VALUES ($1, $2, $3, $4)`,
+      [repertoireId, resource.type, resource.url, index + 1],
+    )
+  }
+}
+
+export const getInstruments = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .handler(async (): Promise<InstrumentOption[]> => {
+    const result = await pool.query<InstrumentOption>(
+      `SELECT id::text, name, family::text FROM instrument ORDER BY family, name`,
+    )
+    return result.rows
+  })
 
 const ACCESS_CTE = `
   WITH RECURSIVE repertoire_access AS (
@@ -187,7 +349,7 @@ export const getRepertoireDetail = createServerFn({ method: 'GET' })
       excerptsResult,
       sessionsResult,
     ] = await Promise.all([
-      pool.query<{ person: string; role: string; biographyLink: string | null }>(
+      pool.query<RepertoireCredit>(
         `SELECT person.name AS person, credit.role::text,
            person.biography_link AS "biographyLink"
          FROM repertoire_credit credit
@@ -196,8 +358,9 @@ export const getRepertoireDetail = createServerFn({ method: 'GET' })
          ORDER BY credit.position NULLS LAST, person.name`,
         [repertoireId],
       ),
-      pool.query<{ name: string; family: string; role: string; partName: string | null }>(
-        `SELECT instrument.name, instrument.family::text, part.role::text,
+      pool.query<RepertoireInstrument>(
+        `SELECT instrument.id::text AS "instrumentId", instrument.name,
+           instrument.family::text, part.role::text,
            part.part_name AS "partName"
          FROM repertoire_instrument part
          JOIN instrument ON instrument.id = part.instrument_id
@@ -205,7 +368,7 @@ export const getRepertoireDetail = createServerFn({ method: 'GET' })
          ORDER BY part.position NULLS LAST, instrument.name`,
         [repertoireId],
       ),
-      pool.query<{ id: string; type: string; url: string }>(
+      pool.query<RepertoireResource>(
         `SELECT id::text, type::text, url FROM repertoire_resource
          WHERE repertoire_id = $1 ORDER BY position NULLS LAST, id`,
         [repertoireId],
@@ -288,10 +451,11 @@ export const createRepertoire = createServerFn({ method: 'POST' })
       const repertoire = result.rows[0]
       if (!repertoire) throw new Error('Repertoire could not be created')
       await client.query(
-        `INSERT INTO musician_repertoire_library (musician_id, repertoire_id, notes)
-         VALUES ($1, $2, $3)`,
-        [context.user.musicianId, repertoire.id, data.libraryNotes || null],
+        `INSERT INTO musician_repertoire_library (musician_id, repertoire_id)
+         VALUES ($1, $2)`,
+        [context.user.musicianId, repertoire.id],
       )
+      await replaceRepertoireDetails(client, repertoire.id, data)
       await client.query('COMMIT')
       return repertoire
     } catch (error) {
@@ -322,13 +486,7 @@ export const updateRepertoire = createServerFn({ method: 'POST' })
       )
       const repertoire = result.rows[0]
       if (!repertoire) throw new Error('Repertoire not found')
-      await client.query(
-        `INSERT INTO musician_repertoire_library (musician_id, repertoire_id, notes)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (musician_id, repertoire_id)
-         DO UPDATE SET notes = EXCLUDED.notes`,
-        [context.user.musicianId, data.id, data.libraryNotes || null],
-      )
+      await replaceRepertoireDetails(client, data.id, data)
       await client.query('COMMIT')
       return repertoire
     } catch (error) {
@@ -356,4 +514,29 @@ export const deleteRepertoire = createServerFn({ method: 'POST' })
     const repertoire = result.rows[0]
     if (!repertoire) throw new Error('Repertoire not found')
     return repertoire
+  })
+
+export const updateRepertoireLibraryNote = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .validator((input: { id: string; note: string }) => {
+    if (!/^\d+$/.test(input.id)) throw new Error('Invalid repertoire')
+    const note = input.note.trim()
+    if (note.length > 5000) throw new Error('Library notes must be 5,000 characters or fewer')
+    return { id: input.id, note }
+  })
+  .handler(async ({ data, context }): Promise<{ note: string | null }> => {
+    const result = await pool.query<{ note: string | null }>(
+      `UPDATE musician_repertoire_library library
+       SET notes = $1
+       FROM repertoire
+       WHERE library.repertoire_id = repertoire.id
+         AND library.repertoire_id = $2
+         AND library.musician_id = $3
+         AND repertoire.deleted_at IS NULL
+       RETURNING library.notes AS note`,
+      [data.note || null, data.id, context.user.musicianId],
+    )
+    const libraryEntry = result.rows[0]
+    if (!libraryEntry) throw new Error('Repertoire is not in your library')
+    return libraryEntry
   })

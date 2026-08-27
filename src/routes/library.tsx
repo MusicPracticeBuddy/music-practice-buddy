@@ -1,7 +1,8 @@
 import { For, Show } from 'solid-js'
 import { Link, createFileRoute } from '@tanstack/solid-router'
+import { RepertoireLibraryNote } from '@/components/RepertoireLibraryNote'
 import { getExercises } from '@/data/exercises'
-import { getRepertoire } from '@/data/repertoire'
+import { getRepertoire, type RepertoireRow } from '@/data/repertoire'
 
 export const Route = createFileRoute('/library')({
   loader: async () => {
@@ -46,32 +47,7 @@ function Library() {
             fallback={<p class="library-empty">No repertoire items to show.</p>}
           >
             <div class="card-grid">
-              <For each={repertoire()}>
-                {(piece) => (
-                  <article class="content-card">
-                    <div class="card-topline">
-                      <span class="tag">{piece.instrument ?? 'Unscored'}</span>
-                      <span>{piece.visibility.toLowerCase()}</span>
-                    </div>
-                    <h2>
-                      <Link to="/repertoire/$repertoireId" params={{ repertoireId: piece.id }}>
-                        {piece.title}
-                      </Link>
-                    </h2>
-                    <p class="muted">{piece.composer}</p>
-                    {piece.parentTitle && <p class="detail">From {piece.parentTitle}</p>}
-                    {piece.measureRange && <p class="detail">{piece.measureRange}</p>}
-                    {piece.libraryNotes && <p class="note">{piece.libraryNotes}</p>}
-                    <Link
-                      class="text-link"
-                      to="/repertoire/$repertoireId"
-                      params={{ repertoireId: piece.id }}
-                    >
-                      View details →
-                    </Link>
-                  </article>
-                )}
-              </For>
+              <For each={repertoire()}>{(piece) => <RepertoireCard piece={piece} />}</For>
             </div>
           </Show>
         </section>
@@ -120,5 +96,38 @@ function Library() {
         </section>
       </div>
     </main>
+  )
+}
+
+function RepertoireCard(props: { piece: RepertoireRow }) {
+  return (
+    <article class="content-card">
+      <div class="card-topline">
+        <span class="tag">{props.piece.instrument ?? 'Unscored'}</span>
+        <span>{props.piece.visibility.toLowerCase()}</span>
+      </div>
+      <h2>
+        <Link to="/repertoire/$repertoireId" params={{ repertoireId: props.piece.id }}>
+          {props.piece.title}
+        </Link>
+      </h2>
+      <p class="muted">{props.piece.composer}</p>
+      {props.piece.parentTitle && <p class="detail">From {props.piece.parentTitle}</p>}
+      {props.piece.measureRange && <p class="detail">{props.piece.measureRange}</p>}
+
+      <RepertoireLibraryNote
+        repertoireId={props.piece.id}
+        repertoireTitle={props.piece.title}
+        initialNote={props.piece.libraryNotes}
+      />
+
+      <Link
+        class="text-link"
+        to="/repertoire/$repertoireId"
+        params={{ repertoireId: props.piece.id }}
+      >
+        View details →
+      </Link>
+    </article>
   )
 }

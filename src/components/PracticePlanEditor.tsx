@@ -3,9 +3,10 @@ import { createStore, produce } from 'solid-js/store'
 import { Link, useNavigate } from '@tanstack/solid-router'
 import * as Dialog from '@kobalte/core/dialog'
 import Sortable, { type MoveEvent, type SortableEvent } from 'sortablejs'
+import { LibraryItemForm } from '@/components/LibraryItemForm'
 import { PracticeLibraryPanel } from '@/components/PracticeLibraryPanel'
+import { getInstruments, type InstrumentOption } from '@/data/repertoire'
 import {
-  createLibraryItem,
   createSessionTemplate,
   updatePlannedSession,
   updateSessionTemplate,
@@ -203,8 +204,8 @@ export function PracticePlanEditor(props: {
   const [error, setError] = createSignal('')
   const [creatingItem, setCreatingItem] = createSignal(false)
   const [newItemType, setNewItemType] = createSignal<LibraryItemType>(LIBRARY_ITEM_TYPE.EXERCISE)
-  const [newItemName, setNewItemName] = createSignal('')
   const [newItemNotes, setNewItemNotes] = createSignal('')
+  const [instrumentOptions, setInstrumentOptions] = createSignal<InstrumentOption[]>([])
 
   const itemCount = createMemo(
     () => flatten(nodes).filter((item) => item.type !== PRACTICE_ITEM_TYPE.SECTION).length,
@@ -381,19 +382,23 @@ export function PracticePlanEditor(props: {
     }
   }
 
-  async function createAndAddItem(event: SubmitEvent) {
-    event.preventDefault()
-    setError('')
+  function addCreatedItem(item: TemplateLibraryItem) {
+    setLibrary((items) => [...items, item])
+    setLibraryType(item.type)
+    addLibraryEntry(item, newItemNotes())
+    setNewItemNotes('')
+    setCreatingItem(false)
+  }
+
+  function resetNewItemForm(type = libraryType()) {
+    setNewItemType(type)
+    setNewItemNotes('')
+  }
+
+  async function prepareNewItemForm() {
+    resetNewItemForm()
     try {
-      const item = await createLibraryItem({
-        data: { type: newItemType(), name: newItemName(), notes: newItemNotes() },
-      })
-      setLibrary((items) => [...items, item])
-      setLibraryType(item.type)
-      addLibraryEntry(item, newItemNotes())
-      setNewItemName('')
-      setNewItemNotes('')
-      setCreatingItem(false)
+      setInstrumentOptions(await getInstruments())
     } catch (caught) {
       setError(errorMessage(caught))
     }
@@ -604,7 +609,7 @@ export function PracticePlanEditor(props: {
             <Dialog.Root
               open={creatingItem()}
               onOpenChange={(open) => {
-                if (open) setNewItemType(libraryType())
+                if (open) void prepareNewItemForm()
                 setCreatingItem(open)
               }}
             >
@@ -614,51 +619,51 @@ export function PracticePlanEditor(props: {
               </Dialog.Trigger>
               <Dialog.Portal>
                 <Dialog.Overlay class="modal-backdrop" />
-                <Dialog.Content class="editor-modal">
-                  <form onSubmit={createAndAddItem}>
-                    <Dialog.Title>Create and add an item</Dialog.Title>
-                    <label class="field-label" for="new-item-type">
-                      Type
-                    </label>
-                    <select
-                      id="new-item-type"
-                      class="text-input"
-                      value={newItemType()}
-                      onChange={(event) => {
-                        const type = event.currentTarget.value
-                        if (isLibraryItemType(type)) setNewItemType(type)
-                      }}
-                    >
-                      <option value={LIBRARY_ITEM_TYPE.EXERCISE}>Exercise</option>
-                      <option value={LIBRARY_ITEM_TYPE.REPERTOIRE}>Repertoire</option>
-                    </select>
-                    <label class="field-label" for="new-item-name">
-                      Name
-                    </label>
-                    <input
-                      id="new-item-name"
-                      class="text-input"
-                      value={newItemName()}
-                      onInput={(event) => setNewItemName(event.currentTarget.value)}
-                      required
-                    />
-                    <label class="field-label" for="new-item-notes">
-                      Notes (optional)
-                    </label>
-                    <textarea
-                      id="new-item-notes"
-                      class="text-input"
-                      value={newItemNotes()}
-                      onInput={(event) => setNewItemNotes(event.currentTarget.value)}
-                      rows="3"
-                    />
-                    <div class="modal-actions">
+                <Dialog.Content class="editor-modal library-item-modal">
+                  <Dialog.Title>Create and add an item</Dialog.Title>
+                  <LibraryItemForm
+                    embedded
+                    kind={newItemType() === LIBRARY_ITEM_TYPE.EXERCISE ? 'exercise' : 'repertoire'}
+                    instrumentOptions={instrumentOptions()}
+                    beforeFields={
+                      <>
+                        <label class="field-label" for="new-item-type">
+                          Type
+                        </label>
+                        <select
+                          id="new-item-type"
+                          class="text-input"
+                          value={newItemType()}
+                          onChange={(event) => {
+                            const type = event.currentTarget.value
+                            if (isLibraryItemType(type)) setNewItemType(type)
+                          }}
+                        >
+                          <option value={LIBRARY_ITEM_TYPE.EXERCISE}>Exercise</option>
+                          <option value={LIBRARY_ITEM_TYPE.REPERTOIRE}>Repertoire</option>
+                        </select>
+                      </>
+                    }
+                    afterFields={
+                      <>
+                        <label class="field-label" for="new-item-notes">
+                          Practice plan notes (optional)
+                        </label>
+                        <textarea
+                          id="new-item-notes"
+                          class="text-input"
+                          value={newItemNotes()}
+                          onInput={(event) => setNewItemNotes(event.currentTarget.value)}
+                          rows="3"
+                        />
+                      </>
+                    }
+                    cancelAction={
                       <Dialog.CloseButton class="secondary-button">Cancel</Dialog.CloseButton>
-                      <button type="submit" class="primary-button">
-                        Create and add
-                      </button>
-                    </div>
-                  </form>
+                    }
+                    submitLabel="Create and add"
+                    onSaved={addCreatedItem}
+                  />
                 </Dialog.Content>
               </Dialog.Portal>
             </Dialog.Root>

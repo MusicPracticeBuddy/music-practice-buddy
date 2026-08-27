@@ -31,10 +31,20 @@ vi.mock('@tanstack/solid-router', () => ({
 }))
 
 vi.mock('../../src/data/sessionTemplates', () => ({
-  createLibraryItem: vi.fn(),
   createSessionTemplate: vi.fn(),
   updatePlannedSession: vi.fn(),
   updateSessionTemplate: vi.fn(),
+}))
+
+vi.mock('../../src/data/exercises', () => ({
+  createExercise: vi.fn(),
+}))
+
+vi.mock('../../src/data/repertoire', () => ({
+  createRepertoire: vi.fn(),
+  getInstruments: vi
+    .fn()
+    .mockResolvedValue([{ id: '1', name: 'Trumpet in B-flat', family: 'BRASS' }]),
 }))
 
 import { PracticePlanEditor } from '@/components/PracticePlanEditor'
@@ -137,6 +147,40 @@ beforeEach(() => {
 })
 
 describe('PracticePlanEditor', () => {
+  it('uses the dedicated creation fields for exercises and repertoire', async () => {
+    render(() => <PracticePlanEditor library={library} template={template([])} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Create new exercise/ }))
+
+    const name = await screen.findByLabelText('Name')
+    expect(name.getAttribute('maxlength')).toBe('200')
+    expect(screen.getByLabelText('Instructions or notation (optional)')).toBeTruthy()
+    expect(screen.getByLabelText('Notation format')).toBeTruthy()
+    expect(
+      screen.getByLabelText('Visibility', { selector: '#library-item-visibility' }),
+    ).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'REPERTOIRE' } })
+
+    expect(screen.getByLabelText('Title').getAttribute('maxlength')).toBe('300')
+    expect(screen.queryByLabelText('Instructions or notation (optional)')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Credits' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Instrumentation' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Resources' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: /Add credit/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Add instrument/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Add resource/ }))
+
+    expect(screen.getByLabelText('Credit 1 name')).toBeTruthy()
+    expect(screen.getByLabelText('Credit 1 role')).toBeTruthy()
+    expect(screen.getByLabelText('Instrument 1')).toBeTruthy()
+    expect(screen.getByLabelText('Instrument 1 role')).toBeTruthy()
+    expect(screen.getByLabelText('Instrument 1 part name')).toBeTruthy()
+    expect(screen.getByLabelText('Resource 1 type')).toBeTruthy()
+    expect(screen.getByLabelText('Resource 1 URL')).toBeTruthy()
+  })
+
   it('drops the correct library type at the requested position and keeps the library interactive', async () => {
     render(() => (
       <PracticePlanEditor

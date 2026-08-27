@@ -7,7 +7,6 @@ import { pool } from '@/data/db'
 import {
   LIBRARY_ITEM_TYPE,
   PRACTICE_ITEM_TYPE,
-  isLibraryItemType,
   isPracticeItemType,
   type LibraryItemType,
   type PracticeItemType,
@@ -592,56 +591,6 @@ export const updatePlannedSession = createServerFn({ method: 'POST' })
       await insertSessionItems(client, context.user, data.id, data.items)
       await client.query('COMMIT')
       return { id: data.id }
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
-  })
-
-export const createLibraryItem = createServerFn({ method: 'POST' })
-  .middleware([authMiddleware])
-  .validator((input: { type: LibraryItemType; name: string; notes: string }) => {
-    const name = input.name.trim()
-    if (!name) throw new Error('Item name is required')
-    if (!isLibraryItemType(input.type)) throw new Error('Invalid item type')
-    return { ...input, name, notes: input.notes.trim() }
-  })
-  .handler(async ({ data, context }): Promise<TemplateLibraryItem> => {
-    const client = await pool.connect()
-    try {
-      await client.query('BEGIN')
-      const musicianId = context.user.musicianId
-      if (data.type === LIBRARY_ITEM_TYPE.EXERCISE) {
-        const result = await client.query<{ id: string }>(
-          `INSERT INTO exercise (musician_id, name) VALUES ($1, $2) RETURNING id::text`,
-          [musicianId, data.name],
-        )
-        const id = result.rows[0]!.id
-        await client.query(
-          `INSERT INTO musician_exercise_library (musician_id, exercise_id) VALUES ($1, $2)`,
-          [musicianId, id],
-        )
-        await client.query('COMMIT')
-        return { id, type: data.type, name: data.name, detail: 'Exercise' }
-      }
-
-      const result = await client.query<{ id: string }>(
-        `
-          INSERT INTO repertoire (title, owner_musician_id, visibility, status)
-          VALUES ($1, $2, 'PRIVATE', 'APPROVED')
-          RETURNING id::text
-        `,
-        [data.name, musicianId],
-      )
-      const id = result.rows[0]!.id
-      await client.query(
-        `INSERT INTO musician_repertoire_library (musician_id, repertoire_id, notes) VALUES ($1, $2, $3)`,
-        [musicianId, id, data.notes || null],
-      )
-      await client.query('COMMIT')
-      return { id, type: data.type, name: data.name, detail: 'Repertoire' }
     } catch (error) {
       await client.query('ROLLBACK')
       throw error

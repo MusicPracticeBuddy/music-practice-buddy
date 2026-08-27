@@ -7,6 +7,8 @@ import {
   createRepertoire,
   deleteRepertoire,
   getRepertoire,
+  getRepertoireDetail,
+  updateRepertoireLibraryNote,
   updateRepertoire,
 } from '@/data/repertoire'
 import {
@@ -69,7 +71,7 @@ function practiceItem(
 
 async function resetDatabase() {
   await pool.query(`
-    TRUNCATE TABLE musician, exercise, repertoire, session_template, session
+    TRUNCATE TABLE musician, exercise, repertoire, instrument, person, session_template, session
     RESTART IDENTITY CASCADE
   `)
   const musician = await pool.query<{ id: string }>(
@@ -147,20 +149,59 @@ describe('library item persistence', () => {
   })
 
   it('creates, edits, and soft-deletes repertoire while preserving references', async () => {
+    const instrument = await pool.query<{ id: string }>(
+      `INSERT INTO instrument (name, family) VALUES ('Test trumpet', 'BRASS') RETURNING id::text`,
+    )
     const created = await createRepertoire({
       data: {
         title: 'Created repertoire',
-        libraryNotes: 'First notes',
         visibility: 'PRIVATE',
+        credits: [{ person: 'First Composer', role: 'COMPOSER' }],
+        instruments: [
+          { instrumentId: instrument.rows[0]!.id, role: 'SOLO', partName: 'First part' },
+        ],
+        resources: [{ type: 'SCORE', url: 'https://example.com/first-score' }],
       },
     })
     await updateRepertoire({
       data: {
         id: created.id,
         title: 'Edited repertoire',
-        libraryNotes: 'Updated notes',
         visibility: 'PUBLIC',
+        credits: [
+          { person: 'Edited Composer', role: 'COMPOSER' },
+          { person: 'Test Arranger', role: 'ARRANGER' },
+        ],
+        instruments: [
+          { instrumentId: instrument.rows[0]!.id, role: 'SOLO', partName: 'Edited part' },
+        ],
+        resources: [{ type: 'RECORDING', url: 'https://example.com/recording' }],
       },
+    })
+    expect(
+      await updateRepertoireLibraryNote({ data: { id: created.id, note: 'First notes' } }),
+    ).toEqual({ note: 'First notes' })
+    expect(
+      await updateRepertoireLibraryNote({ data: { id: created.id, note: 'Updated notes' } }),
+    ).toEqual({ note: 'Updated notes' })
+    expect(await updateRepertoireLibraryNote({ data: { id: created.id, note: '' } })).toEqual({
+      note: null,
+    })
+    const details = await getRepertoireDetail({ data: created.id })
+    expect(details).toMatchObject({
+      credits: [
+        { person: 'Edited Composer', role: 'COMPOSER' },
+        { person: 'Test Arranger', role: 'ARRANGER' },
+      ],
+      instruments: [
+        {
+          instrumentId: instrument.rows[0]!.id,
+          name: 'Test trumpet',
+          role: 'SOLO',
+          partName: 'Edited part',
+        },
+      ],
+      resources: [{ type: 'RECORDING', url: 'https://example.com/recording' }],
     })
     const template = await createSessionTemplate({
       data: {
@@ -175,7 +216,7 @@ describe('library item persistence', () => {
 
     await deleteRepertoire({ data: created.id })
 
-    const row = await pool.query<{ title: string; notes: string; deleted: boolean }>(
+    const row = await pool.query<{ title: string; notes: string | null; deleted: boolean }>(
       `SELECT repertoire.title, library.notes,
          repertoire.deleted_at IS NOT NULL AS deleted
        FROM repertoire
@@ -190,7 +231,7 @@ describe('library item persistence', () => {
     )
     expect(row.rows[0]).toEqual({
       title: 'Edited repertoire',
-      notes: 'Updated notes',
+      notes: null,
       deleted: true,
     })
     expect(reference.rows[0]?.count).toBe(1)
