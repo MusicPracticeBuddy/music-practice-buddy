@@ -34,7 +34,6 @@ function ExerciseDetail() {
         <div>
           <p class="eyebrow">Exercise #{exercise().id}</p>
           <h1>{exercise().name}</h1>
-          <p class="lede">Owned by {exercise().owner}</p>
         </div>
         <span class="tag">{exercise().visibility.toLowerCase()}</span>
       </header>

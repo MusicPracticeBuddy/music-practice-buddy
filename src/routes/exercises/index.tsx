@@ -36,10 +36,7 @@ function Exercises() {
                 </div>
                 <h2>{exercise.name}</h2>
                 <p>{exercise.notation ?? 'No notation added yet.'}</p>
-                <small>
-                  {exercise.owner}
-                  {exercise.copiedFrom && ` · Adapted from ${exercise.copiedFrom}`}
-                </small>
+                {exercise.copiedFrom && <small>Adapted from {exercise.copiedFrom}</small>}
               </div>
             </Link>
           )}
