@@ -52,6 +52,10 @@ VALUES (
     'PRIVATE'
 );
 
+INSERT INTO musician_exercise_library (musician_id, exercise_id)
+SELECT musician_id, id
+FROM exercise;
+
 INSERT INTO repertoire (title, owner_musician_id, visibility, status)
 VALUES
     ('Bach Cello Suite No. 1 in G Major, BWV 1007', NULL, 'PUBLIC', 'APPROVED'),

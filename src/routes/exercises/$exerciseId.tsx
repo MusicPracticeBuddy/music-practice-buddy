@@ -76,10 +76,10 @@ function ExerciseDetail() {
           </Show>
         </article>
 
-        <article class="detail-card">
-          <p class="eyebrow">Lineage</p>
-          <Show when={exercise().copiedFrom} fallback={<p>This is an original exercise.</p>}>
-            {(source) => (
+        <Show when={exercise().copiedFrom}>
+          {(source) => (
+            <article class="detail-card">
+              <p class="eyebrow">Lineage</p>
               <p>
                 Adapted from{' '}
                 <Link
@@ -90,23 +90,23 @@ function ExerciseDetail() {
                   {source().name}
                 </Link>
               </p>
-            )}
-          </Show>
-          <Show when={exercise().adaptations.length > 0}>
-            <h2>Adaptations</h2>
-            <ul class="detail-list">
-              <For each={exercise().adaptations}>
-                {(adaptation) => (
-                  <li>
-                    <Link to="/exercises/$exerciseId" params={{ exerciseId: adaptation.id }}>
-                      {adaptation.name}
-                    </Link>
-                  </li>
-                )}
-              </For>
-            </ul>
-          </Show>
-        </article>
+              <Show when={exercise().adaptations.length > 0}>
+                <h2>Adaptations</h2>
+                <ul class="detail-list">
+                  <For each={exercise().adaptations}>
+                    {(adaptation) => (
+                      <li>
+                        <Link to="/exercises/$exerciseId" params={{ exerciseId: adaptation.id }}>
+                          {adaptation.name}
+                        </Link>
+                      </li>
+                    )}
+                  </For>
+                </ul>
+              </Show>
+            </article>
+          )}
+        </Show>
 
         <article class="detail-card">
           <p class="eyebrow">Practice history</p>

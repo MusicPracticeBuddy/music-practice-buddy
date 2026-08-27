@@ -281,12 +281,15 @@ export const getTemplateLibrary = createServerFn({ method: 'GET' })
       pool.query<{ id: string; name: string; detail: string }>(
         `
         SELECT
-          id::text,
-          COALESCE(name, 'Untitled exercise') AS name,
-          CASE WHEN notation IS NULL THEN 'Exercise' ELSE 'Exercise · with notation' END AS detail
+          exercise.id::text,
+          COALESCE(exercise.name, 'Untitled exercise') AS name,
+          CASE WHEN exercise.notation IS NULL THEN 'Exercise' ELSE 'Exercise · with notation' END AS detail
         FROM exercise
-        WHERE deleted_at IS NULL AND (musician_id = $1 OR visibility = 'PUBLIC')
-        ORDER BY name NULLS LAST, id
+        JOIN musician_exercise_library library
+          ON library.exercise_id = exercise.id AND library.musician_id = $1
+        WHERE exercise.deleted_at IS NULL
+          AND (exercise.musician_id = $1 OR exercise.visibility = 'PUBLIC')
+        ORDER BY exercise.name NULLS LAST, exercise.id
       `,
         [context.user.musicianId],
       ),
@@ -306,6 +309,8 @@ export const getTemplateLibrary = createServerFn({ method: 'GET' })
           COALESCE(parent.title, 'Repertoire') AS detail
         FROM repertoire
         JOIN access ON access.id = repertoire.id
+        JOIN musician_repertoire_library library
+          ON library.repertoire_id = repertoire.id AND library.musician_id = $1
         LEFT JOIN repertoire parent ON parent.id = repertoire.parent_repertoire_id
         WHERE access.owner_musician_id = $1 OR access.visibility = 'PUBLIC'
         ORDER BY repertoire.title, repertoire.id
@@ -613,8 +618,13 @@ export const createLibraryItem = createServerFn({ method: 'POST' })
           `INSERT INTO exercise (musician_id, name) VALUES ($1, $2) RETURNING id::text`,
           [musicianId, data.name],
         )
+        const id = result.rows[0]!.id
+        await client.query(
+          `INSERT INTO musician_exercise_library (musician_id, exercise_id) VALUES ($1, $2)`,
+          [musicianId, id],
+        )
         await client.query('COMMIT')
-        return { id: result.rows[0]!.id, type: data.type, name: data.name, detail: 'Exercise' }
+        return { id, type: data.type, name: data.name, detail: 'Exercise' }
       }
 
       const result = await client.query<{ id: string }>(

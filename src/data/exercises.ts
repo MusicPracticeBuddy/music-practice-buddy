@@ -75,6 +75,8 @@ export const getExercises = createServerFn({ method: 'GET' })
         exercise.musician_id::text AS "ownerId",
         source.name AS "copiedFrom"
       FROM exercise
+      JOIN musician_exercise_library library
+        ON library.exercise_id = exercise.id AND library.musician_id = $1
       JOIN musician ON musician.id = exercise.musician_id
       LEFT JOIN exercise source ON source.id = exercise.copied_from_exercise_id
         AND (source.musician_id = $1 OR source.visibility = 'PUBLIC')
@@ -198,19 +200,36 @@ export const createExercise = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .validator(validateExercise)
   .handler(async ({ data, context }): Promise<{ id: string }> => {
-    const result = await pool.query<{ id: string }>(
-      `INSERT INTO exercise (musician_id, name, notation, notation_format, visibility)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id::text`,
-      [
-        context.user.musicianId,
-        data.name,
-        data.notation || null,
-        data.notationFormat,
-        data.visibility,
-      ],
-    )
-    return result.rows[0]!
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      const result = await client.query<{ id: string }>(
+        `INSERT INTO exercise (musician_id, name, notation, notation_format, visibility)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id::text`,
+        [
+          context.user.musicianId,
+          data.name,
+          data.notation || null,
+          data.notationFormat,
+          data.visibility,
+        ],
+      )
+      const exercise = result.rows[0]
+      if (!exercise) throw new Error('Exercise could not be created')
+      await client.query(
+        `INSERT INTO musician_exercise_library (musician_id, exercise_id)
+         VALUES ($1, $2)`,
+        [context.user.musicianId, exercise.id],
+      )
+      await client.query('COMMIT')
+      return exercise
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
   })
 
 export const updateExercise = createServerFn({ method: 'POST' })

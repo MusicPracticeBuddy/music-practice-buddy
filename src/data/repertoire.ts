@@ -115,7 +115,7 @@ export const getRepertoire = createServerFn({ method: 'GET' })
           ORDER BY child.position NULLS LAST, child.id
           LIMIT 1
         ) resource ON TRUE
-        LEFT JOIN musician_repertoire_library library
+        JOIN musician_repertoire_library library
           ON library.repertoire_id = r.id AND library.musician_id = $1
         WHERE access.owner_musician_id = $1 OR access.visibility = 'PUBLIC'
         GROUP BY r.id, parent.title, access.visibility, access.owner_musician_id,

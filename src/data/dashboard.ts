@@ -42,10 +42,17 @@ export const getDashboard = createServerFn({ method: 'GET' })
           WHERE child.deleted_at IS NULL
         )
         SELECT
-          (SELECT count(*)::int FROM repertoire_access
-           WHERE owner_musician_id = $1 OR visibility = 'PUBLIC') AS repertoire,
-          (SELECT count(*)::int FROM exercise
-           WHERE deleted_at IS NULL AND (musician_id = $1 OR visibility = 'PUBLIC')) AS exercises,
+          (SELECT count(*)::int
+           FROM repertoire_access access
+           JOIN musician_repertoire_library library
+             ON library.repertoire_id = access.id AND library.musician_id = $1
+           WHERE access.owner_musician_id = $1 OR access.visibility = 'PUBLIC') AS repertoire,
+          (SELECT count(*)::int
+           FROM exercise
+           JOIN musician_exercise_library library
+             ON library.exercise_id = exercise.id AND library.musician_id = $1
+           WHERE exercise.deleted_at IS NULL
+             AND (exercise.musician_id = $1 OR exercise.visibility = 'PUBLIC')) AS exercises,
           (SELECT count(*)::int FROM session WHERE musician_id = $1) AS sessions,
           (SELECT count(*)::int FROM session
            WHERE musician_id = $1 AND status = 'COMPLETED') AS completed_sessions,

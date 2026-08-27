@@ -792,7 +792,7 @@ describe('authorization boundaries', () => {
     ).rejects.toThrow('Public templates can only reference public library items')
   })
 
-  it('hides another musician private rows while exposing public library resources', async () => {
+  it('only exposes accessible resources added to the musician library', async () => {
     const other = await pool.query<{ id: string }>(
       `INSERT INTO musician (display_name) VALUES ('Other musician') RETURNING id::text`,
     )
@@ -819,9 +819,18 @@ describe('authorization boundaries', () => {
     expect((await getTemplateLibrary()).map((item) => item.id)).not.toContain(
       privateExercise.rows[0]!.id,
     )
+    expect((await getTemplateLibrary()).map((item) => item.id)).not.toContain(
+      publicExercise.rows[0]!.id,
+    )
+    expect((await getExercises()).map((item) => item.id)).not.toContain(publicExercise.rows[0]!.id)
+    await pool.query(
+      `INSERT INTO musician_exercise_library (musician_id, exercise_id) VALUES ($1, $2)`,
+      [process.env.TEST_AUTH_MUSICIAN_ID, publicExercise.rows[0]!.id],
+    )
     expect((await getTemplateLibrary()).map((item) => item.id)).toContain(
       publicExercise.rows[0]!.id,
     )
+    expect((await getExercises()).map((item) => item.id)).toContain(publicExercise.rows[0]!.id)
     expect((await getSessionTemplates()).map((template) => template.name)).toEqual([
       'Shared template',
     ])

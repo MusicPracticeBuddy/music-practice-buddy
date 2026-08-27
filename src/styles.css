@@ -430,63 +430,6 @@ h1 {
   flex-wrap: wrap;
 }
 
-.library-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.library-toggle input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.library-toggle span {
-  position: relative;
-  width: 42px;
-  height: 24px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #d7d8d2;
-  transition: background 160ms ease;
-}
-
-.library-toggle span::after {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: white;
-  box-shadow: 0 1px 3px rgb(37 51 46 / 22%);
-  content: '';
-  transition: transform 160ms ease;
-}
-
-.library-toggle input:checked + span {
-  border-color: var(--green);
-  background: var(--green);
-}
-
-.library-toggle input:checked + span::after {
-  transform: translateX(18px);
-}
-
-.library-toggle input:focus-visible + span {
-  outline: 3px solid rgb(49 92 77 / 24%);
-  outline-offset: 2px;
-}
-
 .library-empty {
   padding: 28px;
   border: 1px dashed var(--line);

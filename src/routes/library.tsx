@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal } from 'solid-js'
+import { For, Show } from 'solid-js'
 import { Link, createFileRoute } from '@tanstack/solid-router'
 import { getExercises } from '@/data/exercises'
 import { getRepertoire } from '@/data/repertoire'
@@ -11,37 +11,10 @@ export const Route = createFileRoute('/library')({
   component: Library,
 })
 
-function LibraryToggle(props: {
-  checked: boolean
-  label: string
-  onChange: (checked: boolean) => void
-}) {
-  return (
-    <label class="library-toggle">
-      <input
-        type="checkbox"
-        checked={props.checked}
-        onChange={(event) => props.onChange(event.currentTarget.checked)}
-      />
-      <span aria-hidden="true" />
-      {props.label}
-    </label>
-  )
-}
-
 function Library() {
   const data = Route.useLoaderData()
-  const [includePublicRepertoire, setIncludePublicRepertoire] = createSignal(false)
-  const [includePublicExercises, setIncludePublicExercises] = createSignal(false)
-
-  const repertoire = createMemo(() =>
-    data().repertoire.filter((piece) => includePublicRepertoire() || piece.visibility !== 'PUBLIC'),
-  )
-  const exercises = createMemo(() =>
-    data().exercises.filter(
-      (exercise) => includePublicExercises() || exercise.visibility !== 'PUBLIC',
-    ),
-  )
+  const repertoire = () => data().repertoire
+  const exercises = () => data().exercises
 
   return (
     <main class="page">
@@ -62,11 +35,6 @@ function Library() {
               <span class="count-badge">{repertoire().length} entries</span>
             </div>
             <div class="library-section-actions">
-              <LibraryToggle
-                checked={includePublicRepertoire()}
-                label="Include public repertoire"
-                onChange={setIncludePublicRepertoire}
-              />
               <Link class="primary-button" to="/repertoire/new">
                 + Add repertoire
               </Link>
@@ -116,11 +84,6 @@ function Library() {
               <span class="count-badge">{exercises().length} exercises</span>
             </div>
             <div class="library-section-actions">
-              <LibraryToggle
-                checked={includePublicExercises()}
-                label="Include public exercises"
-                onChange={setIncludePublicExercises}
-              />
               <Link class="primary-button" to="/exercises/new">
                 + Add exercise
               </Link>
