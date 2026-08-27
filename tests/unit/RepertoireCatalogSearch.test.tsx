@@ -36,6 +36,7 @@ const items = [
     composers: [composers[0]!],
     instruments: [instruments[0]!, instruments[1]!],
     inLibrary: false,
+    children: [],
   },
   {
     id: '2',
@@ -44,6 +45,7 @@ const items = [
     composers: [composers[1]!],
     instruments: [instruments[0]!],
     inLibrary: false,
+    children: [],
   },
   {
     id: '3',
@@ -52,6 +54,7 @@ const items = [
     composers: [composers[1]!],
     instruments: [instruments[1]!],
     inLibrary: true,
+    children: [],
   },
 ]
 

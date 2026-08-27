@@ -27,6 +27,7 @@ export type TemplateLibraryItem = {
   type: LibraryItemType
   name: string
   detail: string
+  children?: TemplateLibraryItem[]
 }
 
 export type SessionTemplateSummary = {
@@ -304,7 +305,7 @@ export const getTemplateLibrary = createServerFn({ method: 'GET' })
       `,
         [context.user.musicianId],
       ),
-      pool.query<{ id: string; name: string; detail: string }>(
+      pool.query<{ id: string; parentId: string | null; name: string; detail: string }>(
         `
         WITH RECURSIVE access AS (
           SELECT id, owner_musician_id, visibility
@@ -313,26 +314,60 @@ export const getTemplateLibrary = createServerFn({ method: 'GET' })
           SELECT child.id, access.owner_musician_id, access.visibility
           FROM repertoire child JOIN access ON access.id = child.parent_repertoire_id
           WHERE child.deleted_at IS NULL
+        ), library_repertoire AS (
+          SELECT repertoire.id
+          FROM repertoire
+          JOIN musician_repertoire_library library
+            ON library.repertoire_id = repertoire.id AND library.musician_id = $1
+          JOIN access ON access.id = repertoire.id
+          WHERE repertoire.deleted_at IS NULL
+            AND (access.owner_musician_id = $1 OR access.visibility = 'PUBLIC')
+          UNION
+          SELECT child.id
+          FROM repertoire child
+          JOIN library_repertoire parent ON parent.id = child.parent_repertoire_id
+          JOIN access ON access.id = child.id
+          WHERE child.deleted_at IS NULL
+            AND (access.owner_musician_id = $1 OR access.visibility = 'PUBLIC')
         )
         SELECT
           repertoire.id::text,
+          repertoire.parent_repertoire_id::text AS "parentId",
           repertoire.title AS name,
           COALESCE(parent.title, 'Repertoire') AS detail
         FROM repertoire
         JOIN access ON access.id = repertoire.id
-        JOIN musician_repertoire_library library
-          ON library.repertoire_id = repertoire.id AND library.musician_id = $1
+        JOIN library_repertoire library ON library.id = repertoire.id
         LEFT JOIN repertoire parent ON parent.id = repertoire.parent_repertoire_id
-        WHERE access.owner_musician_id = $1 OR access.visibility = 'PUBLIC'
         ORDER BY repertoire.title, repertoire.id
       `,
         [context.user.musicianId],
       ),
     ])
 
+    const repertoireItems = new Map(
+      repertoire.rows.map((item) => [
+        item.id,
+        {
+          id: item.id,
+          type: LIBRARY_ITEM_TYPE.REPERTOIRE,
+          name: item.name,
+          detail: item.detail,
+          children: [] as TemplateLibraryItem[],
+        },
+      ]),
+    )
+    const repertoireRoots: TemplateLibraryItem[] = []
+    for (const row of repertoire.rows) {
+      const item = repertoireItems.get(row.id)!
+      const parent = row.parentId ? repertoireItems.get(row.parentId) : undefined
+      if (parent) parent.children!.push(item)
+      else repertoireRoots.push(item)
+    }
+
     return [
       ...exercises.rows.map((item) => ({ ...item, type: LIBRARY_ITEM_TYPE.EXERCISE })),
-      ...repertoire.rows.map((item) => ({ ...item, type: LIBRARY_ITEM_TYPE.REPERTOIRE })),
+      ...repertoireRoots,
     ]
   })
 

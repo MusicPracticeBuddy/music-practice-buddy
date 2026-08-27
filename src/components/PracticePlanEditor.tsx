@@ -74,6 +74,19 @@ function findNode(items: EditorNode[], id: string): EditorNode | null {
   return null
 }
 
+function findLibraryItem(
+  items: TemplateLibraryItem[],
+  id: string,
+  type: LibraryItemType,
+): TemplateLibraryItem | null {
+  for (const item of items) {
+    if (item.id === id && item.type === type) return item
+    const child = findLibraryItem(item.children ?? [], id, type)
+    if (child) return child
+  }
+  return null
+}
+
 function containsNode(item: EditorNode, id: string): boolean {
   return item.children.some((child) => child.clientId === id || containsNode(child, id))
 }
@@ -295,9 +308,7 @@ export function PracticePlanEditor(props: {
     parentId: string | null,
     index: number,
   ) {
-    const item = [...library, ...publicRepertoire()].find(
-      (candidate) => candidate.id === libraryId && candidate.type === itemType,
-    )
+    const item = findLibraryItem([...library, ...publicRepertoire()], libraryId, itemType)
     if (!item) return
     addLibraryEntry(item, '', parentId, index)
     setSelectedParentId(parentId)
@@ -435,12 +446,16 @@ export function PracticePlanEditor(props: {
     try {
       const catalog = await getPublicRepertoireCatalog()
       setPublicRepertoire(
-        catalog.map((item) => ({
-          id: item.id,
-          type: LIBRARY_ITEM_TYPE.REPERTOIRE,
-          name: item.title,
-          detail: item.composers.map((composer) => composer.name).join(', ') || 'Unknown composer',
-        })),
+        catalog.map(function toLibraryItem(item): TemplateLibraryItem {
+          return {
+            id: item.id,
+            type: LIBRARY_ITEM_TYPE.REPERTOIRE,
+            name: item.title,
+            detail:
+              item.composers.map((composer) => composer.name).join(', ') || 'Unknown composer',
+            children: item.children.map(toLibraryItem),
+          }
+        }),
       )
     } catch (caught) {
       setError(errorMessage(caught))

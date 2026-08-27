@@ -6,6 +6,7 @@ import { createExercise, deleteExercise, getExercises, updateExercise } from '@/
 import {
   createRepertoire,
   deleteRepertoire,
+  getPublicRepertoireCatalog,
   getRepertoire,
   getRepertoireDetail,
   updateRepertoireLibraryNote,
@@ -206,6 +207,12 @@ describe('library item persistence', () => {
       ],
       resources: [{ type: 'RECORDING', url: 'https://example.com/recording' }],
     })
+    const createdPeople = await pool.query<{ ownerId: string | null }>(
+      `SELECT owner_musician_id::text AS "ownerId"
+       FROM person WHERE name IN ('Edited Composer', 'Test Arranger')
+       ORDER BY name`,
+    )
+    expect(createdPeople.rows).toEqual([{ ownerId: '1' }, { ownerId: '1' }])
     const template = await createSessionTemplate({
       data: {
         name: 'Repertoire reference',
@@ -239,6 +246,57 @@ describe('library item persistence', () => {
     })
     expect(reference.rows[0]?.count).toBe(1)
     expect((await getRepertoire()).some((repertoire) => repertoire.id === created.id)).toBe(false)
+  })
+
+  it('keeps externally identified catalog entities system-owned and immutable', async () => {
+    await expect(
+      pool.query(
+        `INSERT INTO person (external_id, name, owner_musician_id)
+         VALUES ('Q-PERSON-INVALID', 'Invalid owned person', 1)`,
+      ),
+    ).rejects.toThrow()
+    await expect(
+      pool.query(
+        `INSERT INTO instrument (external_id, name, family, owner_musician_id)
+         VALUES ('Q-INSTRUMENT-INVALID', 'Invalid owned instrument', 'OTHER', 1)`,
+      ),
+    ).rejects.toThrow()
+
+    const systemRepertoire = await pool.query<{ id: string }>(
+      `INSERT INTO repertoire
+         (external_id, title, owner_musician_id, visibility, status,
+          publication_date, publication_date_precision, publication_date_source)
+       VALUES
+         ('Q-WORK', 'Imported system work', NULL, 'PUBLIC', 'APPROVED',
+          '1800-01-01', 'year', 'publication')
+       RETURNING id::text`,
+    )
+    const id = systemRepertoire.rows[0]!.id
+
+    expect(await getRepertoireDetail({ data: id })).toMatchObject({
+      id,
+      title: 'Imported system work',
+      compositionYear: 1800,
+      systemOwned: true,
+      ownerId: null,
+      canEdit: false,
+      canManage: false,
+      canUse: true,
+    })
+    expect((await getPublicRepertoireCatalog()).find((item) => item.id === id)).toMatchObject({
+      compositionYear: 1800,
+    })
+
+    await expect(
+      updateRepertoire({
+        data: {
+          id,
+          title: 'Attempted edit',
+          visibility: 'PUBLIC',
+        },
+      }),
+    ).rejects.toThrow('Repertoire not found')
+    await expect(deleteRepertoire({ data: id })).rejects.toThrow('Repertoire not found')
   })
 })
 
@@ -932,9 +990,14 @@ describe('local development seed data', () => {
     ])
 
     const library = await getTemplateLibrary()
-    expect(library).toContainEqual(
-      expect.objectContaining({ name: 'Thirty Progressive Etudes', type: 'REPERTOIRE' }),
-    )
+    expect(library.find((item) => item.name === 'Thirty Progressive Etudes')).toMatchObject({
+      type: 'REPERTOIRE',
+      children: [
+        { name: 'Etude No. 1 — Singing Tone' },
+        { name: 'Etude No. 2 — Even Articulation' },
+        { name: 'Etude No. 3 — Flexible Intervals' },
+      ],
+    })
   })
 })
 

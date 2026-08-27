@@ -18,12 +18,14 @@ export type RepertoireRow = {
   resourceType: string | null
   resourceUrl: string | null
   libraryNotes: string | null
+  systemOwned: boolean
 } & ResourceAccess
 
 type RepertoireDetail = {
   id: string
   title: string
   compositionYear: number | null
+  systemOwned: boolean
   visibility: Visibility
   status: string
   startMeasure: number | null
@@ -87,6 +89,7 @@ export type CatalogRepertoireRow = {
   composers: { id: string; name: string }[]
   instruments: { id: string; name: string }[]
   inLibrary: boolean
+  children: CatalogRepertoireRow[]
 }
 
 export type RepertoireCreditInput = Pick<RepertoireCredit, 'person' | 'role'>
@@ -197,6 +200,7 @@ async function replaceRepertoireDetails(
   client: PoolClient,
   repertoireId: string,
   data: ValidatedRepertoireInput,
+  ownerMusicianId: string,
 ) {
   await client.query(`DELETE FROM repertoire_credit WHERE repertoire_id = $1`, [repertoireId])
   await client.query(`DELETE FROM repertoire_instrument WHERE repertoire_id = $1`, [repertoireId])
@@ -209,8 +213,8 @@ async function replaceRepertoireDetails(
     )
     if (!person.rows[0]) {
       person = await client.query<{ id: string }>(
-        `INSERT INTO person (name) VALUES ($1) RETURNING id::text`,
-        [credit.person],
+        `INSERT INTO person (name, owner_musician_id) VALUES ($1, $2) RETURNING id::text`,
+        [credit.person, ownerMusicianId],
       )
     }
     await client.query(
@@ -276,11 +280,29 @@ export const getPublicRepertoireCatalog = createServerFn({ method: 'GET' })
       composers: CatalogRepertoireRow['composers']
       instruments: CatalogRepertoireRow['instruments']
       inLibrary: boolean
+      parentId: string | null
     }>(
-      `SELECT
+      `WITH RECURSIVE public_catalog AS (
+         SELECT id
+         FROM repertoire
+         WHERE parent_repertoire_id IS NULL
+           AND visibility = 'PUBLIC'
+           AND status = 'APPROVED'
+           AND deleted_at IS NULL
+         UNION ALL
+         SELECT child.id
+         FROM repertoire child
+         JOIN public_catalog parent ON parent.id = child.parent_repertoire_id
+         WHERE child.status = 'APPROVED' AND child.deleted_at IS NULL
+       )
+       SELECT
          repertoire.id::text,
          repertoire.title,
-         repertoire.composition_year AS "compositionYear",
+         repertoire.parent_repertoire_id::text AS "parentId",
+         COALESCE(
+           repertoire.composition_year,
+           EXTRACT(YEAR FROM repertoire.publication_date)::integer
+         ) AS "compositionYear",
          COALESCE(
            (
              SELECT jsonb_agg(
@@ -310,14 +332,23 @@ export const getPublicRepertoireCatalog = createServerFn({ method: 'GET' })
            WHERE library.repertoire_id = repertoire.id AND library.musician_id = $1
          ) AS "inLibrary"
        FROM repertoire
-       WHERE repertoire.parent_repertoire_id IS NULL
-         AND repertoire.visibility = 'PUBLIC'
-         AND repertoire.status = 'APPROVED'
+       JOIN public_catalog ON public_catalog.id = repertoire.id
+       WHERE repertoire.status = 'APPROVED'
          AND repertoire.deleted_at IS NULL
        ORDER BY repertoire.title, repertoire.id`,
       [context.user.musicianId],
     )
-    return result.rows
+    const items = new Map(
+      result.rows.map((row) => [row.id, { ...row, children: [] as CatalogRepertoireRow[] }]),
+    )
+    const roots: CatalogRepertoireRow[] = []
+    for (const row of result.rows) {
+      const item = items.get(row.id)!
+      const parent = row.parentId ? items.get(row.parentId) : undefined
+      if (parent) parent.children.push(item)
+      else roots.push(item)
+    }
+    return roots
   })
 
 export const addPublicRepertoireToLibrary = createServerFn({ method: 'POST' })
@@ -362,12 +393,15 @@ const ACCESS_CTE = `
 export const getRepertoire = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(async ({ context }): Promise<RepertoireRow[]> => {
-    const result = await pool.query<Omit<RepertoireRow, keyof ResourceAccess>>(
+    const result = await pool.query<
+      Omit<RepertoireRow, keyof ResourceAccess | 'systemOwned'> & { externalId: string | null }
+    >(
       `
         ${ACCESS_CTE}
         SELECT
           r.id::text,
           r.title,
+          r.external_id AS "externalId",
           parent.title AS "parentTitle",
           CASE
             WHEN r.start_measure IS NOT NULL THEN
@@ -402,17 +436,24 @@ export const getRepertoire = createServerFn({ method: 'GET' })
         JOIN musician_repertoire_library library
           ON library.repertoire_id = r.id AND library.musician_id = $1
         WHERE access.owner_musician_id = $1 OR access.visibility = 'PUBLIC'
-        GROUP BY r.id, parent.title, access.visibility, access.owner_musician_id,
+        GROUP BY r.id, r.external_id, parent.title, access.visibility, access.owner_musician_id,
           owner.display_name, resource.type, resource.url, library.notes
         ORDER BY r.parent_repertoire_id NULLS FIRST, r.title
       `,
       [context.user.musicianId],
     )
 
-    return result.rows.map((repertoire) => ({
-      ...repertoire,
-      ...resourceAccess(context.user, repertoire.ownerId, repertoire.visibility),
-    }))
+    return result.rows.map((repertoire) => {
+      const access = resourceAccess(context.user, repertoire.ownerId, repertoire.visibility)
+      const systemOwned = repertoire.externalId !== null
+      return {
+        ...repertoire,
+        systemOwned,
+        ...access,
+        canEdit: systemOwned ? false : access.canEdit,
+        canManage: systemOwned ? false : access.canManage,
+      }
+    })
   })
 
 export const getRepertoireDetail = createServerFn({ method: 'GET' })
@@ -432,6 +473,7 @@ export const getRepertoireDetail = createServerFn({ method: 'GET' })
       startMeasure: number | null
       endMeasure: number | null
       compositionYear: number | null
+      externalId: string | null
       owner: string | null
       ownerId: string | null
       createdAt: Date
@@ -447,7 +489,11 @@ export const getRepertoireDetail = createServerFn({ method: 'GET' })
           repertoire.status::text,
           repertoire.start_measure AS "startMeasure",
           repertoire.end_measure AS "endMeasure",
-          repertoire.composition_year AS "compositionYear",
+          COALESCE(
+            repertoire.composition_year,
+            EXTRACT(YEAR FROM repertoire.publication_date)::integer
+          ) AS "compositionYear",
+          repertoire.external_id AS "externalId",
           owner.display_name AS owner,
           access.owner_musician_id::text AS "ownerId",
           repertoire.created_at AS "createdAt",
@@ -529,10 +575,13 @@ export const getRepertoireDetail = createServerFn({ method: 'GET' })
       ),
     ])
 
+    const access = resourceAccess(context.user, repertoire.ownerId, repertoire.visibility)
+    const systemOwned = repertoire.externalId !== null
     return {
       id: repertoire.id,
       title: repertoire.title,
       compositionYear: repertoire.compositionYear,
+      systemOwned,
       visibility: repertoire.visibility,
       status: repertoire.status,
       startMeasure: repertoire.startMeasure,
@@ -556,7 +605,9 @@ export const getRepertoireDetail = createServerFn({ method: 'GET' })
         ...session,
         startedAt: toIsoString(session.startedAt),
       })),
-      ...resourceAccess(context.user, repertoire.ownerId, repertoire.visibility),
+      ...access,
+      canEdit: systemOwned ? false : access.canEdit,
+      canManage: systemOwned ? false : access.canManage,
     }
   })
 
@@ -581,7 +632,7 @@ export const createRepertoire = createServerFn({ method: 'POST' })
          VALUES ($1, $2)`,
         [context.user.musicianId, repertoire.id],
       )
-      await replaceRepertoireDetails(client, repertoire.id, data)
+      await replaceRepertoireDetails(client, repertoire.id, data, context.user.musicianId)
       await client.query('COMMIT')
       return repertoire
     } catch (error) {
@@ -607,12 +658,13 @@ export const updateRepertoire = createServerFn({ method: 'POST' })
          SET title = $1, composition_year = $2, visibility = $3
          WHERE id = $4 AND owner_musician_id = $5
            AND parent_repertoire_id IS NULL AND deleted_at IS NULL
+           AND external_id IS NULL
          RETURNING id::text`,
         [data.title, data.compositionYear, data.visibility, data.id, context.user.musicianId],
       )
       const repertoire = result.rows[0]
       if (!repertoire) throw new Error('Repertoire not found')
-      await replaceRepertoireDetails(client, data.id, data)
+      await replaceRepertoireDetails(client, data.id, data, context.user.musicianId)
       await client.query('COMMIT')
       return repertoire
     } catch (error) {
@@ -634,6 +686,7 @@ export const deleteRepertoire = createServerFn({ method: 'POST' })
       `UPDATE repertoire SET deleted_at = CURRENT_TIMESTAMP
        WHERE id = $1 AND owner_musician_id = $2
          AND parent_repertoire_id IS NULL AND deleted_at IS NULL
+         AND external_id IS NULL
        RETURNING id::text`,
       [repertoireId, context.user.musicianId],
     )

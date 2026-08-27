@@ -37,6 +37,85 @@ function PracticeLibraryList(props: { sortable: boolean; children: JSX.Element }
   )
 }
 
+function subtreeMatches(item: TemplateLibraryItem, query: string): boolean {
+  return (
+    `${item.name} ${item.detail}`.toLowerCase().includes(query) ||
+    (item.children ?? []).some((child) => subtreeMatches(child, query))
+  )
+}
+
+function LibraryPickerRow(props: {
+  item: TemplateLibraryItem
+  depth: number
+  expanded: boolean
+  disabled?: boolean
+  dragMode?: 'sortable' | 'native'
+  actionLabel: string
+  onSelect: () => void
+  onToggle: () => void
+  onDragStart?: (event: DragEvent) => void
+}) {
+  const children = () => props.item.children ?? []
+  const padding = () => `${10 + props.depth * 18}px`
+
+  return (
+    <Show
+      when={children().length > 0}
+      fallback={
+        <button
+          type="button"
+          class="editor-library-item"
+          style={{ 'padding-left': padding() }}
+          data-library-id={props.item.id}
+          data-library-type={props.item.type}
+          draggable={props.dragMode === 'native'}
+          disabled={props.disabled}
+          onDragStart={props.onDragStart}
+          onClick={props.onSelect}
+        >
+          <span>
+            <strong>{props.item.name}</strong>
+            <small>{props.item.detail}</small>
+          </span>
+          <b>{props.actionLabel}</b>
+        </button>
+      }
+    >
+      <div
+        class="editor-library-item library-item-with-children"
+        style={{ 'padding-left': padding() }}
+        data-library-id={props.item.id}
+        data-library-type={props.item.type}
+        draggable={props.dragMode === 'native'}
+        onDragStart={props.onDragStart}
+      >
+        <button
+          class="library-item-main"
+          type="button"
+          disabled={props.disabled}
+          onClick={props.onSelect}
+        >
+          <span>
+            <strong>{props.item.name}</strong>
+            <small>{props.item.detail}</small>
+          </span>
+          <b>{props.actionLabel}</b>
+        </button>
+        <button
+          class="library-expand-button"
+          type="button"
+          disabled={props.disabled}
+          aria-expanded={props.expanded}
+          aria-label={`${props.expanded ? 'Collapse' : 'Expand'} children of ${props.item.name}`}
+          onClick={props.onToggle}
+        >
+          {props.expanded ? '▾' : '›'} {children().length}
+        </button>
+      </div>
+    </Show>
+  )
+}
+
 export function PracticeLibraryPanel(props: {
   items: TemplateLibraryItem[]
   type: PracticeLibraryItemType
@@ -59,15 +138,29 @@ export function PracticeLibraryPanel(props: {
   onItemDragStart?: (event: DragEvent, item: TemplateLibraryItem) => void
 }) {
   const [search, setSearch] = createSignal('')
-  const filteredItems = createMemo(() => {
+  const [expandedIds, setExpandedIds] = createSignal<string[]>([])
+  const selectedItems = createMemo(() =>
+    props.type === LIBRARY_ITEM_TYPE.REPERTOIRE && props.searchPublicRepertoire
+      ? (props.publicRepertoireItems ?? [])
+      : props.items.filter((item) => item.type === props.type),
+  )
+  const visibleItems = createMemo(() => {
     const query = search().trim().toLowerCase()
-    const selectedItems =
-      props.type === LIBRARY_ITEM_TYPE.REPERTOIRE && props.searchPublicRepertoire
-        ? (props.publicRepertoireItems ?? [])
-        : props.items.filter((item) => item.type === props.type)
-    return query
-      ? selectedItems.filter((item) => `${item.name} ${item.detail}`.toLowerCase().includes(query))
-      : selectedItems
+    const visible: { item: TemplateLibraryItem; depth: number }[] = []
+    const expanded = new Set(expandedIds())
+
+    function visit(items: TemplateLibraryItem[], depth: number) {
+      for (const item of items) {
+        if (query && !subtreeMatches(item, query)) continue
+        visible.push({ item, depth })
+        const children = item.children ?? []
+        const matchingChild = query && children.some((child) => subtreeMatches(child, query))
+        if (expanded.has(item.id) || matchingChild) visit(children, depth + 1)
+      }
+    }
+
+    visit(selectedItems(), 0)
+    return visible
   })
   const typeLabel = () => (props.type === LIBRARY_ITEM_TYPE.EXERCISE ? 'exercises' : 'repertoire')
 
@@ -133,26 +226,27 @@ export function PracticeLibraryPanel(props: {
           fallback={<p class="editor-empty">Loading…</p>}
         >
           <For
-            each={filteredItems()}
+            each={visibleItems()}
             fallback={<p class="editor-empty">No matching practice items</p>}
           >
-            {(item) => (
-              <button
-                type="button"
-                class="editor-library-item"
-                data-library-id={item.id}
-                data-library-type={item.type}
-                draggable={props.dragMode === 'native'}
+            {(entry) => (
+              <LibraryPickerRow
+                item={entry.item}
+                depth={entry.depth}
+                expanded={expandedIds().includes(entry.item.id)}
                 disabled={props.disabled}
-                onDragStart={(event) => props.onItemDragStart?.(event, item)}
-                onClick={() => props.onSelect(item)}
-              >
-                <span>
-                  <strong>{item.name}</strong>
-                  <small>{item.detail}</small>
-                </span>
-                <b>{props.itemActionLabel ?? '+ Add'}</b>
-              </button>
+                dragMode={props.dragMode}
+                actionLabel={props.itemActionLabel ?? '+ Add'}
+                onSelect={() => props.onSelect(entry.item)}
+                onToggle={() =>
+                  setExpandedIds((ids) =>
+                    ids.includes(entry.item.id)
+                      ? ids.filter((id) => id !== entry.item.id)
+                      : [...ids, entry.item.id],
+                  )
+                }
+                onDragStart={(event) => props.onItemDragStart?.(event, entry.item)}
+              />
             )}
           </For>
         </Show>

@@ -48,6 +48,9 @@ function RepertoireDetail() {
           </p>
         </div>
         <div class="record-statuses">
+          <Show when={repertoire().systemOwned}>
+            <span class="tag">system catalog</span>
+          </Show>
           <span class="tag">{repertoire().visibility.toLowerCase()}</span>
           <span class="tag">{repertoire().status.toLowerCase()}</span>
           <Show when={repertoire().canManage && !repertoire().parent}>

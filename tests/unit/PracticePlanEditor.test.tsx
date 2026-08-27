@@ -58,6 +58,7 @@ vi.mock('../../src/data/repertoire', () => ({
       composers: [{ id: '2', name: 'Public Composer' }],
       instruments: [],
       inLibrary: false,
+      children: [],
     },
   ]),
 }))
