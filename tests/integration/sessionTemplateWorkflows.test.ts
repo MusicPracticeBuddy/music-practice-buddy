@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { pool } from '@/data/db'
+import { createDevelopmentUser } from '@/data/auth'
 import {
   addRunningSessionItem,
   completePracticeSession,
@@ -88,6 +89,7 @@ async function resetDatabase() {
 beforeEach(async () => {
   process.env.TEST_AUTH_MUSICIAN_ID = '1'
   process.env.TEST_AUTH_IS_ADMIN = 'true'
+  process.env.AUTH_DEV_LOGIN_ENABLED = 'true'
   await resetDatabase()
 })
 afterAll(() => pool.end())
@@ -648,6 +650,29 @@ describe('local development seed data', () => {
 })
 
 describe('authorization boundaries', () => {
+  it('creates and signs in a development user from a username', async () => {
+    const created = await createDevelopmentUser({ data: 'New-Musician' })
+    expect(created).toMatchObject({
+      displayName: 'new-musician',
+      isAdmin: false,
+    })
+
+    const identity = await pool.query<{ username: string }>(
+      `SELECT provider_user_id AS username FROM auth_identity
+       WHERE musician_id = $1 AND provider = 'development'`,
+      [created.musicianId],
+    )
+    const sessions = await pool.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM auth_session WHERE musician_id = $1`,
+      [created.musicianId],
+    )
+    expect(identity.rows[0]?.username).toBe('new-musician')
+    expect(sessions.rows[0]?.count).toBe(1)
+    await expect(createDevelopmentUser({ data: 'new-musician' })).rejects.toThrow(
+      'That username is already in use',
+    )
+  })
+
   it('rejects publishing a template that references a private library item', async () => {
     await expect(
       createSessionTemplate({

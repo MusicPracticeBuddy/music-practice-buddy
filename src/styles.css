@@ -122,6 +122,34 @@ a {
   color: var(--muted);
 }
 
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.login-divider::before,
+.login-divider::after {
+  height: 1px;
+  flex: 1;
+  background: var(--line);
+  content: '';
+}
+
+.development-user-form > div {
+  display: flex;
+  gap: 10px;
+}
+
+.development-user-form .text-input {
+  min-width: 0;
+  flex: 1;
+}
+
 .brand {
   display: flex;
   gap: 12px;
