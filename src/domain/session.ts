@@ -71,3 +71,9 @@ export function isIncompleteSessionItemStatus(status: SessionItemStatus): boolea
 export function isResolvedSessionItemStatus(status: SessionItemStatus): boolean {
   return status === SESSION_ITEM_STATUS.COMPLETE || status === SESSION_ITEM_STATUS.SKIPPED
 }
+
+export function appendKeyToSessionNote(note: string, keyLabel: string) {
+  const prefix = `In ${keyLabel}: `
+  if (!note) return prefix
+  return `${note}${note.endsWith('\n') ? '' : '\n'}${prefix}`
+}

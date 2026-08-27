@@ -40,6 +40,7 @@ import {
   SESSION_TIMING_MODE,
   isLibraryItemType,
   isResolvedSessionItemStatus,
+  appendKeyToSessionNote,
   type LibraryItemType,
 } from '@/domain/session'
 
@@ -917,6 +918,7 @@ function SessionItem(props: {
   const [savingSessionNote, setSavingSessionNote] = createSignal(false)
   const contentId = `session-item-${props.item.id}-content`
   const sessionNoteId = `session-item-${props.item.id}-session-note`
+  let sessionNoteElement: HTMLTextAreaElement | undefined
   const status = () => (isSection ? derivedSectionStatus(props.item) : props.item.status)
   const sectionCanSkip = () => {
     const items = practiceDescendants(props.item)
@@ -940,6 +942,17 @@ function SessionItem(props: {
     const saved = await props.onUpdateSessionNote(props.item.id, sessionNoteDraft())
     setSavingSessionNote(false)
     if (saved) setEditingSessionNote(false)
+  }
+
+  function recordSelectedKey(keyLabel: string) {
+    const currentNote = editingSessionNote() ? sessionNoteDraft() : (props.item.sessionNote ?? '')
+    const nextNote = appendKeyToSessionNote(currentNote, keyLabel)
+    setSessionNoteDraft(nextNote)
+    setEditingSessionNote(true)
+    queueMicrotask(() => {
+      sessionNoteElement?.focus()
+      sessionNoteElement?.setSelectionRange(nextNote.length, nextNote.length)
+    })
   }
 
   if (isSection) {
@@ -1145,6 +1158,9 @@ function SessionItem(props: {
                 rows="3"
                 maxlength="2000"
                 value={sessionNoteDraft()}
+                ref={(element) => {
+                  sessionNoteElement = element
+                }}
                 onInput={(event) => setSessionNoteDraft(event.currentTarget.value)}
               />
               <div class="running-note-actions">
@@ -1171,6 +1187,7 @@ function SessionItem(props: {
             <SessionExerciseNotation
               notation={props.item.notation ?? ''}
               format={props.item.notationFormat}
+              onRecordKey={props.sessionActive ? recordSelectedKey : undefined}
             />
           </Show>
         </div>

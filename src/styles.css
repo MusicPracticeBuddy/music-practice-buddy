@@ -1848,6 +1848,17 @@ textarea.text-input {
   padding: 7px 13px;
 }
 
+.key-utility-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.record-key-button {
+  padding: 7px 13px;
+}
+
 .key-carousel {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr) 36px;

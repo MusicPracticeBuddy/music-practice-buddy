@@ -11,6 +11,7 @@ import { EXERCISE_NOTATION_FORMAT } from '@/domain/exercise'
 type SessionExerciseNotationProps = {
   notation: string
   format: string | null
+  onRecordKey?: (keyLabel: string) => void
 }
 
 export function SessionExerciseNotation(props: SessionExerciseNotationProps) {
@@ -111,13 +112,27 @@ export function SessionExerciseNotation(props: SessionExerciseNotationProps) {
                 Minor
               </button>
             </div>
-            <button
-              class="secondary-button random-key-button"
-              type="button"
-              onClick={selectRandomKey}
-            >
-              Random key
-            </button>
+            <div class="key-utility-actions">
+              <button
+                class="secondary-button random-key-button"
+                type="button"
+                onClick={selectRandomKey}
+              >
+                Random key
+              </button>
+              <Show when={props.onRecordKey && targetKey()}>
+                <button
+                  class="secondary-button record-key-button"
+                  type="button"
+                  onClick={() => {
+                    const target = targetKey()
+                    if (target) props.onRecordKey?.(target.label)
+                  }}
+                >
+                  Add {targetKey()?.label} to note
+                </button>
+              </Show>
+            </div>
           </div>
           <div class="key-carousel" role="group" aria-labelledby={labelId}>
             <button

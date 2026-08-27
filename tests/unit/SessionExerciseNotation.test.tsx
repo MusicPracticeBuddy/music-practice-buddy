@@ -80,4 +80,15 @@ describe('SessionExerciseNotation', () => {
       }),
     )
   })
+
+  it('reports the exact selected key for the session note', () => {
+    const recordKey = vi.fn()
+    render(() => (
+      <SessionExerciseNotation notation={'K:F#\nFGAB|'} format="abc" onRecordKey={recordKey} />
+    ))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add F♯ major to note' }))
+
+    expect(recordKey).toHaveBeenCalledWith('F♯ major')
+  })
 })
