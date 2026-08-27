@@ -53,7 +53,7 @@ function TemplateListItem(props: { template: SessionTemplateSummary }) {
   const [deleteOpen, setDeleteOpen] = createSignal(false)
 
   return (
-    <SwipeToDelete onDeleteRequest={() => setDeleteOpen(true)}>
+    <SwipeToDelete onDeleteRequest={() => props.template.canManage && setDeleteOpen(true)}>
       <article class="template-list-row">
         <div>
           <h2>
@@ -67,17 +67,21 @@ function TemplateListItem(props: { template: SessionTemplateSummary }) {
           </h2>
           <p>
             {props.template.itemCount} practice {props.template.itemCount === 1 ? 'item' : 'items'}
+            {' · '}
+            {props.template.visibility.toLowerCase()}
           </p>
         </div>
         <div class="header-actions">
-          <Link
-            class="secondary-button"
-            to="/templates/$templateId/edit"
-            params={{ templateId: props.template.id }}
-            draggable={false}
-          >
-            Edit
-          </Link>
+          <Show when={props.template.canEdit}>
+            <Link
+              class="secondary-button"
+              to="/templates/$templateId/edit"
+              params={{ templateId: props.template.id }}
+              draggable={false}
+            >
+              Edit
+            </Link>
+          </Show>
           <Link
             class="secondary-button"
             to="/sessions/new"
@@ -86,19 +90,21 @@ function TemplateListItem(props: { template: SessionTemplateSummary }) {
           >
             Use template
           </Link>
-          <DeleteConfirmationDialog
-            triggerLabel="Delete"
-            title="Delete this template?"
-            itemName={props.template.name}
-            description="This permanently deletes the template. Existing sessions created from it will remain."
-            confirmLabel="Delete template"
-            open={deleteOpen()}
-            onOpenChange={setDeleteOpen}
-            onConfirm={async () => {
-              await deleteSessionTemplate({ data: props.template.id })
-              await router.invalidate()
-            }}
-          />
+          <Show when={props.template.canManage}>
+            <DeleteConfirmationDialog
+              triggerLabel="Delete"
+              title="Delete this template?"
+              itemName={props.template.name}
+              description="This permanently deletes the template. Existing sessions created from it will remain."
+              confirmLabel="Delete template"
+              open={deleteOpen()}
+              onOpenChange={setDeleteOpen}
+              onConfirm={async () => {
+                await deleteSessionTemplate({ data: props.template.id })
+                await router.invalidate()
+              }}
+            />
+          </Show>
         </div>
       </article>
     </SwipeToDelete>

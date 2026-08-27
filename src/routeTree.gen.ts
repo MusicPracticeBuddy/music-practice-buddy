@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DemoRouteImport } from './routes/demo'
 import { Route as ExercisesRouteImport } from './routes/exercises'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as RepertoireRouteImport } from './routes/repertoire'
 import { Route as SessionsRouteImport } from './routes/sessions'
 import { Route as TemplatesRouteImport } from './routes/templates'
@@ -41,6 +42,11 @@ const DemoRoute = DemoRouteImport.update({
 const ExercisesRoute = ExercisesRouteImport.update({
   id: '/exercises',
   path: '/exercises',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RepertoireRoute = RepertoireRouteImport.update({
@@ -123,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
   '/exercises': typeof ExercisesRouteWithChildren
+  '/login': typeof LoginRoute
   '/repertoire': typeof RepertoireRouteWithChildren
   '/sessions': typeof SessionsRouteWithChildren
   '/templates': typeof TemplatesRouteWithChildren
@@ -142,6 +149,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
+  '/login': typeof LoginRoute
   '/exercises/$exerciseId': typeof ExercisesExerciseIdRoute
   '/repertoire/$repertoireId': typeof RepertoireRepertoireIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
@@ -160,6 +168,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/demo': typeof DemoRoute
   '/exercises': typeof ExercisesRouteWithChildren
+  '/login': typeof LoginRoute
   '/repertoire': typeof RepertoireRouteWithChildren
   '/sessions': typeof SessionsRouteWithChildren
   '/templates': typeof TemplatesRouteWithChildren
@@ -182,6 +191,7 @@ export interface FileRouteTypes {
     | '/'
     | '/demo'
     | '/exercises'
+    | '/login'
     | '/repertoire'
     | '/sessions'
     | '/templates'
@@ -201,6 +211,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/demo'
+    | '/login'
     | '/exercises/$exerciseId'
     | '/repertoire/$repertoireId'
     | '/sessions/$sessionId'
@@ -218,6 +229,7 @@ export interface FileRouteTypes {
     | '/'
     | '/demo'
     | '/exercises'
+    | '/login'
     | '/repertoire'
     | '/sessions'
     | '/templates'
@@ -239,6 +251,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DemoRoute: typeof DemoRoute
   ExercisesRoute: typeof ExercisesRouteWithChildren
+  LoginRoute: typeof LoginRoute
   RepertoireRoute: typeof RepertoireRouteWithChildren
   SessionsRoute: typeof SessionsRouteWithChildren
   TemplatesRoute: typeof TemplatesRouteWithChildren
@@ -265,6 +278,13 @@ declare module '@tanstack/solid-router' {
       path: '/exercises'
       fullPath: '/exercises'
       preLoaderRoute: typeof ExercisesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/repertoire': {
@@ -443,6 +463,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DemoRoute: DemoRoute,
   ExercisesRoute: ExercisesRouteWithChildren,
+  LoginRoute: LoginRoute,
   RepertoireRoute: RepertoireRouteWithChildren,
   SessionsRoute: SessionsRouteWithChildren,
   TemplatesRoute: TemplatesRouteWithChildren,

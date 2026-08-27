@@ -2,14 +2,23 @@ BEGIN;
 
 -- Local development data for the hierarchy in V1__initial_schema.sql.
 
-INSERT INTO musician (is_admin)
-VALUES (TRUE), (FALSE), (FALSE);
+INSERT INTO musician (is_admin, display_name)
+VALUES
+    (TRUE, 'Thomas'),
+    (FALSE, 'Alex'),
+    (FALSE, 'Sam');
 
 INSERT INTO auth_identity (musician_id, provider, provider_user_id, email)
 VALUES
     ((SELECT id FROM musician ORDER BY id LIMIT 1), 'google', 'google-thomas-001', 'thomas@example.com'),
     ((SELECT id FROM musician ORDER BY id OFFSET 1 LIMIT 1), 'google', 'google-alex-002', 'alex@example.com'),
     ((SELECT id FROM musician ORDER BY id OFFSET 2 LIMIT 1), 'github', 'github-sam-003', 'sam@example.com');
+
+INSERT INTO auth_identity (musician_id, provider, provider_user_id)
+VALUES
+    ((SELECT id FROM musician ORDER BY id LIMIT 1), 'development', 'thomas'),
+    ((SELECT id FROM musician ORDER BY id OFFSET 1 LIMIT 1), 'development', 'alex'),
+    ((SELECT id FROM musician ORDER BY id OFFSET 2 LIMIT 1), 'development', 'sam');
 
 INSERT INTO instrument (name, family)
 VALUES
@@ -56,8 +65,8 @@ VALUES (
     (SELECT id FROM repertoire WHERE title LIKE 'Bach Cello Suite No. 1 in%'),
     1,
     22,
-    (SELECT id FROM musician WHERE is_admin LIMIT 1),
-    'PRIVATE',
+    NULL,
+    NULL,
     'APPROVED'
 );
 
@@ -124,10 +133,10 @@ INSERT INTO session_template_item (session_template_id, parent_id, type, positio
 VALUES
     ((SELECT id FROM session_template WHERE name = 'Daily Brass Practice'), (SELECT id FROM session_template_item WHERE name = 'Warmup'), 'EXERCISE', 1, (SELECT id FROM exercise WHERE name = 'Long tones'), NULL, 'Start quietly and gradually expand dynamics.'),
     ((SELECT id FROM session_template WHERE name = 'Daily Brass Practice'), (SELECT id FROM session_template_item WHERE name = 'Technical Studies'), 'EXERCISE', 1, (SELECT id FROM exercise WHERE name = 'Lip slurs'), NULL, NULL),
-    ((SELECT id FROM session_template WHERE name = 'Daily Brass Practice'), (SELECT id FROM session_template_item WHERE name = 'Technical Studies'), 'EXERCISE', 2, (SELECT id FROM exercise WHERE name = 'Double-tonguing'), NULL, 'Begin at 80 BPM.'),
+    ((SELECT id FROM session_template WHERE name = 'Daily Brass Practice'), (SELECT id FROM session_template_item WHERE name = 'Technical Studies'), 'EXERCISE', 2, (SELECT id FROM exercise WHERE name = 'Scale articulation'), NULL, 'Begin slowly.'),
     ((SELECT id FROM session_template WHERE name = 'Daily Brass Practice'), (SELECT id FROM session_template_item WHERE name = 'Repertoire' AND session_template_id = (SELECT id FROM session_template WHERE name = 'Daily Brass Practice')), 'REPERTOIRE', 1, NULL, (SELECT id FROM repertoire WHERE title = 'Arban Characteristic Study No. 1'), 'Focus on articulation.'),
-    ((SELECT id FROM session_template WHERE name = 'Short Practice Session'), (SELECT id FROM session_template_item WHERE name = 'Core Work'), 'EXERCISE', 1, (SELECT id FROM exercise WHERE name = 'Long tones - adapted'), NULL, NULL),
-    ((SELECT id FROM session_template WHERE name = 'Short Practice Session'), (SELECT id FROM session_template_item WHERE name = 'Repertoire' AND session_template_id = (SELECT id FROM session_template WHERE name = 'Short Practice Session')), 'REPERTOIRE', 1, NULL, (SELECT id FROM repertoire WHERE title = 'Arban Characteristic Study No. 1'), 'One focused pass.');
+    ((SELECT id FROM session_template WHERE name = 'Short Practice Session'), (SELECT id FROM session_template_item WHERE name = 'Core Work'), 'EXERCISE', 1, (SELECT id FROM exercise WHERE name = 'Scale articulation'), NULL, NULL),
+    ((SELECT id FROM session_template WHERE name = 'Short Practice Session'), (SELECT id FROM session_template_item WHERE name = 'Repertoire' AND session_template_id = (SELECT id FROM session_template WHERE name = 'Short Practice Session')), 'REPERTOIRE', 1, NULL, (SELECT id FROM repertoire WHERE title LIKE 'Bach Cello Suite No. 1 in%'), 'One focused pass.');
 
 INSERT INTO session (musician_id, session_template_id, name, status, timing_mode, assigned_date, assigned_at, started_at, ended_at)
 VALUES
@@ -158,5 +167,31 @@ VALUES
     ((SELECT id FROM session WHERE status = 'IN_PROGRESS'), (SELECT id FROM session_item WHERE name = 'Repertoire - Extended'), 'REPERTOIRE', 1, NULL, (SELECT id FROM repertoire WHERE title = 'Arban Characteristic Study No. 1'), 'NOT_STARTED', NULL, NULL, 'Added directly to this session.'),
     ((SELECT id FROM session WHERE status = 'PLANNED'), (SELECT id FROM session_item WHERE name = 'Core Work' AND session_id = (SELECT id FROM session WHERE status = 'PLANNED')), 'EXERCISE', 1, (SELECT id FROM exercise WHERE name = 'Long tones - adapted'), NULL, 'NOT_STARTED', NULL, NULL, 'Keep the session focused.'),
     ((SELECT id FROM session WHERE status = 'PLANNED'), (SELECT id FROM session_item WHERE name = 'Repertoire' AND session_id = (SELECT id FROM session WHERE status = 'PLANNED')), 'REPERTOIRE', 1, NULL, (SELECT id FROM repertoire WHERE title = 'Arban Characteristic Study No. 1'), 'NOT_STARTED', NULL, NULL, 'One focused pass.');
+
+UPDATE session_template_item item
+SET name = CASE
+    WHEN item.type = 'EXERCISE' THEN COALESCE(
+        (SELECT exercise.name FROM exercise WHERE exercise.id = item.exercise_id),
+        'Untitled exercise'
+    )
+    ELSE COALESCE(
+        (SELECT repertoire.title FROM repertoire WHERE repertoire.id = item.repertoire_id),
+        'Untitled repertoire'
+    )
+END
+WHERE item.type <> 'SECTION';
+
+UPDATE session_item item
+SET name = CASE
+    WHEN item.type = 'EXERCISE' THEN COALESCE(
+        (SELECT exercise.name FROM exercise WHERE exercise.id = item.exercise_id),
+        'Untitled exercise'
+    )
+    ELSE COALESCE(
+        (SELECT repertoire.title FROM repertoire WHERE repertoire.id = item.repertoire_id),
+        'Untitled repertoire'
+    )
+END
+WHERE item.type <> 'SECTION';
 
 COMMIT;

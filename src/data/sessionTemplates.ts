@@ -1,5 +1,8 @@
 import { createServerFn } from '@tanstack/solid-start'
 import type { PoolClient } from 'pg'
+import { resourceAccess, type ResourceAccess, type Visibility } from '@/auth/authorization'
+import { authMiddleware } from '@/auth/middleware'
+import type { AuthenticatedUser } from '@/auth/types'
 import { pool } from '@/data/db'
 import {
   LIBRARY_ITEM_TYPE,
@@ -30,15 +33,19 @@ export type TemplateLibraryItem = {
 export type SessionTemplateSummary = {
   id: string
   name: string
+  visibility: Visibility
+  ownerId: string
   itemCount: number
   updatedAt: string
-}
+} & ResourceAccess
 
 export type SessionTemplateDetail = {
   id: string
   name: string
+  visibility: Visibility
+  ownerId: string
   items: TemplateItemInput[]
-}
+} & ResourceAccess
 
 export type PlannedSessionEdit = {
   id: string
@@ -49,6 +56,7 @@ export type PlannedSessionEdit = {
 
 type SaveTemplateInput = {
   name: string
+  visibility?: Visibility
   items: TemplateItemInput[]
 }
 
@@ -59,19 +67,14 @@ type CreateSessionInput = {
   assignedDate: string | null
 }
 
-async function currentMusicianId(client: PoolClient): Promise<string> {
-  const result = await client.query<{ id: string }>(
-    'SELECT id::text FROM musician ORDER BY is_admin DESC, id LIMIT 1',
-  )
-  const musician = result.rows[0]
-  if (!musician) throw new Error('Create a musician before creating templates or sessions')
-  return musician.id
-}
-
-function validateTemplate(input: SaveTemplateInput): SaveTemplateInput {
+function validateTemplate(input: SaveTemplateInput): Required<SaveTemplateInput> {
   const name = input.name.trim()
+  const visibility = input.visibility ?? 'PRIVATE'
   if (!name) throw new Error('Template name is required')
   if (name.length > 200) throw new Error('Template name must be 200 characters or fewer')
+  if (visibility !== 'PRIVATE' && visibility !== 'PUBLIC') {
+    throw new Error('Invalid template visibility')
+  }
   if (input.items.length > 200) throw new Error('A template can contain at most 200 items')
 
   const ids = new Set<string>()
@@ -103,12 +106,47 @@ function validateTemplate(input: SaveTemplateInput): SaveTemplateInput {
     }
   }
 
-  return { name, items: input.items }
+  return { name, visibility, items: input.items }
+}
+
+async function resolveLibrarySource(
+  client: PoolClient,
+  user: AuthenticatedUser,
+  type: LibraryItemType,
+  sourceId: string,
+): Promise<{ name: string; visibility: Visibility }> {
+  if (type === LIBRARY_ITEM_TYPE.EXERCISE) {
+    const result = await client.query<{ name: string; visibility: Visibility }>(
+      `SELECT COALESCE(name, 'Untitled exercise') AS name, visibility::text
+       FROM exercise
+       WHERE id = $1 AND deleted_at IS NULL
+         AND (musician_id = $2 OR visibility = 'PUBLIC')`,
+      [sourceId, user.musicianId],
+    )
+    if (result.rows[0]) return result.rows[0]
+  } else {
+    const result = await client.query<{ name: string; visibility: Visibility }>(
+      `WITH RECURSIVE access AS (
+         SELECT id, title, owner_musician_id, visibility
+         FROM repertoire WHERE parent_repertoire_id IS NULL
+         UNION ALL
+         SELECT child.id, child.title, access.owner_musician_id, access.visibility
+         FROM repertoire child JOIN access ON access.id = child.parent_repertoire_id
+       )
+       SELECT title AS name, visibility::text FROM access
+       WHERE id = $1 AND (owner_musician_id = $2 OR visibility = 'PUBLIC')`,
+      [sourceId, user.musicianId],
+    )
+    if (result.rows[0]) return result.rows[0]
+  }
+  throw new Error('Library item not found')
 }
 
 async function insertTemplateItems(
   client: PoolClient,
+  user: AuthenticatedUser,
   templateId: string,
+  templateVisibility: Visibility,
   items: TemplateItemInput[],
 ) {
   const remaining = [...items]
@@ -121,6 +159,13 @@ async function insertTemplateItems(
     const [item] = remaining.splice(index, 1)
     if (!item) continue
     const parentId = item.parentClientId ? databaseIds.get(item.parentClientId) : null
+    const source =
+      item.type === PRACTICE_ITEM_TYPE.SECTION
+        ? null
+        : await resolveLibrarySource(client, user, item.type, item.sourceId!)
+    if (templateVisibility === 'PUBLIC' && source?.visibility !== 'PUBLIC') {
+      throw new Error('Public templates can only reference public library items')
+    }
     const result = await client.query<{ id: string }>(
       `
         INSERT INTO session_template_item
@@ -135,7 +180,9 @@ async function insertTemplateItems(
         item.position,
         item.type === PRACTICE_ITEM_TYPE.EXERCISE ? item.sourceId : null,
         item.type === PRACTICE_ITEM_TYPE.REPERTOIRE ? item.sourceId : null,
-        item.type === PRACTICE_ITEM_TYPE.SECTION ? item.name.trim() || 'Untitled section' : null,
+        item.type === PRACTICE_ITEM_TYPE.SECTION
+          ? item.name.trim() || 'Untitled section'
+          : source!.name,
         item.notes.trim() || null,
       ],
     )
@@ -147,6 +194,7 @@ async function insertTemplateItems(
 
 async function insertSessionItems(
   client: PoolClient,
+  user: AuthenticatedUser,
   sessionId: string,
   items: TemplateItemInput[],
 ) {
@@ -160,6 +208,10 @@ async function insertSessionItems(
     const [item] = remaining.splice(index, 1)
     if (!item) continue
     const parentId = item.parentClientId ? databaseIds.get(item.parentClientId) : null
+    const source =
+      item.type === PRACTICE_ITEM_TYPE.SECTION
+        ? null
+        : await resolveLibrarySource(client, user, item.type, item.sourceId!)
     const result = await client.query<{ id: string }>(
       `
         INSERT INTO session_item
@@ -174,7 +226,9 @@ async function insertSessionItems(
         item.position,
         item.type === PRACTICE_ITEM_TYPE.EXERCISE ? item.sourceId : null,
         item.type === PRACTICE_ITEM_TYPE.REPERTOIRE ? item.sourceId : null,
-        item.type === PRACTICE_ITEM_TYPE.SECTION ? item.name.trim() || 'Untitled section' : null,
+        item.type === PRACTICE_ITEM_TYPE.SECTION
+          ? item.name.trim() || 'Untitled section'
+          : source!.name,
         item.notes.trim() || null,
       ],
     )
@@ -184,104 +238,158 @@ async function insertSessionItems(
   }
 }
 
-export const getSessionTemplates = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<SessionTemplateSummary[]> => {
+export const getSessionTemplates = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<SessionTemplateSummary[]> => {
     const result = await pool.query<{
       id: string
       name: string
+      visibility: Visibility
+      ownerId: string
       itemCount: number
       updatedAt: Date
-    }>(`
+    }>(
+      `
       SELECT
         template.id::text,
         template.name,
+        template.visibility::text,
+        template.musician_id::text AS "ownerId",
         count(item.id) FILTER (WHERE item.type <> 'SECTION')::int AS "itemCount",
         template.updated_at AS "updatedAt"
       FROM session_template template
       LEFT JOIN session_template_item item ON item.session_template_id = template.id
+      WHERE template.musician_id = $1 OR template.visibility = 'PUBLIC'
       GROUP BY template.id
       ORDER BY template.updated_at DESC, template.id DESC
-    `)
+    `,
+      [context.user.musicianId],
+    )
 
-    return result.rows.map((row) => ({ ...row, updatedAt: row.updatedAt.toISOString() }))
-  },
-)
+    return result.rows.map((row) => ({
+      ...row,
+      updatedAt: row.updatedAt.toISOString(),
+      ...resourceAccess(context.user, row.ownerId, row.visibility),
+    }))
+  })
 
-export const getTemplateLibrary = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<TemplateLibraryItem[]> => {
+export const getTemplateLibrary = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<TemplateLibraryItem[]> => {
     const [exercises, repertoire] = await Promise.all([
-      pool.query<{ id: string; name: string; detail: string }>(`
+      pool.query<{ id: string; name: string; detail: string }>(
+        `
         SELECT
           id::text,
           COALESCE(name, 'Untitled exercise') AS name,
           CASE WHEN notation IS NULL THEN 'Exercise' ELSE 'Exercise · with notation' END AS detail
         FROM exercise
-        WHERE deleted_at IS NULL
+        WHERE deleted_at IS NULL AND (musician_id = $1 OR visibility = 'PUBLIC')
         ORDER BY name NULLS LAST, id
-      `),
-      pool.query<{ id: string; name: string; detail: string }>(`
+      `,
+        [context.user.musicianId],
+      ),
+      pool.query<{ id: string; name: string; detail: string }>(
+        `
+        WITH RECURSIVE access AS (
+          SELECT id, owner_musician_id, visibility
+          FROM repertoire WHERE parent_repertoire_id IS NULL
+          UNION ALL
+          SELECT child.id, access.owner_musician_id, access.visibility
+          FROM repertoire child JOIN access ON access.id = child.parent_repertoire_id
+        )
         SELECT
           repertoire.id::text,
           repertoire.title AS name,
           COALESCE(parent.title, 'Repertoire') AS detail
         FROM repertoire
+        JOIN access ON access.id = repertoire.id
         LEFT JOIN repertoire parent ON parent.id = repertoire.parent_repertoire_id
+        WHERE access.owner_musician_id = $1 OR access.visibility = 'PUBLIC'
         ORDER BY repertoire.title, repertoire.id
-      `),
+      `,
+        [context.user.musicianId],
+      ),
     ])
 
     return [
       ...exercises.rows.map((item) => ({ ...item, type: LIBRARY_ITEM_TYPE.EXERCISE })),
       ...repertoire.rows.map((item) => ({ ...item, type: LIBRARY_ITEM_TYPE.REPERTOIRE })),
     ]
-  },
-)
+  })
 
 export const getSessionTemplate = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
   .validator((templateId: string) => {
     if (!/^\d+$/.test(templateId)) throw new Error('Template ID must be a positive integer')
     return templateId
   })
 
-  .handler(async ({ data: templateId }): Promise<SessionTemplateDetail | null> => {
+  .handler(async ({ data: templateId, context }): Promise<SessionTemplateDetail | null> => {
     const [templateResult, itemResult] = await Promise.all([
-      pool.query<{ id: string; name: string }>(
-        `SELECT id::text, name FROM session_template WHERE id = $1`,
-        [templateId],
+      pool.query<{ id: string; name: string; visibility: Visibility; ownerId: string }>(
+        `SELECT id::text, name, visibility::text, musician_id::text AS "ownerId"
+         FROM session_template
+         WHERE id = $1 AND (musician_id = $2 OR visibility = 'PUBLIC')`,
+        [templateId, context.user.musicianId],
       ),
       pool.query<TemplateItemInput>(
         `
+          WITH RECURSIVE repertoire_access AS (
+            SELECT id, owner_musician_id, visibility
+            FROM repertoire WHERE parent_repertoire_id IS NULL
+            UNION ALL
+            SELECT child.id, access.owner_musician_id, access.visibility
+            FROM repertoire child
+            JOIN repertoire_access access ON access.id = child.parent_repertoire_id
+          )
           SELECT
             item.id::text AS "clientId",
             item.parent_id::text AS "parentClientId",
             item.type::text,
             CASE
-              WHEN item.type = 'EXERCISE' THEN item.exercise_id::text
-              WHEN item.type = 'REPERTOIRE' THEN item.repertoire_id::text
+              WHEN item.type = 'EXERCISE' THEN exercise.id::text
+              WHEN item.type = 'REPERTOIRE' THEN repertoire_access.id::text
               ELSE NULL
             END AS "sourceId",
-            COALESCE(item.name, exercise.name, repertoire.title, 'Untitled item') AS name,
+            COALESCE(item.name, 'Untitled item') AS name,
             COALESCE(item.notes, '') AS notes,
             item.position::float8 AS position
           FROM session_template_item item
           LEFT JOIN exercise ON exercise.id = item.exercise_id
-          LEFT JOIN repertoire ON repertoire.id = item.repertoire_id
+            AND exercise.deleted_at IS NULL
+            AND (exercise.musician_id = $2 OR exercise.visibility = 'PUBLIC')
+          LEFT JOIN repertoire_access ON repertoire_access.id = item.repertoire_id
+            AND (repertoire_access.owner_musician_id = $2
+              OR repertoire_access.visibility = 'PUBLIC')
           WHERE item.session_template_id = $1
+            AND EXISTS (
+              SELECT 1 FROM session_template template
+              WHERE template.id = item.session_template_id
+                AND (template.musician_id = $2 OR template.visibility = 'PUBLIC')
+            )
           ORDER BY item.parent_id NULLS FIRST, item.position, item.id
         `,
-        [templateId],
+        [templateId, context.user.musicianId],
       ),
     ])
     const template = templateResult.rows[0]
-    return template ? { ...template, items: itemResult.rows } : null
+    return template
+      ? {
+          ...template,
+          items: itemResult.rows,
+          ...resourceAccess(context.user, template.ownerId, template.visibility),
+        }
+      : null
   })
 
 export const getPlannedSessionForEdit = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
   .validator((sessionId: string) => {
     if (!/^\d+$/.test(sessionId)) throw new Error('Session ID must be a positive integer')
     return sessionId
   })
-  .handler(async ({ data: sessionId }): Promise<PlannedSessionEdit | null> => {
+  .handler(async ({ data: sessionId, context }): Promise<PlannedSessionEdit | null> => {
     const [sessionResult, itemResult] = await Promise.all([
       pool.query<{ id: string; name: string; assignedDate: string | null }>(
         `
@@ -290,30 +398,47 @@ export const getPlannedSessionForEdit = createServerFn({ method: 'GET' })
           FROM session
           LEFT JOIN session_template template ON template.id = session.session_template_id
           WHERE session.id = $1 AND session.status = 'PLANNED'
+            AND session.musician_id = $2
         `,
-        [sessionId],
+        [sessionId, context.user.musicianId],
       ),
       pool.query<TemplateItemInput>(
         `
+          WITH RECURSIVE repertoire_access AS (
+            SELECT id, owner_musician_id, visibility
+            FROM repertoire WHERE parent_repertoire_id IS NULL
+            UNION ALL
+            SELECT child.id, access.owner_musician_id, access.visibility
+            FROM repertoire child
+            JOIN repertoire_access access ON access.id = child.parent_repertoire_id
+          )
           SELECT
             item.id::text AS "clientId",
             item.parent_id::text AS "parentClientId",
             item.type::text,
             CASE
-              WHEN item.type = 'EXERCISE' THEN item.exercise_id::text
-              WHEN item.type = 'REPERTOIRE' THEN item.repertoire_id::text
+              WHEN item.type = 'EXERCISE' THEN exercise.id::text
+              WHEN item.type = 'REPERTOIRE' THEN repertoire_access.id::text
               ELSE NULL
             END AS "sourceId",
-            COALESCE(item.name, exercise.name, repertoire.title, 'Untitled item') AS name,
+            COALESCE(item.name, 'Untitled item') AS name,
             COALESCE(item.notes, '') AS notes,
             item.position::float8 AS position
           FROM session_item item
           LEFT JOIN exercise ON exercise.id = item.exercise_id
-          LEFT JOIN repertoire ON repertoire.id = item.repertoire_id
+            AND exercise.deleted_at IS NULL
+            AND (exercise.musician_id = $2 OR exercise.visibility = 'PUBLIC')
+          LEFT JOIN repertoire_access ON repertoire_access.id = item.repertoire_id
+            AND (repertoire_access.owner_musician_id = $2
+              OR repertoire_access.visibility = 'PUBLIC')
           WHERE item.session_id = $1
+            AND EXISTS (
+              SELECT 1 FROM session
+              WHERE session.id = item.session_id AND session.musician_id = $2
+            )
           ORDER BY item.parent_id NULLS FIRST, item.position, item.id
         `,
-        [sessionId],
+        [sessionId, context.user.musicianId],
       ),
     ])
     const session = sessionResult.rows[0]
@@ -321,20 +446,21 @@ export const getPlannedSessionForEdit = createServerFn({ method: 'GET' })
   })
 
 export const createSessionTemplate = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
   .validator(validateTemplate)
-  .handler(async ({ data }): Promise<{ id: string }> => {
+  .handler(async ({ data, context }): Promise<{ id: string }> => {
     const client = await pool.connect()
     try {
       await client.query('BEGIN')
-      const musicianId = await currentMusicianId(client)
       const templateResult = await client.query<{ id: string }>(
-        `INSERT INTO session_template (musician_id, name) VALUES ($1, $2) RETURNING id::text`,
-        [musicianId, data.name],
+        `INSERT INTO session_template (musician_id, name, visibility)
+         VALUES ($1, $2, $3) RETURNING id::text`,
+        [context.user.musicianId, data.name, data.visibility],
       )
       const templateId = templateResult.rows[0]?.id
       if (!templateId) throw new Error('Template could not be created')
 
-      await insertTemplateItems(client, templateId, data.items)
+      await insertTemplateItems(client, context.user, templateId, data.visibility, data.items)
 
       await client.query('COMMIT')
       return { id: templateId }
@@ -347,25 +473,43 @@ export const createSessionTemplate = createServerFn({ method: 'POST' })
   })
 
 export const updateSessionTemplate = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
   .validator((input: UpdateTemplateInput) => {
     if (!/^\d+$/.test(input.id)) throw new Error('Invalid template')
     return { id: input.id, ...validateTemplate(input) }
   })
 
-  .handler(async ({ data }): Promise<{ id: string }> => {
+  .handler(async ({ data, context }): Promise<{ id: string }> => {
     const client = await pool.connect()
     try {
       await client.query('BEGIN')
-      const musicianId = await currentMusicianId(client)
-      const result = await client.query(
-        `UPDATE session_template SET name = $1 WHERE id = $2 AND musician_id = $3`,
-        [data.name, data.id, musicianId],
+      const currentResult = await client.query<{
+        ownerId: string
+        visibility: Visibility
+      }>(
+        `SELECT musician_id::text AS "ownerId", visibility::text
+         FROM session_template WHERE id = $1 FOR UPDATE`,
+        [data.id],
       )
-      if (result.rowCount === 0) throw new Error('Template not found')
+      const current = currentResult.rows[0]
+      if (
+        !current ||
+        (current.ownerId !== context.user.musicianId &&
+          !(context.user.isAdmin && current.visibility === 'PUBLIC'))
+      ) {
+        throw new Error('Template not found')
+      }
+      const visibility =
+        current.ownerId === context.user.musicianId ? data.visibility : current.visibility
+      await client.query(`UPDATE session_template SET name = $1, visibility = $2 WHERE id = $3`, [
+        data.name,
+        visibility,
+        data.id,
+      ])
       await client.query(`DELETE FROM session_template_item WHERE session_template_id = $1`, [
         data.id,
       ])
-      await insertTemplateItems(client, data.id, data.items)
+      await insertTemplateItems(client, context.user, data.id, visibility, data.items)
       await client.query('COMMIT')
       return { id: data.id }
     } catch (error) {
@@ -377,19 +521,19 @@ export const updateSessionTemplate = createServerFn({ method: 'POST' })
   })
 
 export const deleteSessionTemplate = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
   .validator((templateId: string) => {
     if (!/^\d+$/.test(templateId)) throw new Error('Invalid template')
     return templateId
   })
-  .handler(async ({ data: templateId }): Promise<{ id: string }> => {
+  .handler(async ({ data: templateId, context }): Promise<{ id: string }> => {
     const client = await pool.connect()
     try {
-      const musicianId = await currentMusicianId(client)
       const result = await client.query<{ id: string }>(
         `DELETE FROM session_template
          WHERE id = $1 AND musician_id = $2
          RETURNING id::text`,
-        [templateId, musicianId],
+        [templateId, context.user.musicianId],
       )
       const deletedTemplate = result.rows[0]
       if (!deletedTemplate) throw new Error('Template not found')
@@ -400,6 +544,7 @@ export const deleteSessionTemplate = createServerFn({ method: 'POST' })
   })
 
 export const updatePlannedSession = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
   .validator(
     (input: {
       id: string
@@ -421,22 +566,21 @@ export const updatePlannedSession = createServerFn({ method: 'POST' })
       }
     },
   )
-  .handler(async ({ data }): Promise<{ id: string }> => {
+  .handler(async ({ data, context }): Promise<{ id: string }> => {
     const client = await pool.connect()
     try {
       await client.query('BEGIN')
-      const musicianId = await currentMusicianId(client)
       const result = await client.query(
         `
           UPDATE session
           SET name = $1, assigned_date = $2, assigned_at = NULL
           WHERE id = $3 AND musician_id = $4 AND status = 'PLANNED'
         `,
-        [data.name, data.assignedDate, data.id, musicianId],
+        [data.name, data.assignedDate, data.id, context.user.musicianId],
       )
       if (result.rowCount === 0) throw new Error('Only planned sessions can be edited')
       await client.query(`DELETE FROM session_item WHERE session_id = $1`, [data.id])
-      await insertSessionItems(client, data.id, data.items)
+      await insertSessionItems(client, context.user, data.id, data.items)
       await client.query('COMMIT')
       return { id: data.id }
     } catch (error) {
@@ -448,17 +592,18 @@ export const updatePlannedSession = createServerFn({ method: 'POST' })
   })
 
 export const createLibraryItem = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
   .validator((input: { type: LibraryItemType; name: string; notes: string }) => {
     const name = input.name.trim()
     if (!name) throw new Error('Item name is required')
     if (!isLibraryItemType(input.type)) throw new Error('Invalid item type')
     return { ...input, name, notes: input.notes.trim() }
   })
-  .handler(async ({ data }): Promise<TemplateLibraryItem> => {
+  .handler(async ({ data, context }): Promise<TemplateLibraryItem> => {
     const client = await pool.connect()
     try {
       await client.query('BEGIN')
-      const musicianId = await currentMusicianId(client)
+      const musicianId = context.user.musicianId
       if (data.type === LIBRARY_ITEM_TYPE.EXERCISE) {
         const result = await client.query<{ id: string }>(
           `INSERT INTO exercise (musician_id, name) VALUES ($1, $2) RETURNING id::text`,
@@ -492,6 +637,7 @@ export const createLibraryItem = createServerFn({ method: 'POST' })
   })
 
 export const createPracticeSession = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
   .validator((input: CreateSessionInput) => {
     if (input.templateId !== null && !/^\d+$/.test(input.templateId)) {
       throw new Error('Invalid template')
@@ -501,15 +647,16 @@ export const createPracticeSession = createServerFn({ method: 'POST' })
     }
     return input
   })
-  .handler(async ({ data }): Promise<{ id: string }> => {
+  .handler(async ({ data, context }): Promise<{ id: string }> => {
     const client = await pool.connect()
     try {
       await client.query('BEGIN')
-      const musicianId = await currentMusicianId(client)
+      const musicianId = context.user.musicianId
       let sessionName = 'Open practice'
       if (data.templateId) {
         const template = await client.query<{ name: string }>(
-          'SELECT name FROM session_template WHERE id = $1 AND musician_id = $2',
+          `SELECT name FROM session_template
+           WHERE id = $1 AND (musician_id = $2 OR visibility = 'PUBLIC')`,
           [data.templateId, musicianId],
         )
         if (template.rowCount === 0) throw new Error('Template not found')

@@ -56,32 +56,37 @@ function TemplateDetail() {
         <div>
           <p class="eyebrow">Session template</p>
           <h1>{template().name}</h1>
+          <span class="tag">{template().visibility.toLowerCase()}</span>
           <p class="lede">
             {practiceItemCount()} practice {practiceItemCount() === 1 ? 'item' : 'items'}
           </p>
         </div>
         <div class="header-actions">
-          <Link
-            class="secondary-button"
-            to="/templates/$templateId/edit"
-            params={{ templateId: template().id }}
-          >
-            Edit template
-          </Link>
+          <Show when={template().canEdit}>
+            <Link
+              class="secondary-button"
+              to="/templates/$templateId/edit"
+              params={{ templateId: template().id }}
+            >
+              Edit template
+            </Link>
+          </Show>
           <Link class="primary-button" to="/sessions/new" search={{ template: template().id }}>
             Use template
           </Link>
-          <DeleteConfirmationDialog
-            triggerLabel="Delete template"
-            title="Delete this template?"
-            itemName={template().name}
-            description="This permanently deletes the template. Existing sessions created from it will remain."
-            confirmLabel="Delete template"
-            onConfirm={async () => {
-              await deleteSessionTemplate({ data: template().id })
-              await navigate({ to: '/templates' })
-            }}
-          />
+          <Show when={template().canManage}>
+            <DeleteConfirmationDialog
+              triggerLabel="Delete template"
+              title="Delete this template?"
+              itemName={template().name}
+              description="This permanently deletes the template. Existing sessions created from it will remain."
+              confirmLabel="Delete template"
+              onConfirm={async () => {
+                await deleteSessionTemplate({ data: template().id })
+                await navigate({ to: '/templates' })
+              }}
+            />
+          </Show>
         </div>
       </header>
 

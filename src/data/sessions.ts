@@ -1,5 +1,6 @@
 import { createServerFn } from '@tanstack/solid-start'
 import type { PoolClient } from 'pg'
+import { authMiddleware } from '@/auth/middleware'
 import { pool, toIsoString } from '@/data/db'
 import {
   LIBRARY_ITEM_TYPE,
@@ -75,8 +76,9 @@ export type SessionProgressUpdate = {
   >
 }
 
-export const getSessions = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<SessionRow[]> => {
+export const getSessions = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<SessionRow[]> => {
     const result = await pool.query<{
       id: string
       templateName: string
@@ -88,7 +90,8 @@ export const getSessions = createServerFn({ method: 'GET' }).handler(
       durationMinutes: number | null
       itemCount: number
       readyToFinalize: boolean
-    }>(`
+    }>(
+      `
       SELECT
         session.id::text,
         session.name AS "templateName",
@@ -111,12 +114,15 @@ export const getSessions = createServerFn({ method: 'GET' }).handler(
       FROM session
       LEFT JOIN session_template template ON template.id = session.session_template_id
       LEFT JOIN session_item item ON item.session_id = session.id AND item.type <> 'SECTION'
+      WHERE session.musician_id = $1
       GROUP BY session.id, template.name
       ORDER BY COALESCE(
         session.started_at,
         session.assigned_date::timestamp AT TIME ZONE current_setting('TIMEZONE')
       ) DESC NULLS LAST
-    `)
+    `,
+      [context.user.musicianId],
+    )
 
     return result.rows.map((row) => ({
       ...row,
@@ -124,10 +130,10 @@ export const getSessions = createServerFn({ method: 'GET' }).handler(
       startedAt: toIsoString(row.startedAt),
       endedAt: toIsoString(row.endedAt),
     }))
-  },
-)
+  })
 
 export const getSessionDetail = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
   .validator((sessionId: string) => {
     if (!/^\d+$/.test(sessionId)) {
       throw new Error('Session ID must be a positive integer')
@@ -135,7 +141,7 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
 
     return sessionId
   })
-  .handler(async ({ data: sessionId }): Promise<SessionDetail | null> => {
+  .handler(async ({ data: sessionId, context }): Promise<SessionDetail | null> => {
     const [sessionResult, itemResult] = await Promise.all([
       pool.query<{
         id: string
@@ -166,9 +172,9 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
             ) AS "durationMinutes"
           FROM session
           LEFT JOIN session_template template ON template.id = session.session_template_id
-          WHERE session.id = $1
+          WHERE session.id = $1 AND session.musician_id = $2
         `,
-        [sessionId],
+        [sessionId, context.user.musicianId],
       ),
       pool.query<{
         id: string
@@ -191,7 +197,7 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
             item.parent_id::text AS "parentId",
             item.type::text,
             item.position::float8 AS position,
-            COALESCE(item.name, exercise.name, repertoire.title, 'Untitled item') AS name,
+            COALESCE(item.name, 'Untitled item') AS name,
             item.notes,
             exercise.notation,
             exercise.notation_format AS "notationFormat",
@@ -206,11 +212,16 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
             END AS "durationMinutes"
           FROM session_item item
           LEFT JOIN exercise ON exercise.id = item.exercise_id
-          LEFT JOIN repertoire ON repertoire.id = item.repertoire_id
+            AND exercise.deleted_at IS NULL
+            AND (exercise.musician_id = $2 OR exercise.visibility = 'PUBLIC')
           WHERE item.session_id = $1
+            AND EXISTS (
+              SELECT 1 FROM session
+              WHERE session.id = item.session_id AND session.musician_id = $2
+            )
           ORDER BY item.parent_id NULLS FIRST, item.position, item.id
         `,
-        [sessionId],
+        [sessionId, context.user.musicianId],
       ),
     ])
 
@@ -231,22 +242,21 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
   })
 
 export const deletePlannedSession = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
   .validator((sessionId: string) => {
     if (!/^\d+$/.test(sessionId)) throw new Error('Invalid session')
     return sessionId
   })
-  .handler(async ({ data: sessionId }): Promise<{ id: string }> => {
+  .handler(async ({ data: sessionId, context }): Promise<{ id: string }> => {
     const result = await pool.query<{ id: string }>(
       `
         DELETE FROM session
         WHERE id = $1
           AND status = 'PLANNED'
-          AND musician_id = (
-            SELECT id FROM musician ORDER BY is_admin DESC, id LIMIT 1
-          )
+          AND musician_id = $2
         RETURNING id::text
       `,
-      [sessionId],
+      [sessionId, context.user.musicianId],
     )
     const deletedSession = result.rows[0]
     if (!deletedSession) throw new Error('Only planned sessions can be deleted')
@@ -339,11 +349,12 @@ async function copySessionOutline(
 }
 
 export const duplicatePracticeSession = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
   .validator((sessionId: string) => {
     if (!validId(sessionId)) throw new Error('Invalid session')
     return sessionId
   })
-  .handler(async ({ data: sessionId }): Promise<{ id: string }> => {
+  .handler(async ({ data: sessionId, context }): Promise<{ id: string }> => {
     const client = await pool.connect()
     try {
       await client.query('BEGIN')
@@ -352,12 +363,10 @@ export const duplicatePracticeSession = createServerFn({ method: 'POST' })
           SELECT session.name
           FROM session
           WHERE session.id = $1
-            AND session.musician_id = (
-              SELECT id FROM musician ORDER BY is_admin DESC, id LIMIT 1
-            )
+            AND session.musician_id = $2
           FOR SHARE
         `,
-        [sessionId],
+        [sessionId, context.user.musicianId],
       )
       const source = sourceResult.rows[0]
       if (!source) throw new Error('Session not found')
@@ -365,13 +374,10 @@ export const duplicatePracticeSession = createServerFn({ method: 'POST' })
       const sessionResult = await client.query<{ id: string }>(
         `
           INSERT INTO session (musician_id, name)
-          VALUES (
-            (SELECT id FROM musician ORDER BY is_admin DESC, id LIMIT 1),
-            $1
-          )
+          VALUES ($1, $2)
           RETURNING id::text
         `,
-        [source.name],
+        [context.user.musicianId, source.name],
       )
       const duplicatedId = sessionResult.rows[0]?.id
       if (!duplicatedId) throw new Error('Session could not be duplicated')
@@ -387,11 +393,12 @@ export const duplicatePracticeSession = createServerFn({ method: 'POST' })
   })
 
 export const createTemplateFromSession = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
   .validator((sessionId: string) => {
     if (!validId(sessionId)) throw new Error('Invalid session')
     return sessionId
   })
-  .handler(async ({ data: sessionId }): Promise<{ id: string }> => {
+  .handler(async ({ data: sessionId, context }): Promise<{ id: string }> => {
     const client = await pool.connect()
     try {
       await client.query('BEGIN')
@@ -400,12 +407,10 @@ export const createTemplateFromSession = createServerFn({ method: 'POST' })
           SELECT session.musician_id::text AS "musicianId", session.name
           FROM session
           WHERE session.id = $1
-            AND session.musician_id = (
-              SELECT id FROM musician ORDER BY is_admin DESC, id LIMIT 1
-            )
+            AND session.musician_id = $2
           FOR SHARE
         `,
-        [sessionId],
+        [sessionId, context.user.musicianId],
       )
       const source = sourceResult.rows[0]
       if (!source) throw new Error('Session not found')
@@ -561,6 +566,7 @@ async function progressUpdate(
 }
 
 export const startPracticeSession = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
   .validator((input: { sessionId: string; timingMode: SessionTimingMode; localDate: string }) => {
     if (!validId(input.sessionId)) throw new Error('Invalid session')
     if (!isSessionTimingMode(input.timingMode)) {
@@ -569,7 +575,7 @@ export const startPracticeSession = createServerFn({ method: 'POST' })
     if (!/^\d{4}-\d{2}-\d{2}$/.test(input.localDate)) throw new Error('Invalid local date')
     return input
   })
-  .handler(async ({ data }): Promise<SessionProgressUpdate> => {
+  .handler(async ({ data, context }): Promise<SessionProgressUpdate> => {
     const client = await pool.connect()
     try {
       await client.query('BEGIN')
@@ -579,11 +585,9 @@ export const startPracticeSession = createServerFn({ method: 'POST' })
            ended_at = NULL
          WHERE id = $1 AND status = 'PLANNED'
            AND (assigned_date IS NULL OR assigned_date = $3::date)
-           AND musician_id = (
-             SELECT id FROM musician ORDER BY is_admin DESC, id LIMIT 1
-           )
+           AND musician_id = $4
          RETURNING id`,
-        [data.sessionId, data.timingMode, data.localDate],
+        [data.sessionId, data.timingMode, data.localDate, context.user.musicianId],
       )
       if (!result.rowCount) {
         throw new Error('This session can only be started on its assigned local date')
@@ -602,6 +606,7 @@ export const startPracticeSession = createServerFn({ method: 'POST' })
   })
 
 export const updateSessionProgress = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
   .validator(
     (input: {
       sessionId: string
@@ -624,18 +629,16 @@ export const updateSessionProgress = createServerFn({ method: 'POST' })
       return input
     },
   )
-  .handler(async ({ data }): Promise<SessionProgressUpdate> => {
+  .handler(async ({ data, context }): Promise<SessionProgressUpdate> => {
     const client = await pool.connect()
     try {
       await client.query('BEGIN')
       const sessionResult = await client.query<{ timingMode: SessionTimingMode }>(
         `SELECT timing_mode::text AS "timingMode" FROM session
          WHERE id = $1 AND status = 'IN_PROGRESS'
-           AND musician_id = (
-             SELECT id FROM musician ORDER BY is_admin DESC, id LIMIT 1
-           )
+           AND musician_id = $2
          FOR UPDATE`,
-        [data.sessionId],
+        [data.sessionId, context.user.musicianId],
       )
       const session = sessionResult.rows[0]
       if (!session) throw new Error('Only an in-progress session can be changed')
@@ -765,12 +768,13 @@ export const updateSessionProgress = createServerFn({ method: 'POST' })
   })
 
 export const completePracticeSession = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
   .validator((sessionId: string) => {
     if (!validId(sessionId)) throw new Error('Invalid session')
     return sessionId
   })
 
-  .handler(async ({ data: sessionId }): Promise<SessionProgressUpdate> => {
+  .handler(async ({ data: sessionId, context }): Promise<SessionProgressUpdate> => {
     const client = await pool.connect()
     try {
       await client.query('BEGIN')
@@ -778,16 +782,14 @@ export const completePracticeSession = createServerFn({ method: 'POST' })
         `UPDATE session
          SET status = 'COMPLETED', ended_at = CURRENT_TIMESTAMP
          WHERE id = $1 AND status = 'IN_PROGRESS'
-           AND musician_id = (
-             SELECT id FROM musician ORDER BY is_admin DESC, id LIMIT 1
-           )
+           AND musician_id = $2
            AND NOT EXISTS (
              SELECT 1 FROM session_item
              WHERE session_id = session.id AND type <> 'SECTION'
                AND status NOT IN ('COMPLETE', 'SKIPPED')
            )
          RETURNING id`,
-        [sessionId],
+        [sessionId, context.user.musicianId],
       )
       if (!result.rowCount) {
         throw new Error('Resolve every practice item before completing the session')
@@ -804,6 +806,7 @@ export const completePracticeSession = createServerFn({ method: 'POST' })
   })
 
 export const updateSessionName = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
   .validator((input: { sessionId: string; name: string }) => {
     if (!validId(input.sessionId)) throw new Error('Invalid session')
     const name = input.name.trim()
@@ -811,15 +814,13 @@ export const updateSessionName = createServerFn({ method: 'POST' })
     if (name.length > 200) throw new Error('Session name must be 200 characters or fewer')
     return { sessionId: input.sessionId, name }
   })
-  .handler(async ({ data }): Promise<{ name: string }> => {
+  .handler(async ({ data, context }): Promise<{ name: string }> => {
     const result = await pool.query<{ name: string }>(
       `UPDATE session SET name = $2
        WHERE id = $1 AND status IN ('PLANNED', 'IN_PROGRESS')
-         AND musician_id = (
-           SELECT id FROM musician ORDER BY is_admin DESC, id LIMIT 1
-         )
+         AND musician_id = $3
        RETURNING name`,
-      [data.sessionId, data.name],
+      [data.sessionId, data.name, context.user.musicianId],
     )
     const session = result.rows[0]
     if (!session) throw new Error('Completed sessions cannot be renamed')
@@ -827,6 +828,7 @@ export const updateSessionName = createServerFn({ method: 'POST' })
   })
 
 export const addRunningSessionItem = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
   .validator(
     (input: {
       sessionId: string
@@ -845,18 +847,16 @@ export const addRunningSessionItem = createServerFn({ method: 'POST' })
       return { ...input, notes: input.notes.trim() }
     },
   )
-  .handler(async ({ data }): Promise<{ id: string }> => {
+  .handler(async ({ data, context }): Promise<{ id: string }> => {
     const client = await pool.connect()
     try {
       await client.query('BEGIN')
       const session = await client.query(
         `SELECT 1 FROM session
          WHERE id = $1 AND status = 'IN_PROGRESS'
-           AND musician_id = (
-             SELECT id FROM musician ORDER BY is_admin DESC, id LIMIT 1
-           )
+           AND musician_id = $2
          FOR UPDATE`,
-        [data.sessionId],
+        [data.sessionId, context.user.musicianId],
       )
       if (!session.rowCount) throw new Error('Items can only be added to an in-progress session')
 
@@ -869,16 +869,32 @@ export const addRunningSessionItem = createServerFn({ method: 'POST' })
         if (!parent.rowCount) throw new Error('Destination section not found')
       }
 
-      const sourceTable = data.type === LIBRARY_ITEM_TYPE.EXERCISE ? 'exercise' : 'repertoire'
-      const source = await client.query(
-        `SELECT 1 FROM ${sourceTable} WHERE id = $1${data.type === LIBRARY_ITEM_TYPE.EXERCISE ? ' AND deleted_at IS NULL' : ''}`,
-        [data.sourceId],
-      )
-      if (!source.rowCount) throw new Error('Practice item not found')
+      const source =
+        data.type === LIBRARY_ITEM_TYPE.EXERCISE
+          ? await client.query<{ name: string }>(
+              `SELECT COALESCE(name, 'Untitled exercise') AS name
+               FROM exercise WHERE id = $1 AND deleted_at IS NULL
+                 AND (musician_id = $2 OR visibility = 'PUBLIC')`,
+              [data.sourceId, context.user.musicianId],
+            )
+          : await client.query<{ name: string }>(
+              `WITH RECURSIVE access AS (
+                 SELECT id, title, owner_musician_id, visibility
+                 FROM repertoire WHERE parent_repertoire_id IS NULL
+                 UNION ALL
+                 SELECT child.id, child.title, access.owner_musician_id, access.visibility
+                 FROM repertoire child JOIN access ON access.id = child.parent_repertoire_id
+               )
+               SELECT title AS name FROM access
+               WHERE id = $1 AND (owner_musician_id = $2 OR visibility = 'PUBLIC')`,
+              [data.sourceId, context.user.musicianId],
+            )
+      const sourceName = source.rows[0]?.name
+      if (!sourceName) throw new Error('Practice item not found')
 
       const result = await client.query<{ id: string }>(
         `INSERT INTO session_item
-          (session_id, parent_id, type, position, exercise_id, repertoire_id, notes,
+          (session_id, parent_id, type, position, exercise_id, repertoire_id, name, notes,
            added_during_session)
          VALUES (
            $1, $2, $3,
@@ -886,7 +902,7 @@ export const addRunningSessionItem = createServerFn({ method: 'POST' })
              SELECT max(position) + 1 FROM session_item
              WHERE session_id = $1 AND parent_id IS NOT DISTINCT FROM $2::bigint
            ), 1),
-           $4, $5, $6, TRUE
+           $4, $5, $6, $7, TRUE
          )
          RETURNING id::text`,
         [
@@ -895,6 +911,7 @@ export const addRunningSessionItem = createServerFn({ method: 'POST' })
           data.type,
           data.type === LIBRARY_ITEM_TYPE.EXERCISE ? data.sourceId : null,
           data.type === LIBRARY_ITEM_TYPE.REPERTOIRE ? data.sourceId : null,
+          sourceName,
           data.notes || null,
         ],
       )
@@ -911,38 +928,39 @@ export const addRunningSessionItem = createServerFn({ method: 'POST' })
   })
 
 export const removeRunningSessionItem = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
   .validator((input: { sessionId: string; itemId: string }) => {
     if (!validId(input.sessionId) || !validId(input.itemId)) throw new Error('Invalid session item')
     return input
   })
-  .handler(async ({ data }): Promise<SessionProgressUpdate & { removedItemId: string }> => {
-    const client = await pool.connect()
-    try {
-      await client.query('BEGIN')
-      const result = await client.query<{ id: string }>(
-        `DELETE FROM session_item item
+  .handler(
+    async ({ data, context }): Promise<SessionProgressUpdate & { removedItemId: string }> => {
+      const client = await pool.connect()
+      try {
+        await client.query('BEGIN')
+        const result = await client.query<{ id: string }>(
+          `DELETE FROM session_item item
            USING session
            WHERE item.id = $1 AND item.session_id = $2
              AND item.added_during_session = TRUE
              AND session.id = item.session_id AND session.status = 'IN_PROGRESS'
-             AND session.musician_id = (
-               SELECT id FROM musician ORDER BY is_admin DESC, id LIMIT 1
-             )
+             AND session.musician_id = $3
            RETURNING item.id::text`,
-        [data.itemId, data.sessionId],
-      )
-      if (!result.rowCount) {
-        throw new Error('Only items added during an in-progress session can be removed')
+          [data.itemId, data.sessionId, context.user.musicianId],
+        )
+        if (!result.rowCount) {
+          throw new Error('Only items added during an in-progress session can be removed')
+        }
+        await startNextAutoItem(client, data.sessionId)
+        await refreshSectionStates(client, data.sessionId)
+        const update = await progressUpdate(client, data.sessionId)
+        await client.query('COMMIT')
+        return { ...update, removedItemId: data.itemId }
+      } catch (error) {
+        await client.query('ROLLBACK')
+        throw error
+      } finally {
+        client.release()
       }
-      await startNextAutoItem(client, data.sessionId)
-      await refreshSectionStates(client, data.sessionId)
-      const update = await progressUpdate(client, data.sessionId)
-      await client.query('COMMIT')
-      return { ...update, removedItemId: data.itemId }
-    } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
-    } finally {
-      client.release()
-    }
-  })
+    },
+  )

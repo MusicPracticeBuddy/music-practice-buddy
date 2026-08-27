@@ -1,4 +1,5 @@
 import { createServerFn } from '@tanstack/solid-start'
+import { authMiddleware } from '@/auth/middleware'
 import { pool } from '@/data/db'
 
 type DashboardData = {
@@ -17,8 +18,10 @@ type DashboardData = {
   } | null
 }
 
-export const getDashboard = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<DashboardData> => {
+export const getDashboard = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<DashboardData> => {
+    const musicianId = context.user.musicianId
     const [summary, nextSession] = await Promise.all([
       pool.query<{
         repertoire: number
@@ -26,33 +29,51 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(
         sessions: number
         completed_sessions: number
         minutes_practiced: number
-      }>(`
+      }>(
+        `
+        WITH RECURSIVE repertoire_access AS (
+          SELECT id, owner_musician_id, visibility
+          FROM repertoire
+          WHERE parent_repertoire_id IS NULL
+          UNION ALL
+          SELECT child.id, access.owner_musician_id, access.visibility
+          FROM repertoire child
+          JOIN repertoire_access access ON access.id = child.parent_repertoire_id
+        )
         SELECT
-          (SELECT count(*)::int FROM repertoire) AS repertoire,
-          (SELECT count(*)::int FROM exercise WHERE deleted_at IS NULL) AS exercises,
-          (SELECT count(*)::int FROM session) AS sessions,
-          (SELECT count(*)::int FROM session WHERE status = 'COMPLETED') AS completed_sessions,
+          (SELECT count(*)::int FROM repertoire_access
+           WHERE owner_musician_id = $1 OR visibility = 'PUBLIC') AS repertoire,
+          (SELECT count(*)::int FROM exercise
+           WHERE deleted_at IS NULL AND (musician_id = $1 OR visibility = 'PUBLIC')) AS exercises,
+          (SELECT count(*)::int FROM session WHERE musician_id = $1) AS sessions,
+          (SELECT count(*)::int FROM session
+           WHERE musician_id = $1 AND status = 'COMPLETED') AS completed_sessions,
           COALESCE((
             SELECT round(sum(extract(epoch FROM (ended_at - started_at))) / 60)::int
             FROM session
-            WHERE ended_at IS NOT NULL AND started_at IS NOT NULL
+            WHERE musician_id = $1 AND ended_at IS NOT NULL AND started_at IS NOT NULL
           ), 0) AS minutes_practiced
-      `),
+      `,
+        [musicianId],
+      ),
       pool.query<{
         id: string
         template_name: string
         status: string
         assigned_date: string | null
-      }>(`
+      }>(
+        `
         SELECT s.id::text, COALESCE(st.name, 'Open practice') AS template_name,
                s.status::text, to_char(s.assigned_date, 'YYYY-MM-DD') AS assigned_date
         FROM session s
         LEFT JOIN session_template st ON st.id = s.session_template_id
-        WHERE s.status IN ('IN_PROGRESS', 'PLANNED')
+        WHERE s.musician_id = $1 AND s.status IN ('IN_PROGRESS', 'PLANNED')
         ORDER BY CASE WHEN s.status = 'IN_PROGRESS' THEN 0 ELSE 1 END,
           s.assigned_date NULLS LAST
         LIMIT 1
-      `),
+      `,
+        [musicianId],
+      ),
     ])
 
     const totals = summary.rows[0]
@@ -75,5 +96,4 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(
           }
         : null,
     }
-  },
-)
+  })

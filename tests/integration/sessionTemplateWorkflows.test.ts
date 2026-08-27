@@ -18,6 +18,8 @@ import {
   createPracticeSession,
   createSessionTemplate,
   deleteSessionTemplate,
+  getSessionTemplates,
+  getTemplateLibrary,
   updatePlannedSession,
   updateSessionTemplate,
   type TemplateItemInput,
@@ -63,7 +65,8 @@ async function resetDatabase() {
     RESTART IDENTITY CASCADE
   `)
   const musician = await pool.query<{ id: string }>(
-    `INSERT INTO musician (is_admin) VALUES (TRUE) RETURNING id::text`,
+    `INSERT INTO musician (is_admin, display_name)
+     VALUES (TRUE, 'Integration test musician') RETURNING id::text`,
   )
   const musicianId = musician.rows[0]!.id
   const exercise = await pool.query<{ id: string }>(
@@ -82,7 +85,11 @@ async function resetDatabase() {
   repertoireId = repertoire.rows[0]!.id
 }
 
-beforeEach(resetDatabase)
+beforeEach(async () => {
+  process.env.TEST_AUTH_MUSICIAN_ID = '1'
+  process.env.TEST_AUTH_IS_ADMIN = 'true'
+  await resetDatabase()
+})
 afterAll(() => pool.end())
 
 describe('template persistence', () => {
@@ -637,5 +644,118 @@ describe('local development seed data', () => {
       sessions: 3,
       sessionItems: 18,
     })
+  })
+})
+
+describe('authorization boundaries', () => {
+  it('rejects publishing a template that references a private library item', async () => {
+    await expect(
+      createSessionTemplate({
+        data: {
+          name: 'Invalid public template',
+          visibility: 'PUBLIC',
+          items: [
+            section('section', 'Section', 1),
+            practiceItem('item', 'section', 'EXERCISE', exerciseId, 'Private item', 1),
+          ],
+        },
+      }),
+    ).rejects.toThrow('Public templates can only reference public library items')
+  })
+
+  it('hides another musician private rows while exposing public library resources', async () => {
+    const other = await pool.query<{ id: string }>(
+      `INSERT INTO musician (display_name) VALUES ('Other musician') RETURNING id::text`,
+    )
+    const otherId = other.rows[0]!.id
+    const privateExercise = await pool.query<{ id: string }>(
+      `INSERT INTO exercise (musician_id, name) VALUES ($1, 'Hidden exercise') RETURNING id::text`,
+      [otherId],
+    )
+    const publicExercise = await pool.query<{ id: string }>(
+      `INSERT INTO exercise (musician_id, name, visibility)
+       VALUES ($1, 'Shared exercise', 'PUBLIC') RETURNING id::text`,
+      [otherId],
+    )
+    await pool.query(
+      `INSERT INTO session_template (musician_id, name, visibility)
+       VALUES ($1, 'Hidden template', 'PRIVATE'), ($1, 'Shared template', 'PUBLIC')`,
+      [otherId],
+    )
+    const otherSession = await pool.query<{ id: string }>(
+      `INSERT INTO session (musician_id, name) VALUES ($1, 'Hidden session') RETURNING id::text`,
+      [otherId],
+    )
+
+    expect((await getTemplateLibrary()).map((item) => item.id)).not.toContain(
+      privateExercise.rows[0]!.id,
+    )
+    expect((await getTemplateLibrary()).map((item) => item.id)).toContain(
+      publicExercise.rows[0]!.id,
+    )
+    expect((await getSessionTemplates()).map((template) => template.name)).toEqual([
+      'Shared template',
+    ])
+    expect(await getSessionDetail({ data: otherSession.rows[0]!.id })).toBeNull()
+    await expect(deletePlannedSession({ data: otherSession.rows[0]!.id })).rejects.toThrow(
+      'Only planned sessions can be deleted',
+    )
+
+    process.env.TEST_AUTH_MUSICIAN_ID = otherId
+    process.env.TEST_AUTH_IS_ADMIN = 'false'
+    expect((await getSessions()).map((session) => session.templateName)).toEqual(['Hidden session'])
+  })
+
+  it('keeps a session item snapshot after its public source becomes private', async () => {
+    const other = await pool.query<{ id: string }>(
+      `INSERT INTO musician (display_name) VALUES ('Publisher') RETURNING id::text`,
+    )
+    const source = await pool.query<{ id: string }>(
+      `INSERT INTO exercise (musician_id, name, notation, visibility)
+       VALUES ($1, 'Published label', 'Private detail', 'PUBLIC') RETURNING id::text`,
+      [other.rows[0]!.id],
+    )
+    const created = await createPracticeSession({
+      data: { templateId: null, assignedDate: null },
+    })
+    await updatePlannedSession({
+      data: {
+        id: created.id,
+        name: 'Snapshot test',
+        assignedDate: null,
+        items: [
+          section('section', 'Section', 1),
+          practiceItem('item', 'section', 'EXERCISE', source.rows[0]!.id, 'Ignored', 1),
+        ],
+      },
+    })
+
+    await pool.query(
+      `UPDATE exercise SET name = 'Private label', visibility = 'PRIVATE' WHERE id = $1`,
+      [source.rows[0]!.id],
+    )
+    const detail = await getSessionDetail({ data: created.id })
+    expect(detail?.items.find((item) => item.type === 'EXERCISE')).toMatchObject({
+      name: 'Published label',
+      notation: null,
+    })
+  })
+
+  it('rejects a parent item from a different session container', async () => {
+    const first = await createPracticeSession({ data: { templateId: null, assignedDate: null } })
+    const second = await createPracticeSession({ data: { templateId: null, assignedDate: null } })
+    const parent = await pool.query<{ id: string }>(
+      `INSERT INTO session_item (session_id, type, position, name)
+       VALUES ($1, 'SECTION', 1, 'Parent') RETURNING id::text`,
+      [first.id],
+    )
+    await expect(
+      pool.query(
+        `INSERT INTO session_item
+           (session_id, parent_id, type, position, exercise_id, name)
+         VALUES ($1, $2, 'EXERCISE', 1, $3, 'Child')`,
+        [second.id, parent.rows[0]!.id, exerciseId],
+      ),
+    ).rejects.toMatchObject({ code: '23503' })
   })
 })

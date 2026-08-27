@@ -8,7 +8,7 @@ export const Route = createFileRoute('/templates/$templateId_/edit')({
       getSessionTemplate({ data: params.templateId }),
       getTemplateLibrary(),
     ])
-    if (!template) throw notFound()
+    if (!template?.canEdit) throw notFound()
     return { template, library }
   },
   component: EditTemplate,

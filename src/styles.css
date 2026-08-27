@@ -52,6 +52,76 @@ a {
   padding: 24px 32px;
 }
 
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.user-menu button {
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--green);
+  background: var(--paper);
+  cursor: pointer;
+}
+
+.login-page {
+  display: grid;
+  min-height: 100vh;
+  padding: 32px;
+  place-items: center;
+}
+
+.login-card {
+  width: min(100%, 520px);
+  padding: 42px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: rgb(255 253 248 / 92%);
+  box-shadow: 0 24px 70px rgb(37 51 46 / 10%);
+}
+
+.login-brand {
+  width: fit-content;
+  margin-bottom: 52px;
+}
+
+.login-card h1 {
+  margin-bottom: 16px;
+  font-size: clamp(42px, 8vw, 64px);
+}
+
+.development-user-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.development-user-list button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--ink);
+  background: var(--paper);
+  cursor: pointer;
+}
+
+.development-user-list button:hover {
+  border-color: var(--green);
+}
+
+.development-user-list small {
+  color: var(--muted);
+}
+
 .brand {
   display: flex;
   gap: 12px;

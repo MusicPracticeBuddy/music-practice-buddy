@@ -45,7 +45,16 @@ const library: TemplateLibraryItem[] = [
 ]
 
 function template(items: SessionTemplateDetail['items']): SessionTemplateDetail {
-  return { id: '10', name: 'Editor test', items }
+  return {
+    id: '10',
+    name: 'Editor test',
+    visibility: 'PRIVATE',
+    ownerId: '1',
+    canEdit: true,
+    canManage: true,
+    canUse: true,
+    items,
+  }
 }
 
 function section(

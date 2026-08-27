@@ -195,6 +195,7 @@ export function PracticePlanEditor(props: {
   const [nodes, setNodes] = createStore<EditorNode[]>(buildTree(initialRecord?.items ?? []))
   const [library, setLibrary] = createStore<TemplateLibraryItem[]>([...props.library])
   const [name, setName] = createSignal(initialRecord?.name ?? '')
+  const [visibility, setVisibility] = createSignal(props.template?.visibility ?? 'PRIVATE')
   const [assignedDate, setAssignedDate] = createSignal(props.session?.assignedDate ?? '')
   const [libraryType, setLibraryType] = createSignal<LibraryItemType>(LIBRARY_ITEM_TYPE.EXERCISE)
   const [selectedParentId, setSelectedParentId] = createSignal<string | null>(null)
@@ -348,7 +349,7 @@ export function PracticePlanEditor(props: {
     }
     setSavingAction(action)
     try {
-      const data = { name: name(), items: flatten(nodes) }
+      const data = { name: name(), visibility: visibility(), items: flatten(nodes) }
       if (props.session) {
         await updatePlannedSession({
           data: {
@@ -520,6 +521,20 @@ export function PracticePlanEditor(props: {
           onInput={(event) => setName(event.currentTarget.value)}
           placeholder="My practice template"
         />
+        <Show when={!props.template || props.template.canManage}>
+          <label class="field-label" for="template-visibility">
+            Visibility
+          </label>
+          <select
+            id="template-visibility"
+            class="text-input"
+            value={visibility()}
+            onChange={(event) => setVisibility(event.currentTarget.value as 'PRIVATE' | 'PUBLIC')}
+          >
+            <option value="PRIVATE">Private</option>
+            <option value="PUBLIC">Public</option>
+          </select>
+        </Show>
       </Show>
       <Show when={error()}>
         <p class="form-error" role="alert">
