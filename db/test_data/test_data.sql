@@ -61,7 +61,8 @@ VALUES
     ('Bach Cello Suite No. 1 in G Major, BWV 1007', NULL, 'PUBLIC', 'APPROVED'),
     ('Beethoven Sonata No. 8 in C Minor, Op. 13', NULL, 'PUBLIC', 'APPROVED'),
     ('Arban Characteristic Study No. 1', (SELECT id FROM musician WHERE is_admin LIMIT 1), 'PRIVATE', 'APPROVED'),
-    ('Chopin Prelude in E Minor, Op. 28 No. 4', NULL, 'PUBLIC', 'APPROVED');
+    ('Chopin Prelude in E Minor, Op. 28 No. 4', NULL, 'PUBLIC', 'APPROVED'),
+    ('Thirty Progressive Etudes', NULL, 'PUBLIC', 'APPROVED');
 
 INSERT INTO repertoire (title, parent_repertoire_id, start_measure, end_measure, owner_musician_id, visibility, status)
 VALUES (
@@ -73,6 +74,12 @@ VALUES (
     NULL,
     'APPROVED'
 );
+
+INSERT INTO repertoire (title, parent_repertoire_id, owner_musician_id, visibility, status)
+VALUES
+    ('Etude No. 1 — Singing Tone', (SELECT id FROM repertoire WHERE title = 'Thirty Progressive Etudes'), NULL, NULL, 'APPROVED'),
+    ('Etude No. 2 — Even Articulation', (SELECT id FROM repertoire WHERE title = 'Thirty Progressive Etudes'), NULL, NULL, 'APPROVED'),
+    ('Etude No. 3 — Flexible Intervals', (SELECT id FROM repertoire WHERE title = 'Thirty Progressive Etudes'), NULL, NULL, 'APPROVED');
 
 INSERT INTO repertoire_credit (repertoire_id, person_id, role, position)
 SELECT r.id, p.id, 'COMPOSER', 1
@@ -115,7 +122,8 @@ FROM (
     VALUES
         ('Arban Characteristic Study No. 1', '2026-08-01', 'Current technical study.'),
         ('Bach Cello Suite No. 1 in G Major, BWV 1007', '2026-07-15', 'Working on the Prelude.'),
-        ('Beethoven Sonata No. 8 in C Minor, Op. 13', '2026-06-20', 'Long-term repertoire.')
+        ('Beethoven Sonata No. 8 in C Minor, Op. 13', '2026-06-20', 'Long-term repertoire.'),
+        ('Thirty Progressive Etudes', '2026-08-27', 'Choose one etude at random each session.')
 ) AS item(title, acquired_on, notes)
 JOIN repertoire r ON r.title = item.title
 CROSS JOIN (SELECT id FROM musician WHERE is_admin LIMIT 1) m;

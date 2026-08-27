@@ -11,6 +11,7 @@ import {
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
 import { PracticeLibraryPanel } from '@/components/PracticeLibraryPanel'
 import { SessionExerciseNotation } from '@/components/SessionExerciseNotation'
+import { SessionRepertoireRandomizer } from '@/components/SessionRepertoireRandomizer'
 import {
   addRunningSessionItem,
   completePracticeSession,
@@ -41,6 +42,7 @@ import {
   isLibraryItemType,
   isResolvedSessionItemStatus,
   appendKeyToSessionNote,
+  appendRepertoireChildToSessionNote,
   type LibraryItemType,
 } from '@/domain/session'
 
@@ -955,6 +957,17 @@ function SessionItem(props: {
     })
   }
 
+  function recordSelectedRepertoireChild(title: string) {
+    const currentNote = editingSessionNote() ? sessionNoteDraft() : (props.item.sessionNote ?? '')
+    const nextNote = appendRepertoireChildToSessionNote(currentNote, title)
+    setSessionNoteDraft(nextNote)
+    setEditingSessionNote(true)
+    queueMicrotask(() => {
+      sessionNoteElement?.focus()
+      sessionNoteElement?.setSelectionRange(nextNote.length, nextNote.length)
+    })
+  }
+
   if (isSection) {
     return (
       <section class="practice-section">
@@ -1188,6 +1201,18 @@ function SessionItem(props: {
               notation={props.item.notation ?? ''}
               format={props.item.notationFormat}
               onRecordKey={props.sessionActive ? recordSelectedKey : undefined}
+            />
+          </Show>
+          <Show
+            when={
+              props.sessionActive &&
+              props.item.type === PRACTICE_ITEM_TYPE.REPERTOIRE &&
+              props.item.repertoireChildren.length > 0
+            }
+          >
+            <SessionRepertoireRandomizer
+              children={props.item.repertoireChildren}
+              onRecordChild={recordSelectedRepertoireChild}
             />
           </Show>
         </div>

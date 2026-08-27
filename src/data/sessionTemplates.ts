@@ -200,6 +200,10 @@ async function insertSessionItems(
   user: AuthenticatedUser,
   sessionId: string,
   items: TemplateItemInput[],
+  preservedItems = new Map<
+    string,
+    { type: PracticeItemType; sourceId: string | null; name: string }
+  >(),
 ) {
   const remaining = [...items]
   const databaseIds = new Map<string, string>()
@@ -211,10 +215,15 @@ async function insertSessionItems(
     const [item] = remaining.splice(index, 1)
     if (!item) continue
     const parentId = item.parentClientId ? databaseIds.get(item.parentClientId) : null
+    const preservedItem = preservedItems.get(item.clientId)
+    const canPreserveSource =
+      preservedItem?.type === item.type && preservedItem.sourceId === item.sourceId
     const source =
       item.type === PRACTICE_ITEM_TYPE.SECTION
         ? null
-        : await resolveLibrarySource(client, user, item.type, item.sourceId!)
+        : canPreserveSource
+          ? { name: preservedItem.name }
+          : await resolveLibrarySource(client, user, item.type, item.sourceId!)
     const result = await client.query<{ id: string }>(
       `
         INSERT INTO session_item
@@ -414,34 +423,19 @@ export const getPlannedSessionForEdit = createServerFn({ method: 'GET' })
       ),
       pool.query<TemplateItemInput>(
         `
-          WITH RECURSIVE repertoire_access AS (
-            SELECT id, owner_musician_id, visibility
-            FROM repertoire WHERE parent_repertoire_id IS NULL AND deleted_at IS NULL
-            UNION ALL
-            SELECT child.id, access.owner_musician_id, access.visibility
-            FROM repertoire child
-            JOIN repertoire_access access ON access.id = child.parent_repertoire_id
-            WHERE child.deleted_at IS NULL
-          )
           SELECT
             item.id::text AS "clientId",
             item.parent_id::text AS "parentClientId",
             item.type::text,
             CASE
-              WHEN item.type = 'EXERCISE' THEN exercise.id::text
-              WHEN item.type = 'REPERTOIRE' THEN repertoire_access.id::text
+              WHEN item.type = 'EXERCISE' THEN item.exercise_id::text
+              WHEN item.type = 'REPERTOIRE' THEN item.repertoire_id::text
               ELSE NULL
             END AS "sourceId",
             COALESCE(item.name, 'Untitled item') AS name,
             COALESCE(item.instruction, '') AS instruction,
             item.position::float8 AS position
           FROM session_item item
-          LEFT JOIN exercise ON exercise.id = item.exercise_id
-            AND exercise.deleted_at IS NULL
-            AND (exercise.musician_id = $2 OR exercise.visibility = 'PUBLIC')
-          LEFT JOIN repertoire_access ON repertoire_access.id = item.repertoire_id
-            AND (repertoire_access.owner_musician_id = $2
-              OR repertoire_access.visibility = 'PUBLIC')
           WHERE item.session_id = $1
             AND EXISTS (
               SELECT 1 FROM session
@@ -590,8 +584,30 @@ export const updatePlannedSession = createServerFn({ method: 'POST' })
         [data.name, data.assignedDate, data.id, context.user.musicianId],
       )
       if (result.rowCount === 0) throw new Error('Only planned sessions can be edited')
+      const existingItems = await client.query<{
+        clientId: string
+        type: PracticeItemType
+        sourceId: string | null
+        name: string
+      }>(
+        `SELECT
+           id::text AS "clientId",
+           type::text,
+           CASE
+             WHEN type = 'EXERCISE' THEN exercise_id::text
+             WHEN type = 'REPERTOIRE' THEN repertoire_id::text
+             ELSE NULL
+           END AS "sourceId",
+           COALESCE(name, 'Untitled item') AS name
+         FROM session_item
+         WHERE session_id = $1`,
+        [data.id],
+      )
+      const preservedItems = new Map(
+        existingItems.rows.map((item) => [item.clientId, item] as const),
+      )
       await client.query(`DELETE FROM session_item WHERE session_id = $1`, [data.id])
-      await insertSessionItems(client, context.user, data.id, data.items)
+      await insertSessionItems(client, context.user, data.id, data.items, preservedItems)
       await client.query('COMMIT')
       return { id: data.id }
     } catch (error) {

@@ -29,6 +29,7 @@ import {
   createPracticeSession,
   createSessionTemplate,
   deleteSessionTemplate,
+  getPlannedSessionForEdit,
   getSessionTemplates,
   getTemplateLibrary,
   updatePlannedSession,
@@ -835,6 +836,48 @@ describe('session persistence', () => {
       }),
     ).rejects.toThrow('Notes can only be changed during an in-progress session')
   })
+
+  it('includes current repertoire children for random selection during a session', async () => {
+    await pool.query(
+      `INSERT INTO repertoire
+         (title, parent_repertoire_id, owner_musician_id, visibility, status, deleted_at)
+       VALUES
+         ('Etude No. 2', $1, NULL, NULL, 'APPROVED', NULL),
+         ('Etude No. 1', $1, NULL, NULL, 'APPROVED', NULL),
+         ('Retired etude', $1, NULL, NULL, 'APPROVED', CURRENT_TIMESTAMP)`,
+      [repertoireId],
+    )
+    const created = await createPracticeSession({
+      data: { templateId: null, assignedDate: null },
+    })
+    await updatePlannedSession({
+      data: {
+        id: created.id,
+        name: 'Random etude session',
+        assignedDate: null,
+        items: [
+          section('section', 'Etudes', 1),
+          practiceItem(
+            'repertoire',
+            'section',
+            'REPERTOIRE',
+            repertoireId,
+            'Ignored',
+            1,
+            'Play through one etude',
+          ),
+        ],
+      },
+    })
+    await startPracticeSession({
+      data: { sessionId: created.id, timingMode: 'MANUAL', localDate: '2030-01-01' },
+    })
+
+    const started = await getSessionDetail({ data: created.id })
+    expect(started?.items.find((item) => item.type === 'REPERTOIRE')).toMatchObject({
+      repertoireChildren: [{ title: 'Etude No. 1' }, { title: 'Etude No. 2' }],
+    })
+  })
 })
 
 describe('local development seed data', () => {
@@ -869,11 +912,29 @@ describe('local development seed data', () => {
     expect(counts.rows[0]).toEqual({
       musicians: 3,
       exercises: 5,
-      repertoire: 5,
+      repertoire: 9,
       templates: 2,
       sessions: 3,
       sessionItems: 18,
     })
+
+    const etudes = await pool.query<{ title: string }>(
+      `SELECT child.title
+       FROM repertoire child
+       JOIN repertoire book ON book.id = child.parent_repertoire_id
+       WHERE book.title = 'Thirty Progressive Etudes'
+       ORDER BY child.title`,
+    )
+    expect(etudes.rows.map((row) => row.title)).toEqual([
+      'Etude No. 1 — Singing Tone',
+      'Etude No. 2 — Even Articulation',
+      'Etude No. 3 — Flexible Intervals',
+    ])
+
+    const library = await getTemplateLibrary()
+    expect(library).toContainEqual(
+      expect.objectContaining({ name: 'Thirty Progressive Etudes', type: 'REPERTOIRE' }),
+    )
   })
 })
 
@@ -996,6 +1057,19 @@ describe('authorization boundaries', () => {
       `UPDATE exercise SET name = 'Private label', visibility = 'PRIVATE' WHERE id = $1`,
       [source.rows[0]!.id],
     )
+    const editable = await getPlannedSessionForEdit({ data: created.id })
+    const existingItem = editable?.items.find((item) => item.type === 'EXERCISE')
+    expect(existingItem?.sourceId).toBe(source.rows[0]!.id)
+
+    await updatePlannedSession({
+      data: {
+        id: created.id,
+        name: editable!.name,
+        assignedDate: editable!.assignedDate,
+        items: editable!.items,
+      },
+    })
+
     const detail = await getSessionDetail({ data: created.id })
     expect(detail?.items.find((item) => item.type === 'EXERCISE')).toMatchObject({
       name: 'Published label',

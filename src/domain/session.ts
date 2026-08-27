@@ -77,3 +77,9 @@ export function appendKeyToSessionNote(note: string, keyLabel: string) {
   if (!note) return prefix
   return `${note}${note.endsWith('\n') ? '' : '\n'}${prefix}`
 }
+
+export function appendRepertoireChildToSessionNote(note: string, title: string) {
+  const prefix = `${title}: `
+  if (!note) return prefix
+  return `${note}${note.endsWith('\n') ? '' : '\n'}${prefix}`
+}

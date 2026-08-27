@@ -46,6 +46,7 @@ export type SessionDetailItem = {
   sessionNote: string | null
   notation: string | null
   notationFormat: string | null
+  repertoireChildren: { id: string; title: string }[]
   status: SessionItemStatus
   addedDuringSession: boolean
   startedAt: string | null
@@ -187,6 +188,7 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
         sessionNote: string | null
         notation: string | null
         notationFormat: string | null
+        repertoireChildren: { id: string; title: string }[]
         status: SessionItemStatus
         addedDuringSession: boolean
         startedAt: Date | null
@@ -194,6 +196,16 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
         durationMinutes: number | null
       }>(
         `
+          WITH RECURSIVE repertoire_access AS (
+            SELECT id, owner_musician_id, visibility
+            FROM repertoire
+            WHERE parent_repertoire_id IS NULL AND deleted_at IS NULL
+            UNION ALL
+            SELECT child.id, access.owner_musician_id, access.visibility
+            FROM repertoire child
+            JOIN repertoire_access access ON access.id = child.parent_repertoire_id
+            WHERE child.deleted_at IS NULL
+          )
           SELECT
             item.id::text,
             item.parent_id::text AS "parentId",
@@ -204,6 +216,19 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
             item.session_note AS "sessionNote",
             exercise.notation,
             exercise.notation_format AS "notationFormat",
+            COALESCE(
+              CASE WHEN item.type = 'REPERTOIRE' THEN (
+                SELECT jsonb_agg(
+                  jsonb_build_object('id', child.id::text, 'title', child.title)
+                  ORDER BY child.title, child.id
+                )
+                FROM repertoire child
+                JOIN repertoire_access access ON access.id = child.id
+                WHERE child.parent_repertoire_id = item.repertoire_id
+                  AND (access.owner_musician_id = $2 OR access.visibility = 'PUBLIC')
+              ) END,
+              '[]'::jsonb
+            ) AS "repertoireChildren",
             item.status::text,
             item.added_during_session AS "addedDuringSession",
             item.started_at AS "startedAt",
