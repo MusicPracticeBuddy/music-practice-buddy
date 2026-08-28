@@ -259,6 +259,10 @@ h1 {
   line-height: 1.65;
 }
 
+.not-found-page .primary-button {
+  margin-top: 28px;
+}
+
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

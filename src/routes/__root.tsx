@@ -38,7 +38,23 @@ export const Route = createRootRoute({
     ],
   }),
   component: RootComponent,
+  notFoundComponent: NotFoundPage,
 })
+
+function NotFoundPage() {
+  return (
+    <main class="page not-found-page">
+      <section class="hero">
+        <p class="eyebrow">404 · Page not found</p>
+        <h1>That page missed the beat.</h1>
+        <p class="lede">The page you’re looking for doesn’t exist or may have moved.</p>
+        <Link class="primary-button" to="/">
+          Back to overview
+        </Link>
+      </section>
+    </main>
+  )
+}
 
 function RootComponent() {
   const context = Route.useRouteContext()
