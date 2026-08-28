@@ -683,6 +683,24 @@ export const addRepertoireToLibrary = createServerFn({ method: 'POST' })
     return repertoire
   })
 
+export const removeRepertoireFromLibrary = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .validator((repertoireId: string) => {
+    if (!/^\d+$/.test(repertoireId)) throw new Error('Invalid repertoire')
+    return repertoireId
+  })
+  .handler(async ({ data: repertoireId, context }): Promise<{ id: string }> => {
+    const result = await pool.query<{ id: string }>(
+      `DELETE FROM musician_repertoire_library
+       WHERE musician_id = $1 AND repertoire_id = $2
+       RETURNING repertoire_id::text AS id`,
+      [context.user.musicianId, repertoireId],
+    )
+    const repertoire = result.rows[0]
+    if (!repertoire) throw new Error('Repertoire is not in My Library')
+    return repertoire
+  })
+
 export const getOwnedRepertoirePage = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .validator((page: number) => {

@@ -7,6 +7,7 @@ export function DeleteConfirmationDialog(props: {
   itemName: string
   description: string
   confirmLabel: string
+  pendingLabel?: string
   onConfirm: () => Promise<void>
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -57,7 +58,7 @@ export function DeleteConfirmationDialog(props: {
                 Cancel
               </AlertDialog.CloseButton>
               <button class="danger-button" type="submit" disabled={deleting()}>
-                {deleting() ? 'Deleting…' : props.confirmLabel}
+                {deleting() ? (props.pendingLabel ?? 'Deleting…') : props.confirmLabel}
               </button>
             </div>
           </form>

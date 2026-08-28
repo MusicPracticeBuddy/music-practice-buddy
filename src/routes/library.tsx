@@ -1,9 +1,10 @@
 import { For, Show } from 'solid-js'
-import { Link, createFileRoute } from '@tanstack/solid-router'
+import { Link, createFileRoute, useRouter } from '@tanstack/solid-router'
 import { RepertoireLibraryNote } from '@/components/RepertoireLibraryNote'
+import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
 import { ExerciseNotation } from '@/components/ExerciseNotation'
 import { getExercises } from '@/data/exercises'
-import { getRepertoire, type RepertoireRow } from '@/data/repertoire'
+import { getRepertoire, removeRepertoireFromLibrary, type RepertoireRow } from '@/data/repertoire'
 
 export const Route = createFileRoute('/library')({
   loader: async () => {
@@ -15,6 +16,7 @@ export const Route = createFileRoute('/library')({
 
 function Library() {
   const data = Route.useLoaderData()
+  const router = useRouter()
   const repertoire = () => data().repertoire
   const exercises = () => data().exercises
 
@@ -51,7 +53,17 @@ function Library() {
             fallback={<p class="library-empty">No repertoire items to show.</p>}
           >
             <div class="card-grid">
-              <For each={repertoire()}>{(piece) => <RepertoireCard piece={piece} />}</For>
+              <For each={repertoire()}>
+                {(piece) => (
+                  <RepertoireCard
+                    piece={piece}
+                    onRemove={async () => {
+                      await removeRepertoireFromLibrary({ data: piece.id })
+                      await router.invalidate({ sync: true })
+                    }}
+                  />
+                )}
+              </For>
             </div>
           </Show>
         </section>
@@ -108,7 +120,7 @@ function Library() {
   )
 }
 
-function RepertoireCard(props: { piece: RepertoireRow }) {
+function RepertoireCard(props: { piece: RepertoireRow; onRemove: () => Promise<void> }) {
   return (
     <article class="content-card">
       <div class="card-topline">
@@ -130,13 +142,24 @@ function RepertoireCard(props: { piece: RepertoireRow }) {
         initialNote={props.piece.libraryNotes}
       />
 
-      <Link
-        class="text-link"
-        to="/repertoire/$repertoireId"
-        params={{ repertoireId: props.piece.id }}
-      >
-        View details →
-      </Link>
+      <div class="library-section-actions">
+        <Link
+          class="text-link"
+          to="/repertoire/$repertoireId"
+          params={{ repertoireId: props.piece.id }}
+        >
+          View details →
+        </Link>
+        <DeleteConfirmationDialog
+          triggerLabel="Remove"
+          title="Remove from My Library?"
+          itemName={props.piece.title}
+          description="This removes the library entry and its note. The repertoire and your practice history remain available."
+          confirmLabel="Remove from My Library"
+          pendingLabel="Removing…"
+          onConfirm={props.onRemove}
+        />
+      </div>
     </article>
   )
 }

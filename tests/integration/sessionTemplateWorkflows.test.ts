@@ -13,6 +13,7 @@ import {
   getOwnedRepertoirePage,
   getRepertoire,
   getRepertoireDetail,
+  removeRepertoireFromLibrary,
   updateRepertoireLibraryNote,
   updateRepertoire,
 } from '@/data/repertoire'
@@ -346,6 +347,12 @@ describe('library item persistence', () => {
       [catalogChild.rows[0]!.id],
     )
     expect(childLibraryEntry.rows).toEqual([{ repertoireId: catalogChild.rows[0]!.id }])
+    expect(await removeRepertoireFromLibrary({ data: catalogChild.rows[0]!.id })).toEqual({
+      id: catalogChild.rows[0]!.id,
+    })
+    await expect(removeRepertoireFromLibrary({ data: catalogChild.rows[0]!.id })).rejects.toThrow(
+      'Repertoire is not in My Library',
+    )
     expect(await addRepertoireToLibrary({ data: repertoireId })).toEqual({ id: repertoireId })
     expect(await getOwnedRepertoirePage({ data: 1 })).toMatchObject({
       items: [expect.objectContaining({ id: repertoireId, inLibrary: true })],
@@ -355,6 +362,15 @@ describe('library item persistence', () => {
         data: { ...EMPTY_CATALOG_SEARCH, query: 'Test repertoire' },
       }),
     ).toMatchObject({ total: 0, items: [] })
+    expect(await removeRepertoireFromLibrary({ data: repertoireId })).toEqual({ id: repertoireId })
+    expect(
+      await getPublicRepertoireCatalogPage({
+        data: { ...EMPTY_CATALOG_SEARCH, query: 'Test repertoire' },
+      }),
+    ).toMatchObject({
+      total: 1,
+      items: [expect.objectContaining({ id: repertoireId, inLibrary: false })],
+    })
     expect(
       await getPublicRepertoireCatalogPage({
         data: { ...EMPTY_CATALOG_SEARCH, query: 'First movement' },
@@ -393,8 +409,8 @@ describe('library item persistence', () => {
     const secondPage = await getPublicRepertoireCatalogPage({
       data: { ...EMPTY_CATALOG_SEARCH, page: 2 },
     })
-    expect(secondPage).toMatchObject({ page: 2, total: 28 })
-    expect(secondPage.items).toHaveLength(3)
+    expect(secondPage).toMatchObject({ page: 2, total: 29 })
+    expect(secondPage.items).toHaveLength(4)
 
     const filtered = await getPublicRepertoireCatalogPage({
       data: {
