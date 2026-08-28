@@ -25,8 +25,8 @@ describe('PracticePlanOutline', () => {
             type: PRACTICE_ITEM_TYPE.EXERCISE,
             name: 'Long tones',
             instruction: 'Use a steady breath.',
-            notation: 'C D E F',
-            notationFormat: 'text',
+            notation: 'K:C\nCDEF|',
+            notationFormat: 'abc',
           },
         ]}
       />
@@ -36,11 +36,12 @@ describe('PracticePlanOutline', () => {
     const exerciseButton = screen.getByRole('button', { name: 'Long tones' })
     expect(sectionButton.getAttribute('aria-expanded')).toBe('true')
     expect(exerciseButton.getAttribute('aria-expanded')).toBe('false')
-    expect(screen.queryByText('C D E F')).toBeNull()
+    expect(screen.queryByText('Display key')).toBeNull()
 
     fireEvent.click(exerciseButton)
     expect(screen.getByText('Use a steady breath.')).toBeTruthy()
-    expect(screen.getByText('C D E F')).toBeTruthy()
+    expect(screen.getByLabelText('Rendered music notation')).toBeTruthy()
+    expect(screen.queryByText('Display key')).toBeNull()
 
     fireEvent.click(sectionButton)
     expect(sectionButton.getAttribute('aria-expanded')).toBe('false')

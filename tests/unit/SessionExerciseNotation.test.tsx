@@ -91,4 +91,12 @@ describe('SessionExerciseNotation', () => {
 
     expect(recordKey).toHaveBeenCalledWith('F♯ major')
   })
+  it('hides key controls when notation is read-only', () => {
+    render(() => (
+      <SessionExerciseNotation notation={'K:C\nCDEF|'} format="abc" showKeyControls={false} />
+    ))
+
+    expect(screen.queryByText('Display key')).toBeNull()
+    expect(screen.getByLabelText('Transposition')).toBeTruthy()
+  })
 })

@@ -12,6 +12,7 @@ type SessionExerciseNotationProps = {
   notation: string
   format: string | null
   onRecordKey?: (keyLabel: string) => void
+  showKeyControls?: boolean
 }
 
 export function SessionExerciseNotation(props: SessionExerciseNotationProps) {
@@ -87,7 +88,7 @@ export function SessionExerciseNotation(props: SessionExerciseNotationProps) {
 
   return (
     <div>
-      <Show when={sourceKey()}>
+      <Show when={sourceKey() && (props.showKeyControls ?? true)}>
         <div class="session-notation-transpose">
           <div class="session-notation-transpose-header">
             <span class="field-label" id={labelId}>

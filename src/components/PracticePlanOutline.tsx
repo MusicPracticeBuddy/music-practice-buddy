@@ -423,6 +423,7 @@ function PracticePlanOutlineItem(props: PracticePlanOutlineProps & { item: Pract
             <SessionExerciseNotation
               notation={props.item.notation ?? ''}
               format={props.item.notationFormat}
+              showKeyControls={props.sessionActive === true}
               onRecordKey={props.sessionActive ? recordSelectedKey : undefined}
             />
           </Show>
