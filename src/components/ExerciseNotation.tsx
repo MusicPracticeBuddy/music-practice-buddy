@@ -1,10 +1,11 @@
 import { createEffect, onCleanup, onMount } from 'solid-js'
-import { changeAbcMode, type AbcKeyMode } from '@/domain/abcTranspose'
+import { changeAbcClef, changeAbcMode, type AbcClef, type AbcKeyMode } from '@/domain/abcTranspose'
 import { EXERCISE_NOTATION_FORMAT } from '@/domain/exercise'
 
 type ExerciseNotationProps = {
   notation: string
   format: string | null
+  clef?: AbcClef | null
   transpose?: {
     steps: number
     sourceMode: AbcKeyMode
@@ -30,6 +31,7 @@ export function ExerciseNotation(props: ExerciseNotationProps) {
       const format = props.format
       const notation = props.notation
       const transpose = props.transpose
+      const clef = props.clef
       const target = scoreElement
       const version = ++renderVersion
 
@@ -71,6 +73,7 @@ export function ExerciseNotation(props: ExerciseNotationProps) {
               renderedNotation = notation
             }
           }
+          if (clef) renderedNotation = changeAbcClef(renderedNotation, clef)
           abcjs.renderAbc(target, renderedNotation, { responsive: 'resize' })
         },
       )

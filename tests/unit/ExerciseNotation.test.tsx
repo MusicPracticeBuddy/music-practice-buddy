@@ -87,6 +87,18 @@ describe('ExerciseNotation', () => {
     })
   })
 
+  it('applies a display clef without modifying the source notation', async () => {
+    const notation = 'X:1\nK:C clef=treble\nCDEF|'
+    render(() => <ExerciseNotation notation={notation} format="abc" clef="bass" />)
+
+    const score = screen.getByLabelText('Rendered music notation')
+    await waitFor(() => {
+      const renderedNotation = renderAbc.mock.calls.find(([target]) => target === score)?.[1]
+      expect(renderedNotation).toContain('K:C clef=bass')
+    })
+    expect(notation).toContain('clef=treble')
+  })
+
   it('renders a parallel minor key without changing the stored notation', async () => {
     const notation = 'X:1\nK:C\nCDEF|'
     render(() => (

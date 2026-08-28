@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { abcKeyOptions, abcTransposeSteps, changeAbcMode, parseAbcKey } from '@/domain/abcTranspose'
+import {
+  abcClefOctaveShift,
+  abcKeyOptions,
+  abcTransposeSteps,
+  changeAbcClef,
+  changeAbcMode,
+  parseAbcClef,
+  parseAbcKey,
+} from '@/domain/abcTranspose'
 
 describe('ABC transposition', () => {
   it('recognizes major and minor key fields but excludes other modes', () => {
@@ -39,10 +47,32 @@ describe('ABC transposition', () => {
     expect(abcTransposeSteps(fSharpMajor, cMajor)).toBe(-6)
   })
 
+  it('changes the display clef while preserving the key and comments', () => {
+    expect(changeAbcClef('X:1\nK:C clef=treble % exercise\nCDEF|', 'bass')).toBe(
+      'X:1\nK:C clef=bass % exercise\nCDEF|',
+    )
+    expect(changeAbcClef('X:1\nK:Dm\nDEFG|', 'tenor')).toContain('K:Dm clef=tenor')
+  })
+
   it('changes the displayed mode without modifying the source tonic or other key fields', () => {
     expect(changeAbcMode('X:1\nK:C major clef=bass\nCDEF|', 'minor')).toBe(
       'X:1\nK:Cm clef=bass\nCDEF|',
     )
     expect(changeAbcMode('X:1\nK:Cm clef=bass\nCDEF|', 'major')).toBe('X:1\nK:C clef=bass\nCDEF|')
+  })
+  it('parses clefs and maps ledger-line-saving octave shifts', () => {
+    expect(parseAbcClef('K:C clef=bass\nCDEF|')).toBe('bass')
+    expect(parseAbcClef('K:C tenor\nCDEF|')).toBe('tenor')
+    expect(parseAbcClef('K:C\nCDEF|')).toBeNull()
+
+    expect([
+      abcClefOctaveShift('bass', 'alto'),
+      abcClefOctaveShift('bass', 'treble'),
+      abcClefOctaveShift('tenor', 'treble'),
+      abcClefOctaveShift('alto', 'bass'),
+      abcClefOctaveShift('treble', 'tenor'),
+      abcClefOctaveShift('treble', 'bass'),
+    ]).toEqual([1, 1, 1, -1, -1, -1])
+    expect(abcClefOctaveShift('alto', 'treble')).toBe(0)
   })
 })

@@ -1,4 +1,5 @@
 export type AbcKeyMode = 'major' | 'minor'
+export type AbcClef = 'treble' | 'alto' | 'tenor' | 'bass'
 
 export type AbcKey = {
   id: string
@@ -97,6 +98,22 @@ export function parseAbcKey(notation: string): AbcKey | null {
   return (mode === 'major' ? MAJOR_KEYS : MINOR_KEYS).find((key) => key.tonic === tonic) ?? null
 }
 
+export function parseAbcClef(notation: string): AbcClef | null {
+  const keyLine = notation.match(/^K:\s*([^%\r\n]+)/m)?.[1]
+  const clef = keyLine?.match(
+    /(?:^|\s)(?:clef=)?(treble|alto|tenor|bass)(?:[+-](?:8|16))?(?!\S)/i,
+  )?.[1]
+  return clef ? (clef.toLowerCase() as AbcClef) : null
+}
+
+export function abcClefOctaveShift(from: AbcClef, to: AbcClef) {
+  if (from === 'bass' && (to === 'alto' || to === 'treble')) return 1
+  if (from === 'tenor' && to === 'treble') return 1
+  if (from === 'alto' && to === 'bass') return -1
+  if (from === 'treble' && (to === 'tenor' || to === 'bass')) return -1
+  return 0
+}
+
 export function abcKeyOptions(source: AbcKey): AbcKey[] {
   return source.mode === 'major' ? MAJOR_KEYS : MINOR_KEYS
 }
@@ -113,6 +130,17 @@ export function changeAbcMode(notation: string, targetMode: AbcKeyMode) {
       return `K:${spacing}${letter.toUpperCase()}${accidental}${targetMode === 'minor' ? 'm' : ''}${remainingFields}`
     },
   )
+}
+
+export function changeAbcClef(notation: string, clef: AbcClef) {
+  return notation.replace(/^K:(.*)$/m, (_field, contents: string) => {
+    const [fields = '', comment = ''] = contents.split(/(?=%)/, 2)
+    const withoutClef = fields.replace(
+      /\s+clef=(?:treble|alto|tenor|bass)(?:[+-](?:8|16))?\b/gi,
+      '',
+    )
+    return 'K:' + withoutClef.trimEnd() + ' clef=' + clef + (comment ? ' ' + comment : '')
+  })
 }
 
 function centeredRank(pitchClass: number, mode: AbcKeyMode) {
