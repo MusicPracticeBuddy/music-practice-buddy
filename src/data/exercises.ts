@@ -30,11 +30,41 @@ export type ExerciseLibrarySearchInput = {
   page: number
 }
 
+export type ExerciseCatalogRow = {
+  id: string
+  name: string
+  notationFormat: ExerciseNotationFormat
+  owner: string
+  copiedFrom: string | null
+  inLibrary: boolean
+}
+
+export type ExerciseCatalogSearchInput = {
+  query: string
+  notationFormat: 'ALL' | ExerciseNotationFormat
+  page: number
+}
+
+export type ExerciseCatalogPage = {
+  items: ExerciseCatalogRow[]
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+}
+
 export const EXERCISE_LIBRARY_PAGE_SIZE = 20
+export const EXERCISE_CATALOG_PAGE_SIZE = 25
 
 export const EMPTY_EXERCISE_LIBRARY_SEARCH: ExerciseLibrarySearchInput = {
   query: '',
   visibility: 'ALL',
+  notationFormat: 'ALL',
+  page: 1,
+}
+
+export const EMPTY_EXERCISE_CATALOG_SEARCH: ExerciseCatalogSearchInput = {
+  query: '',
   notationFormat: 'ALL',
   page: 1,
 }
@@ -138,6 +168,7 @@ export const getExerciseLibraryPage = createServerFn({ method: 'GET' })
     if (!Number.isInteger(input.page) || input.page < 1) throw new Error('Invalid page')
     return { ...input, query }
   })
+
   .handler(async ({ data, context }): Promise<ExerciseLibraryPage> => {
     const parameters: unknown[] = [context.user.musicianId]
     const conditions = [
@@ -210,6 +241,101 @@ export const getExerciseLibraryPage = createServerFn({ method: 'GET' })
       total,
       totalPages: Math.ceil(total / EXERCISE_LIBRARY_PAGE_SIZE),
     }
+  })
+
+export const getPublicExerciseCatalogPage = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .validator((input: ExerciseCatalogSearchInput) => {
+    const query = input.query.trim()
+    if (query.length > 200) throw new Error('Search text is too long')
+    if (input.notationFormat !== 'ALL' && !isExerciseNotationFormat(input.notationFormat)) {
+      throw new Error('Invalid notation format filter')
+    }
+    if (!Number.isInteger(input.page) || input.page < 1) throw new Error('Invalid page')
+    return { ...input, query }
+  })
+  .handler(async ({ data, context }): Promise<ExerciseCatalogPage> => {
+    const parameters: unknown[] = []
+    const conditions = [`exercise.visibility = 'PUBLIC'`, `exercise.deleted_at IS NULL`]
+    const parameter = (value: unknown) => {
+      parameters.push(value)
+      return `$${parameters.length}`
+    }
+    if (data.query) {
+      const substring = parameter(catalogSubstringPattern(data.query))
+      const fuzzyValue = data.query.length >= 4 ? parameter(data.query) : null
+      conditions.push(`(
+        exercise.name ILIKE ${substring} ESCAPE '\\'
+        ${fuzzyValue ? `OR CAST(${fuzzyValue} AS text) <<% CAST(exercise.name AS text)` : ''}
+      )`)
+    }
+    if (data.notationFormat !== 'ALL') {
+      conditions.push(`exercise.notation_format = ${parameter(data.notationFormat)}`)
+    }
+    const where = conditions.join('\n           AND ')
+    const countParameters = [...parameters]
+    const musicianId = parameter(context.user.musicianId)
+    const limit = parameter(EXERCISE_CATALOG_PAGE_SIZE)
+    const offset = parameter((data.page - 1) * EXERCISE_CATALOG_PAGE_SIZE)
+    const [countResult, result] = await Promise.all([
+      pool.query<{ total: number }>(
+        `SELECT count(*)::integer AS total FROM exercise WHERE ${where}`,
+        countParameters,
+      ),
+      pool.query<ExerciseCatalogRow>(
+        `SELECT
+           exercise.id::text,
+           COALESCE(exercise.name, 'Untitled exercise') AS name,
+           exercise.notation_format AS "notationFormat",
+           musician.display_name AS owner,
+           source.name AS "copiedFrom",
+           EXISTS (
+             SELECT 1 FROM musician_exercise_library library
+             WHERE library.exercise_id = exercise.id AND library.musician_id = ${musicianId}
+           ) AS "inLibrary"
+         FROM exercise
+         JOIN musician ON musician.id = exercise.musician_id
+         LEFT JOIN exercise source ON source.id = exercise.copied_from_exercise_id
+           AND source.deleted_at IS NULL
+           AND (source.visibility = 'PUBLIC' OR source.musician_id = ${musicianId})
+         WHERE ${where}
+         ORDER BY lower(exercise.name), exercise.id
+         LIMIT ${limit} OFFSET ${offset}`,
+        parameters,
+      ),
+    ])
+    const total = countResult.rows[0]?.total ?? 0
+    return {
+      items: result.rows,
+      page: data.page,
+      pageSize: EXERCISE_CATALOG_PAGE_SIZE,
+      total,
+      totalPages: Math.ceil(total / EXERCISE_CATALOG_PAGE_SIZE),
+    }
+  })
+
+export const addExerciseToLibrary = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .validator((exerciseId: string) => {
+    if (!/^\d+$/.test(exerciseId)) throw new Error('Invalid exercise')
+    return exerciseId
+  })
+  .handler(async ({ data: exerciseId, context }): Promise<{ id: string }> => {
+    const result = await pool.query<{ id: string }>(
+      `INSERT INTO musician_exercise_library (musician_id, exercise_id)
+       SELECT $1, exercise.id
+       FROM exercise
+       WHERE exercise.id = $2
+         AND exercise.visibility = 'PUBLIC'
+         AND exercise.deleted_at IS NULL
+       ON CONFLICT (musician_id, exercise_id) DO UPDATE
+         SET musician_id = EXCLUDED.musician_id
+       RETURNING exercise_id::text AS id`,
+      [context.user.musicianId, exerciseId],
+    )
+    const exercise = result.rows[0]
+    if (!exercise) throw new Error('Exercise not found')
+    return exercise
   })
 
 export const getExerciseDetail = createServerFn({ method: 'GET' })

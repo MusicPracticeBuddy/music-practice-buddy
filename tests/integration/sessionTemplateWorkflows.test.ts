@@ -3,11 +3,14 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { pool } from '@/data/db'
 import { createDevelopmentUser } from '@/data/auth'
 import {
+  EMPTY_EXERCISE_CATALOG_SEARCH,
   EMPTY_EXERCISE_LIBRARY_SEARCH,
+  addExerciseToLibrary,
   createExercise,
   deleteExercise,
   getExerciseLibraryPage,
   getExercises,
+  getPublicExerciseCatalogPage,
   updateExercise,
 } from '@/data/exercises'
 import {
@@ -122,6 +125,61 @@ beforeEach(async () => {
 afterAll(() => pool.end())
 
 describe('library item persistence', () => {
+  it('searches and paginates public exercises and adds them to My Library', async () => {
+    const publisher = await pool.query<{ id: string }>(
+      `INSERT INTO musician (display_name) VALUES ('Exercise publisher') RETURNING id::text`,
+    )
+    await pool.query(
+      `INSERT INTO exercise (musician_id, name, notation_format, visibility)
+       SELECT $1,
+         CASE WHEN number = 27 THEN 'Chromatic scale study'
+              ELSE 'Public exercise ' || lpad(number::text, 2, '0') END,
+         CASE WHEN number % 2 = 0 THEN 'abc' ELSE 'text' END,
+         'PUBLIC'
+       FROM generate_series(1, 27) number`,
+      [publisher.rows[0]!.id],
+    )
+    const privateExercise = await pool.query<{ id: string }>(
+      `INSERT INTO exercise (musician_id, name, visibility)
+       VALUES ($1, 'Private publisher exercise', 'PRIVATE') RETURNING id::text`,
+      [publisher.rows[0]!.id],
+    )
+
+    const firstPage = await getPublicExerciseCatalogPage({
+      data: EMPTY_EXERCISE_CATALOG_SEARCH,
+    })
+    const secondPage = await getPublicExerciseCatalogPage({
+      data: { ...EMPTY_EXERCISE_CATALOG_SEARCH, page: 2 },
+    })
+    expect(firstPage).toMatchObject({ page: 1, pageSize: 25, total: 27, totalPages: 2 })
+    expect(firstPage.items).toHaveLength(25)
+    expect(secondPage.items).toHaveLength(2)
+    expect(
+      await getPublicExerciseCatalogPage({
+        data: { ...EMPTY_EXERCISE_CATALOG_SEARCH, notationFormat: 'abc' },
+      }),
+    ).toMatchObject({ total: 13 })
+
+    const fuzzyResult = await getPublicExerciseCatalogPage({
+      data: { ...EMPTY_EXERCISE_CATALOG_SEARCH, query: 'chromtic' },
+    })
+    expect(fuzzyResult).toMatchObject({
+      total: 1,
+      items: [expect.objectContaining({ name: 'Chromatic scale study', inLibrary: false })],
+    })
+    expect(await addExerciseToLibrary({ data: fuzzyResult.items[0]!.id })).toEqual({
+      id: fuzzyResult.items[0]!.id,
+    })
+    expect(
+      await getPublicExerciseCatalogPage({
+        data: { ...EMPTY_EXERCISE_CATALOG_SEARCH, query: 'chromtic' },
+      }),
+    ).toMatchObject({ items: [expect.objectContaining({ inLibrary: true })] })
+    await expect(addExerciseToLibrary({ data: privateExercise.rows[0]!.id })).rejects.toThrow(
+      'Exercise not found',
+    )
+  })
+
   it('paginates repertoire and exercises in My Library on the server', async () => {
     await pool.query(
       `WITH inserted AS (

@@ -299,8 +299,11 @@ function Library() {
               <span class="count-badge">{exercises().total} exercises</span>
             </div>
             <div class="library-section-actions">
-              <Link class="primary-button" to="/exercises/new">
-                + Add exercise
+              <Link class="secondary-button" to="/exercises/new">
+                + Create exercise
+              </Link>
+              <Link class="primary-button" to="/exercises/search">
+                Find exercises
               </Link>
             </div>
           </header>
