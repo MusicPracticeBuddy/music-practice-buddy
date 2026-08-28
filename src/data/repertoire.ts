@@ -89,7 +89,25 @@ export type CatalogRepertoireRow = {
   composers: { id: string; name: string }[]
   instruments: { id: string; name: string }[]
   inLibrary: boolean
+  ownedByUser?: boolean
   children: CatalogRepertoireRow[]
+}
+
+export type OwnedRepertoireRow = {
+  id: string
+  title: string
+  visibility: Visibility
+  status: string
+  composer: string
+  inLibrary: boolean
+}
+
+export type OwnedRepertoirePage = {
+  items: OwnedRepertoireRow[]
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
 }
 
 export type CatalogInstrumentMatch = 'ANY' | 'ALL'
@@ -286,7 +304,7 @@ export const getInstruments = createServerFn({ method: 'GET' })
 
 export const getCatalogComposers = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
-  .handler(async (): Promise<CatalogComposerOption[]> => {
+  .handler(async ({ context }): Promise<CatalogComposerOption[]> => {
     const result = await pool.query<CatalogComposerOption>(
       `SELECT DISTINCT person.id::text, person.name
        FROM person
@@ -294,10 +312,20 @@ export const getCatalogComposers = createServerFn({ method: 'GET' })
        JOIN repertoire ON repertoire.id = credit.repertoire_id
        WHERE credit.role = 'COMPOSER'
          AND repertoire.parent_repertoire_id IS NULL
-         AND repertoire.visibility = 'PUBLIC'
          AND repertoire.status = 'APPROVED'
          AND repertoire.deleted_at IS NULL
+         AND (
+           repertoire.visibility = 'PUBLIC'
+           OR (
+             repertoire.owner_musician_id = $1
+             AND NOT EXISTS (
+               SELECT 1 FROM musician_repertoire_library library
+               WHERE library.repertoire_id = repertoire.id AND library.musician_id = $1
+             )
+           )
+         )
        ORDER BY person.name`,
+      [context.user.musicianId],
     )
     return result.rows
   })
@@ -339,9 +367,19 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
     const parameters: unknown[] = [context.user.musicianId]
     const conditions = [
       `repertoire.parent_repertoire_id IS NULL`,
-      `repertoire.visibility = 'PUBLIC'`,
       `repertoire.status = 'APPROVED'`,
       `repertoire.deleted_at IS NULL`,
+      `(
+        repertoire.visibility = 'PUBLIC'
+        OR (
+          repertoire.owner_musician_id = $1
+          AND NOT EXISTS (
+            SELECT 1 FROM musician_repertoire_library owned_library
+            WHERE owned_library.repertoire_id = repertoire.id
+              AND owned_library.musician_id = $1
+          )
+        )
+      )`,
     ]
     const parameter = (value: unknown) => {
       parameters.push(value)
@@ -493,7 +531,8 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
            EXISTS (
              SELECT 1 FROM musician_repertoire_library library
              WHERE library.repertoire_id = repertoire.id AND library.musician_id = $1
-           ) AS "inLibrary"
+           ) AS "inLibrary",
+           root.owner_musician_id = $1 AS "ownedByUser"
          FROM repertoire
          JOIN page_catalog ON page_catalog.id = repertoire.id
          JOIN repertoire root ON root.id = page_catalog.root_id
@@ -605,7 +644,7 @@ export const getPublicRepertoireCatalog = createServerFn({ method: 'GET' })
     return roots
   })
 
-export const addPublicRepertoireToLibrary = createServerFn({ method: 'POST' })
+export const addRepertoireToLibrary = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .validator((repertoireId: string) => {
     if (!/^\d+$/.test(repertoireId)) throw new Error('Invalid repertoire')
@@ -613,23 +652,26 @@ export const addPublicRepertoireToLibrary = createServerFn({ method: 'POST' })
   })
   .handler(async ({ data: repertoireId, context }): Promise<{ id: string }> => {
     const result = await pool.query<{ id: string }>(
-      `WITH RECURSIVE public_catalog AS (
-         SELECT id
+      `WITH RECURSIVE accessible_repertoire AS (
+         SELECT id, owner_musician_id
          FROM repertoire
          WHERE parent_repertoire_id IS NULL
-           AND visibility = 'PUBLIC'
-           AND status = 'APPROVED'
            AND deleted_at IS NULL
+           AND (
+             owner_musician_id = $1
+             OR (visibility = 'PUBLIC' AND status = 'APPROVED')
+           )
          UNION ALL
-         SELECT child.id
+         SELECT child.id, parent.owner_musician_id
          FROM repertoire child
-         JOIN public_catalog parent ON parent.id = child.parent_repertoire_id
-         WHERE child.status = 'APPROVED' AND child.deleted_at IS NULL
+         JOIN accessible_repertoire parent ON parent.id = child.parent_repertoire_id
+         WHERE child.deleted_at IS NULL
+           AND (parent.owner_musician_id = $1 OR child.status = 'APPROVED')
        )
        INSERT INTO musician_repertoire_library (musician_id, repertoire_id)
        SELECT $1, repertoire.id
        FROM repertoire
-       JOIN public_catalog ON public_catalog.id = repertoire.id
+       JOIN accessible_repertoire ON accessible_repertoire.id = repertoire.id
        WHERE repertoire.id = $2
        ON CONFLICT (musician_id, repertoire_id) DO UPDATE
          SET musician_id = EXCLUDED.musician_id
@@ -637,8 +679,62 @@ export const addPublicRepertoireToLibrary = createServerFn({ method: 'POST' })
       [context.user.musicianId, repertoireId],
     )
     const repertoire = result.rows[0]
-    if (!repertoire) throw new Error('Public repertoire item not found')
+    if (!repertoire) throw new Error('Repertoire item not found')
     return repertoire
+  })
+
+export const getOwnedRepertoirePage = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .validator((page: number) => {
+    if (!Number.isInteger(page) || page < 1) throw new Error('Invalid page')
+    return page
+  })
+  .handler(async ({ data: page, context }): Promise<OwnedRepertoirePage> => {
+    const offset = (page - 1) * CATALOG_PAGE_SIZE
+    const [countResult, result] = await Promise.all([
+      pool.query<{ total: number }>(
+        `SELECT count(*)::integer AS total
+         FROM repertoire
+         WHERE parent_repertoire_id IS NULL
+           AND owner_musician_id = $1
+           AND external_id IS NULL
+           AND deleted_at IS NULL`,
+        [context.user.musicianId],
+      ),
+      pool.query<OwnedRepertoireRow>(
+        `SELECT
+           repertoire.id::text,
+           repertoire.title,
+           repertoire.visibility::text,
+           repertoire.status::text,
+           COALESCE((
+             SELECT string_agg(person.name, ', ' ORDER BY credit.position NULLS LAST, person.name)
+             FROM repertoire_credit credit
+             JOIN person ON person.id = credit.person_id
+             WHERE credit.repertoire_id = repertoire.id AND credit.role = 'COMPOSER'
+           ), 'Unknown composer') AS composer,
+           EXISTS (
+             SELECT 1 FROM musician_repertoire_library library
+             WHERE library.repertoire_id = repertoire.id AND library.musician_id = $1
+           ) AS "inLibrary"
+         FROM repertoire
+         WHERE repertoire.parent_repertoire_id IS NULL
+           AND repertoire.owner_musician_id = $1
+           AND repertoire.external_id IS NULL
+           AND repertoire.deleted_at IS NULL
+         ORDER BY lower(repertoire.title), repertoire.id
+         LIMIT $2 OFFSET $3`,
+        [context.user.musicianId, CATALOG_PAGE_SIZE, offset],
+      ),
+    ])
+    const total = countResult.rows[0]?.total ?? 0
+    return {
+      items: result.rows,
+      page,
+      pageSize: CATALOG_PAGE_SIZE,
+      total,
+      totalPages: Math.ceil(total / CATALOG_PAGE_SIZE),
+    }
   })
 
 const ACCESS_CTE = `

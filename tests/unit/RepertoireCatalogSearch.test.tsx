@@ -15,7 +15,7 @@ vi.mock('@tanstack/solid-router', () => ({
 }))
 
 vi.mock('../../src/data/repertoire', () => ({
-  addPublicRepertoireToLibrary: mocks.addToLibrary,
+  addRepertoireToLibrary: mocks.addToLibrary,
   getPublicRepertoireCatalogPage: mocks.searchCatalog,
 }))
 

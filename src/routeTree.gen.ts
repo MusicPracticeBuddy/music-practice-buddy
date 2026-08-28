@@ -20,6 +20,7 @@ import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as ExercisesExerciseIdRouteImport } from './routes/exercises/$exerciseId'
 import { Route as ExercisesNewRouteImport } from './routes/exercises/new'
 import { Route as RepertoireRepertoireIdRouteImport } from './routes/repertoire/$repertoireId'
+import { Route as RepertoireOwnedRouteImport } from './routes/repertoire/owned'
 import { Route as RepertoireSearchRouteImport } from './routes/repertoire/search'
 import { Route as SessionsIndexRouteImport } from './routes/sessions/index'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessionId'
@@ -85,6 +86,11 @@ const ExercisesNewRoute = ExercisesNewRouteImport.update({
 const RepertoireRepertoireIdRoute = RepertoireRepertoireIdRouteImport.update({
   id: '/$repertoireId',
   path: '/$repertoireId',
+  getParentRoute: () => RepertoireRoute,
+} as any)
+const RepertoireOwnedRoute = RepertoireOwnedRouteImport.update({
+  id: '/owned',
+  path: '/owned',
   getParentRoute: () => RepertoireRoute,
 } as any)
 const RepertoireSearchRoute = RepertoireSearchRouteImport.update({
@@ -156,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/exercises/$exerciseId': typeof ExercisesExerciseIdRoute
   '/exercises/new': typeof ExercisesNewRoute
   '/repertoire/$repertoireId': typeof RepertoireRepertoireIdRoute
+  '/repertoire/owned': typeof RepertoireOwnedRoute
   '/repertoire/search': typeof RepertoireSearchRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/sessions/new': typeof SessionsNewRoute
@@ -178,6 +185,7 @@ export interface FileRoutesByTo {
   '/exercises/$exerciseId': typeof ExercisesExerciseIdRoute
   '/exercises/new': typeof ExercisesNewRoute
   '/repertoire/$repertoireId': typeof RepertoireRepertoireIdRoute
+  '/repertoire/owned': typeof RepertoireOwnedRoute
   '/repertoire/search': typeof RepertoireSearchRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/sessions/new': typeof SessionsNewRoute
@@ -203,6 +211,7 @@ export interface FileRoutesById {
   '/exercises/$exerciseId': typeof ExercisesExerciseIdRoute
   '/exercises/new': typeof ExercisesNewRoute
   '/repertoire/$repertoireId': typeof RepertoireRepertoireIdRoute
+  '/repertoire/owned': typeof RepertoireOwnedRoute
   '/repertoire/search': typeof RepertoireSearchRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/sessions/new': typeof SessionsNewRoute
@@ -229,6 +238,7 @@ export interface FileRouteTypes {
     | '/exercises/$exerciseId'
     | '/exercises/new'
     | '/repertoire/$repertoireId'
+    | '/repertoire/owned'
     | '/repertoire/search'
     | '/sessions/$sessionId'
     | '/sessions/new'
@@ -251,6 +261,7 @@ export interface FileRouteTypes {
     | '/exercises/$exerciseId'
     | '/exercises/new'
     | '/repertoire/$repertoireId'
+    | '/repertoire/owned'
     | '/repertoire/search'
     | '/sessions/$sessionId'
     | '/sessions/new'
@@ -275,6 +286,7 @@ export interface FileRouteTypes {
     | '/exercises/$exerciseId'
     | '/exercises/new'
     | '/repertoire/$repertoireId'
+    | '/repertoire/owned'
     | '/repertoire/search'
     | '/sessions/$sessionId'
     | '/sessions/new'
@@ -378,6 +390,13 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof RepertoireRepertoireIdRouteImport
       parentRoute: typeof RepertoireRoute
     }
+    '/repertoire/owned': {
+      id: '/repertoire/owned'
+      path: '/owned'
+      fullPath: '/repertoire/owned'
+      preLoaderRoute: typeof RepertoireOwnedRouteImport
+      parentRoute: typeof RepertoireRoute
+    }
     '/repertoire/search': {
       id: '/repertoire/search'
       path: '/search'
@@ -476,12 +495,14 @@ const ExercisesRouteWithChildren = ExercisesRoute._addFileChildren(
 
 interface RepertoireRouteChildren {
   RepertoireRepertoireIdRoute: typeof RepertoireRepertoireIdRoute
+  RepertoireOwnedRoute: typeof RepertoireOwnedRoute
   RepertoireSearchRoute: typeof RepertoireSearchRoute
   RepertoireRepertoireIdEditRoute: typeof RepertoireRepertoireIdEditRoute
 }
 
 const RepertoireRouteChildren: RepertoireRouteChildren = {
   RepertoireRepertoireIdRoute: RepertoireRepertoireIdRoute,
+  RepertoireOwnedRoute: RepertoireOwnedRoute,
   RepertoireSearchRoute: RepertoireSearchRoute,
   RepertoireRepertoireIdEditRoute: RepertoireRepertoireIdEditRoute,
 }

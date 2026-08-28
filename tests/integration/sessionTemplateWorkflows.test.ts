@@ -5,11 +5,12 @@ import { createDevelopmentUser } from '@/data/auth'
 import { createExercise, deleteExercise, getExercises, updateExercise } from '@/data/exercises'
 import {
   EMPTY_CATALOG_SEARCH,
-  addPublicRepertoireToLibrary,
+  addRepertoireToLibrary,
   createRepertoire,
   deleteRepertoire,
   getPublicRepertoireCatalog,
   getPublicRepertoireCatalogPage,
+  getOwnedRepertoirePage,
   getRepertoire,
   getRepertoireDetail,
   updateRepertoireLibraryNote,
@@ -305,8 +306,27 @@ describe('library item persistence', () => {
     )
 
     const firstPage = await getPublicRepertoireCatalogPage({ data: EMPTY_CATALOG_SEARCH })
-    expect(firstPage).toMatchObject({ page: 1, pageSize: 25, total: 28, totalPages: 2 })
+    expect(firstPage).toMatchObject({ page: 1, pageSize: 25, total: 29, totalPages: 2 })
     expect(firstPage.items).toHaveLength(25)
+    expect(
+      await getPublicRepertoireCatalogPage({
+        data: { ...EMPTY_CATALOG_SEARCH, query: 'Test repertoire' },
+      }),
+    ).toMatchObject({
+      total: 1,
+      items: [
+        expect.objectContaining({
+          id: repertoireId,
+          title: 'Test repertoire',
+          inLibrary: false,
+          ownedByUser: true,
+        }),
+      ],
+    })
+    expect(await getOwnedRepertoirePage({ data: 1 })).toMatchObject({
+      total: 1,
+      items: [expect.objectContaining({ id: repertoireId, inLibrary: false })],
+    })
     expect(
       await getPublicRepertoireCatalogPage({
         data: { ...EMPTY_CATALOG_SEARCH, query: 'Cat' },
@@ -315,18 +335,26 @@ describe('library item persistence', () => {
     expect(firstPage.items.find((item) => item.title === 'Catalog Work 01')?.children).toEqual([
       expect.objectContaining({ title: 'Catalog Work 01 - First movement' }),
     ])
-    expect(await addPublicRepertoireToLibrary({ data: catalogChild.rows[0]!.id })).toEqual({
+    expect(await addRepertoireToLibrary({ data: catalogChild.rows[0]!.id })).toEqual({
       id: catalogChild.rows[0]!.id,
     })
     const childLibraryEntry = await pool.query<{ repertoireId: string }>(
       `SELECT repertoire_id::text AS "repertoireId"
        FROM musician_repertoire_library
-       WHERE musician_id = 1`,
+       WHERE musician_id = 1
+         AND repertoire_id IN ($1, (SELECT parent_repertoire_id FROM repertoire WHERE id = $1))`,
+      [catalogChild.rows[0]!.id],
     )
     expect(childLibraryEntry.rows).toEqual([{ repertoireId: catalogChild.rows[0]!.id }])
-    await expect(addPublicRepertoireToLibrary({ data: repertoireId })).rejects.toThrow(
-      'Public repertoire item not found',
-    )
+    expect(await addRepertoireToLibrary({ data: repertoireId })).toEqual({ id: repertoireId })
+    expect(await getOwnedRepertoirePage({ data: 1 })).toMatchObject({
+      items: [expect.objectContaining({ id: repertoireId, inLibrary: true })],
+    })
+    expect(
+      await getPublicRepertoireCatalogPage({
+        data: { ...EMPTY_CATALOG_SEARCH, query: 'Test repertoire' },
+      }),
+    ).toMatchObject({ total: 0, items: [] })
     expect(
       await getPublicRepertoireCatalogPage({
         data: { ...EMPTY_CATALOG_SEARCH, query: 'First movement' },

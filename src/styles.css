@@ -652,6 +652,11 @@ h1 {
   font-size: 19px;
 }
 
+.catalog-owned-tag {
+  display: inline-block;
+  margin: 0 0 6px;
+}
+
 .catalog-result-card p {
   margin-bottom: 4px;
   color: var(--muted);

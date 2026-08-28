@@ -34,7 +34,7 @@ function SearchRepertoire() {
           <p class="lede">
             {creating()
               ? 'Add a work that is not yet available in the public catalog.'
-              : 'Search the public catalog, then add existing works to your library.'}
+              : 'Search public works and repertoire you own but have not added to your library.'}
           </p>
         </div>
         <Show

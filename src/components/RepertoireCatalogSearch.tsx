@@ -1,7 +1,7 @@
 import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useRouter } from '@tanstack/solid-router'
 import {
-  addPublicRepertoireToLibrary,
+  addRepertoireToLibrary,
   type CatalogComposerOption,
   type CatalogInstrumentMatch,
   type CatalogRepertoireRow,
@@ -101,7 +101,7 @@ export function RepertoireCatalogSearch(props: {
     setAddingId(item.id)
     setError('')
     try {
-      await addPublicRepertoireToLibrary({ data: item.id })
+      await addRepertoireToLibrary({ data: item.id })
       setAddedIds((ids) => [...ids, item.id])
       await router.invalidate({ sync: true })
     } catch (caught) {
@@ -241,7 +241,7 @@ export function RepertoireCatalogSearch(props: {
       <section class="catalog-results" aria-live="polite" aria-busy={loading()}>
         <header>
           <div>
-            <p class="eyebrow">Public catalog</p>
+            <p class="eyebrow">Repertoire catalog</p>
             <h2>{results().total} matching works</h2>
           </div>
           <Show when={results().total > 0}>
@@ -269,6 +269,9 @@ export function RepertoireCatalogSearch(props: {
                   <div class="catalog-result-summary">
                     <div>
                       <h3>{item.title}</h3>
+                      <Show when={item.ownedByUser && !inLibrary()}>
+                        <span class="tag catalog-owned-tag">Owned by you · Not in My Library</span>
+                      </Show>
                       <p>
                         {item.composers.map((composer) => composer.name).join(', ') ||
                           'Unknown composer'}
