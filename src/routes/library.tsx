@@ -435,6 +435,9 @@ function ExerciseLibraryCard(props: {
   number: number
   onRemove: () => Promise<void>
 }) {
+  const [expanded, setExpanded] = createSignal(false)
+  const notationId = `library-exercise-notation-${props.exercise.id}`
+
   return (
     <article class="list-card exercise-library-card">
       <span class="list-number">{String(props.number).padStart(2, '0')}</span>
@@ -448,11 +451,24 @@ function ExerciseLibraryCard(props: {
             {props.exercise.name}
           </Link>
         </h2>
-        <Show when={props.exercise.notation} fallback={<p>No notation added yet.</p>}>
-          <ExerciseNotation
-            notation={props.exercise.notation ?? ''}
-            format={props.exercise.notationFormat}
-          />
+        <Show when={props.exercise.notation}>
+          <button
+            class="text-button exercise-notation-toggle"
+            type="button"
+            aria-expanded={expanded()}
+            aria-controls={notationId}
+            onClick={() => setExpanded((value) => !value)}
+          >
+            {expanded() ? 'Hide notation' : 'Show notation'}
+          </button>
+          <Show when={expanded()}>
+            <div id={notationId} class="exercise-library-notation">
+              <ExerciseNotation
+                notation={props.exercise.notation ?? ''}
+                format={props.exercise.notationFormat}
+              />
+            </div>
+          </Show>
         </Show>
         {props.exercise.copiedFrom && <small>Adapted from {props.exercise.copiedFrom}</small>}
         <div class="library-section-actions exercise-library-actions">

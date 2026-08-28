@@ -900,6 +900,14 @@ h1 {
   text-underline-offset: 4px;
 }
 
+.exercise-notation-toggle {
+  margin-top: 4px;
+}
+
+.exercise-library-notation {
+  margin-top: 16px;
+}
+
 .exercise-library-actions {
   margin-top: 18px;
 }
