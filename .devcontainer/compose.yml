@@ -1,0 +1,51 @@
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/javascript-node:24-bookworm
+    init: true
+    command: sleep infinity
+
+    environment:
+      AUTH_DEV_LOGIN_ENABLED: ${AUTH_DEV_LOGIN_ENABLED:-true}
+      PGHOST: postgres
+      PGPORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-music_practice}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-music_practice}
+      POSTGRES_DB: ${POSTGRES_DB:-music_practice}
+
+    volumes:
+      # Compose resolves paths relative to the first file (the repository's compose.yml).
+      - .:/workspaces/music_practice:cached
+      - node_modules:/workspaces/music_practice/node_modules
+
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+
+  postgres:
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-music_practice}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-music_practice}
+      POSTGRES_DB: ${POSTGRES_DB:-music_practice}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-music_practice} -d ${POSTGRES_DB:-music_practice}
+
+  flyway:
+    command:
+      - -url=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-music_practice}
+      - -user=${POSTGRES_USER:-music_practice}
+      - -password=${POSTGRES_PASSWORD:-music_practice}
+      - -locations=filesystem:/flyway/sql
+      - migrate
+
+  seed:
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-music_practice}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-music_practice}
+      PGDATABASE: ${POSTGRES_DB:-music_practice}
+
+volumes:
+  node_modules:

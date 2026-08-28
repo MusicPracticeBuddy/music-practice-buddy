@@ -1,0 +1,24 @@
+{
+  "name": "Music Practice Buddy",
+  "dockerComposeFile": ["../compose.yml", "compose.yml"],
+  "service": "app",
+  "workspaceFolder": "/workspaces/music_practice",
+  "runServices": ["app"],
+  "shutdownAction": "stopCompose",
+  "remoteUser": "node",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+  "forwardPorts": [3000, "postgres:5432"],
+  "portsAttributes": {
+    "3000": {
+      "label": "Music Practice Buddy",
+      "onAutoForward": "openBrowser"
+    },
+    "5432": {
+      "label": "PostgreSQL",
+      "onAutoForward": "silent"
+    }
+  },
+  "postCreateCommand": "sudo chown node:node node_modules && npm ci"
+}
