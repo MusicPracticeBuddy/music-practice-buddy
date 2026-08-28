@@ -1,12 +1,8 @@
-import { For, Show } from 'solid-js'
+import { Show } from 'solid-js'
 import { Link, createFileRoute, notFound, useNavigate } from '@tanstack/solid-router'
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
-import {
-  deleteSessionTemplate,
-  getSessionTemplate,
-  type SessionTemplateDetail,
-  type TemplateItemInput,
-} from '@/data/sessionTemplates'
+import { PracticePlanOutline } from '@/components/PracticePlanOutline'
+import { deleteSessionTemplate, getSessionTemplate } from '@/data/sessionTemplates'
 import { PRACTICE_ITEM_TYPE } from '@/domain/session'
 
 export const Route = createFileRoute('/templates/$templateId')({
@@ -24,26 +20,9 @@ export const Route = createFileRoute('/templates/$templateId')({
   ),
 })
 
-type TemplateNode = TemplateItemInput & { children: TemplateNode[] }
-
-function buildTree(template: SessionTemplateDetail): TemplateNode[] {
-  const nodes = new Map<string, TemplateNode>()
-  const roots: TemplateNode[] = []
-  for (const item of template.items) nodes.set(item.clientId, { ...item, children: [] })
-  for (const item of template.items) {
-    const node = nodes.get(item.clientId)
-    if (!node) continue
-    const parent = item.parentClientId ? nodes.get(item.parentClientId) : undefined
-    if (parent) parent.children.push(node)
-    else roots.push(node)
-  }
-  return roots
-}
-
 function TemplateDetail() {
   const template = Route.useLoaderData()
   const navigate = useNavigate()
-  const tree = () => buildTree(template())
   const practiceItemCount = () =>
     template().items.filter((item) => item.type !== PRACTICE_ITEM_TYPE.SECTION).length
 
@@ -91,7 +70,7 @@ function TemplateDetail() {
       </header>
 
       <Show
-        when={tree().length > 0}
+        when={template().items.length > 0}
         fallback={
           <section class="empty-state">
             <h2>Empty template</h2>
@@ -99,51 +78,18 @@ function TemplateDetail() {
           </section>
         }
       >
-        <section class="session-outline" aria-label="Template contents">
-          <For each={tree()}>{(item) => <TemplateOutlineItem item={item} />}</For>
-        </section>
+        <PracticePlanOutline
+          items={template().items.map((item) => ({
+            id: item.clientId,
+            parentId: item.parentClientId,
+            type: item.type,
+            name: item.name,
+            instruction: item.instruction || null,
+            notation: item.notation ?? null,
+            notationFormat: item.notationFormat ?? null,
+          }))}
+        />
       </Show>
     </main>
-  )
-}
-
-function TemplateOutlineItem(props: { item: TemplateNode }) {
-  if (props.item.type === PRACTICE_ITEM_TYPE.SECTION) {
-    return (
-      <section class="practice-section">
-        <div class="practice-section-header template-section-header">
-          <div>
-            <h2>{props.item.name}</h2>
-          </div>
-          <span>{props.item.children.length} items</span>
-        </div>
-        <Show when={props.item.instruction}>
-          <div class="practice-instruction">
-            <strong>Instruction</strong>
-            <p>{props.item.instruction}</p>
-          </div>
-        </Show>
-        <div class="practice-items">
-          <For each={props.item.children}>{(child) => <TemplateOutlineItem item={child} />}</For>
-        </div>
-      </section>
-    )
-  }
-
-  return (
-    <article class="practice-item template-outline-item">
-      <div class="practice-item-toggle">
-        <div>
-          <h3>{props.item.name}</h3>
-          <Show when={props.item.instruction}>
-            <div class="practice-instruction">
-              <strong>Instruction</strong>
-              <p>{props.item.instruction}</p>
-            </div>
-          </Show>
-        </div>
-        <span class="item-type">{props.item.type.toLowerCase()}</span>
-      </div>
-    </article>
   )
 }

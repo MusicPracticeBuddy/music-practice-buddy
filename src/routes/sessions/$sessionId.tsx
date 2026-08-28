@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
+import { Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
 import { createStore } from 'solid-js/store'
 import {
   Link,
@@ -9,9 +9,8 @@ import {
   useRouter,
 } from '@tanstack/solid-router'
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
+import { PracticePlanOutline } from '@/components/PracticePlanOutline'
 import { PracticeLibraryPanel } from '@/components/PracticeLibraryPanel'
-import { SessionExerciseNotation } from '@/components/SessionExerciseNotation'
-import { SessionRepertoireRandomizer } from '@/components/SessionRepertoireRandomizer'
 import {
   addRunningSessionItem,
   completePracticeSession,
@@ -27,7 +26,6 @@ import {
   type SessionDetail,
   type SessionDetailItem,
   type SessionItemAction,
-  type SessionItemStatus,
   type SessionProgressUpdate,
   type SessionTimingMode,
 } from '@/data/sessions'
@@ -40,9 +38,6 @@ import {
   SESSION_STATUS,
   SESSION_TIMING_MODE,
   isLibraryItemType,
-  isResolvedSessionItemStatus,
-  appendKeyToSessionNote,
-  appendRepertoireChildToSessionNote,
   type LibraryItemType,
 } from '@/domain/session'
 
@@ -88,27 +83,6 @@ function practiceDescendants(item: SessionItemNode) {
   return descendants(item).filter((child) => child.type !== PRACTICE_ITEM_TYPE.SECTION)
 }
 
-function derivedSectionStatus(item: SessionItemNode): SessionItemStatus {
-  const children = practiceDescendants(item)
-  if (children.length === 0) return SESSION_ITEM_STATUS.NOT_STARTED
-  if (children.every((child) => child.status === SESSION_ITEM_STATUS.SKIPPED)) {
-    return SESSION_ITEM_STATUS.SKIPPED
-  }
-  if (children.every((child) => isResolvedSessionItemStatus(child.status))) {
-    return SESSION_ITEM_STATUS.COMPLETE
-  }
-  if (
-    children.some(
-      (child) =>
-        child.status === SESSION_ITEM_STATUS.IN_PROGRESS ||
-        child.status === SESSION_ITEM_STATUS.COMPLETE,
-    )
-  ) {
-    return SESSION_ITEM_STATUS.IN_PROGRESS
-  }
-  return SESSION_ITEM_STATUS.NOT_STARTED
-}
-
 function formatDate(value: string | null) {
   if (!value) return 'Not scheduled'
   return new Intl.DateTimeFormat(undefined, {
@@ -141,13 +115,6 @@ function localDate() {
   return `${year}-${month}-${day}`
 }
 
-function statusLabel(status: SessionItemStatus) {
-  return status
-    .replace('_', ' ')
-    .toLowerCase()
-    .replace(/^./, (character) => character.toUpperCase())
-}
-
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'The session could not be updated.'
 }
@@ -155,24 +122,6 @@ function errorMessage(error: unknown) {
 function dragLibraryItem(event: DragEvent, item: TemplateLibraryItem) {
   event.dataTransfer?.setData('application/x-practice-library-item', JSON.stringify(item))
   if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy'
-}
-
-function StatusIndicator(props: { status: SessionItemStatus }) {
-  const icon = () => {
-    if (props.status === SESSION_ITEM_STATUS.COMPLETE) return '✓'
-    if (props.status === SESSION_ITEM_STATUS.SKIPPED) return '—'
-    if (props.status === SESSION_ITEM_STATUS.IN_PROGRESS) return '◐'
-    return '○'
-  }
-  return (
-    <span
-      class={`item-state item-state-${props.status.toLowerCase().replace('_', '-')}`}
-      aria-label={statusLabel(props.status)}
-      title={statusLabel(props.status)}
-    >
-      {icon()}
-    </span>
-  )
 }
 
 function SessionDetailPage() {
@@ -805,23 +754,17 @@ function SessionDetailPage() {
               </section>
             }
           >
-            <section class="session-outline" aria-label="Session contents">
-              <For each={itemTree()}>
-                {(item) => (
-                  <SessionItem
-                    item={item}
-                    sessionActive={session.status === SESSION_STATUS.IN_PROGRESS}
-                    addingItem={addingItem()}
-                    timingMode={session.timingMode}
-                    hasActiveItem={hasActiveItem()}
-                    onAction={queueAction}
-                    onRemove={removeItem}
-                    onUpdateSessionNote={updateItemSessionNote}
-                    onDropLibraryItem={dropLibraryItem}
-                  />
-                )}
-              </For>
-            </section>
+            <PracticePlanOutline
+              items={session.items}
+              sessionActive={session.status === SESSION_STATUS.IN_PROGRESS}
+              addingItem={addingItem()}
+              timingMode={session.timingMode}
+              hasActiveItem={hasActiveItem()}
+              onAction={queueAction}
+              onRemove={removeItem}
+              onUpdateSessionNote={updateItemSessionNote}
+              onDropLibraryItem={dropLibraryItem}
+            />
           </Show>
           <Show when={addingItem()}>
             <div
@@ -900,325 +843,6 @@ function SessionDetailPage() {
 
 function flattenTree(items: SessionItemNode[]): SessionItemNode[] {
   return items.flatMap((item) => [item, ...flattenTree(item.children)])
-}
-
-function SessionItem(props: {
-  item: SessionItemNode
-  sessionActive: boolean
-  addingItem: boolean
-  timingMode: SessionTimingMode | null
-  hasActiveItem: boolean
-  onAction: (itemId: string, action: SessionItemAction) => void
-  onRemove: (itemId: string) => Promise<boolean>
-  onUpdateSessionNote: (itemId: string, sessionNote: string) => Promise<boolean>
-  onDropLibraryItem: (event: DragEvent, parentId: string | null) => void
-}) {
-  const isSection = props.item.type === PRACTICE_ITEM_TYPE.SECTION
-  const [expanded, setExpanded] = createSignal(isSection)
-  const [editingSessionNote, setEditingSessionNote] = createSignal(false)
-  const [sessionNoteDraft, setSessionNoteDraft] = createSignal(props.item.sessionNote ?? '')
-  const [savingSessionNote, setSavingSessionNote] = createSignal(false)
-  const contentId = `session-item-${props.item.id}-content`
-  const sessionNoteId = `session-item-${props.item.id}-session-note`
-  let sessionNoteElement: HTMLTextAreaElement | undefined
-  const status = () => (isSection ? derivedSectionStatus(props.item) : props.item.status)
-  const sectionCanSkip = () => {
-    const items = practiceDescendants(props.item)
-    return (
-      items.length > 0 &&
-      items.every(
-        (item) =>
-          item.status === SESSION_ITEM_STATUS.NOT_STARTED ||
-          item.status === SESSION_ITEM_STATUS.SKIPPED,
-      )
-    )
-  }
-
-  function editSessionNote() {
-    setSessionNoteDraft(props.item.sessionNote ?? '')
-    setEditingSessionNote(true)
-  }
-
-  async function saveSessionNote() {
-    setSavingSessionNote(true)
-    const saved = await props.onUpdateSessionNote(props.item.id, sessionNoteDraft())
-    setSavingSessionNote(false)
-    if (saved) setEditingSessionNote(false)
-  }
-
-  function recordSelectedKey(keyLabel: string) {
-    const currentNote = editingSessionNote() ? sessionNoteDraft() : (props.item.sessionNote ?? '')
-    const nextNote = appendKeyToSessionNote(currentNote, keyLabel)
-    setSessionNoteDraft(nextNote)
-    setEditingSessionNote(true)
-    queueMicrotask(() => {
-      sessionNoteElement?.focus()
-      sessionNoteElement?.setSelectionRange(nextNote.length, nextNote.length)
-    })
-  }
-
-  function recordSelectedRepertoireChild(title: string) {
-    const currentNote = editingSessionNote() ? sessionNoteDraft() : (props.item.sessionNote ?? '')
-    const nextNote = appendRepertoireChildToSessionNote(currentNote, title)
-    setSessionNoteDraft(nextNote)
-    setEditingSessionNote(true)
-    queueMicrotask(() => {
-      sessionNoteElement?.focus()
-      sessionNoteElement?.setSelectionRange(nextNote.length, nextNote.length)
-    })
-  }
-
-  if (isSection) {
-    return (
-      <section class="practice-section">
-        <div class="practice-section-header">
-          <button
-            type="button"
-            class="section-disclosure"
-            aria-expanded={expanded()}
-            aria-controls={contentId}
-            onClick={() => setExpanded((value) => !value)}
-          >
-            <span class="disclosure-icon" aria-hidden="true">
-              {expanded() ? '⌄' : '›'}
-            </span>
-            <h2>{props.item.name}</h2>
-          </button>
-          <div class="disclosure-status">
-            <Show when={props.sessionActive && status() === SESSION_ITEM_STATUS.SKIPPED}>
-              <button
-                class="item-action item-action-reset"
-                type="button"
-                onClick={() => props.onAction(props.item.id, SESSION_ITEM_ACTION.RESET)}
-              >
-                Reset section
-              </button>
-            </Show>
-            <Show
-              when={
-                props.sessionActive && status() !== SESSION_ITEM_STATUS.SKIPPED && sectionCanSkip()
-              }
-            >
-              <button
-                class="item-action"
-                type="button"
-                onClick={() => props.onAction(props.item.id, SESSION_ITEM_ACTION.SKIP)}
-              >
-                Skip section
-              </button>
-            </Show>
-            <StatusIndicator status={status()} />
-          </div>
-        </div>
-        <Show when={props.addingItem}>
-          <div
-            class="running-drop-zone running-drop-zone-section"
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={(event) => props.onDropLibraryItem(event, props.item.id)}
-          >
-            Drop here to add to {props.item.name}
-          </div>
-        </Show>
-        <Show when={expanded()}>
-          <div id={contentId}>
-            <Show when={props.item.instruction}>
-              <div class="practice-instruction">
-                <strong>Instruction</strong>
-                <p>{props.item.instruction}</p>
-              </div>
-            </Show>
-            <Show when={props.item.sessionNote}>
-              <div class="practice-session-note">
-                <strong>Session note</strong>
-                <p>{props.item.sessionNote}</p>
-              </div>
-            </Show>
-            <div class="practice-items">
-              <For each={props.item.children}>
-                {(child) => <SessionItem {...props} item={child} />}
-              </For>
-            </div>
-          </div>
-        </Show>
-      </section>
-    )
-  }
-
-  return (
-    <article
-      class={`practice-item practice-item-${props.item.status.toLowerCase().replace('_', '-')}`}
-    >
-      <div class="practice-item-header">
-        <button
-          type="button"
-          class="practice-item-toggle"
-          aria-expanded={expanded()}
-          aria-controls={contentId}
-          onClick={() => setExpanded((value) => !value)}
-        >
-          <span class="disclosure-icon" aria-hidden="true">
-            {expanded() ? '⌄' : '›'}
-          </span>
-          <h3>{props.item.name}</h3>
-        </button>
-        <div class="practice-item-quick-actions">
-          <Show
-            when={
-              props.sessionActive &&
-              props.item.status === SESSION_ITEM_STATUS.NOT_STARTED &&
-              props.timingMode === SESSION_TIMING_MODE.MANUAL
-            }
-          >
-            <button
-              class="item-action"
-              type="button"
-              disabled={props.hasActiveItem}
-              onClick={() => props.onAction(props.item.id, SESSION_ITEM_ACTION.START)}
-            >
-              Start timer
-            </button>
-          </Show>
-          <Show
-            when={
-              props.sessionActive &&
-              (props.item.status === SESSION_ITEM_STATUS.NOT_STARTED ||
-                props.item.status === SESSION_ITEM_STATUS.IN_PROGRESS)
-            }
-          >
-            <button
-              class="item-action item-action-complete"
-              type="button"
-              onClick={() => props.onAction(props.item.id, SESSION_ITEM_ACTION.COMPLETE)}
-            >
-              Complete
-            </button>
-            <button
-              class="item-action"
-              type="button"
-              onClick={() => props.onAction(props.item.id, SESSION_ITEM_ACTION.SKIP)}
-            >
-              Skip
-            </button>
-          </Show>
-          <Show
-            when={
-              props.sessionActive &&
-              (props.item.status === SESSION_ITEM_STATUS.COMPLETE ||
-                props.item.status === SESSION_ITEM_STATUS.SKIPPED)
-            }
-          >
-            <button
-              class="item-action item-action-reset"
-              type="button"
-              aria-label={`Reset ${props.item.name} to not started`}
-              onClick={() => props.onAction(props.item.id, SESSION_ITEM_ACTION.RESET)}
-            >
-              Reset
-            </button>
-          </Show>
-          <Show when={props.sessionActive && props.item.addedDuringSession}>
-            <button
-              class="item-action item-action-remove"
-              type="button"
-              aria-label={`Remove ${props.item.name} from this session`}
-              onClick={() => void props.onRemove(props.item.id)}
-            >
-              Remove
-            </button>
-          </Show>
-          <StatusIndicator status={props.item.status} />
-        </div>
-      </div>
-      <Show when={expanded()}>
-        <div id={contentId} class="practice-item-details">
-          <div class="practice-item-heading">
-            <span class="item-type">{props.item.type.toLowerCase()}</span>
-            <span class="item-timing">
-              {props.item.durationMinutes !== null
-                ? `${props.item.durationMinutes} min`
-                : statusLabel(props.item.status)}
-            </span>
-          </div>
-          <Show when={props.item.instruction}>
-            <div class="practice-instruction">
-              <strong>Instruction</strong>
-              <p>{props.item.instruction}</p>
-            </div>
-          </Show>
-          <Show when={props.item.sessionNote && !editingSessionNote()}>
-            <div class="practice-session-note">
-              <strong>Session note</strong>
-              <p>{props.item.sessionNote}</p>
-            </div>
-          </Show>
-          <Show when={props.sessionActive && !editingSessionNote()}>
-            <button
-              class="text-button practice-note-action"
-              type="button"
-              onClick={editSessionNote}
-            >
-              {props.item.sessionNote ? 'Edit session note' : '+ Add session note'}
-            </button>
-          </Show>
-          <Show when={props.sessionActive && editingSessionNote()}>
-            <div class="running-note-editor">
-              <label class="field-label" for={sessionNoteId}>
-                Session note
-              </label>
-              <textarea
-                id={sessionNoteId}
-                class="text-input"
-                rows="3"
-                maxlength="2000"
-                value={sessionNoteDraft()}
-                ref={(element) => {
-                  sessionNoteElement = element
-                }}
-                onInput={(event) => setSessionNoteDraft(event.currentTarget.value)}
-              />
-              <div class="running-note-actions">
-                <button
-                  class="secondary-button"
-                  type="button"
-                  disabled={savingSessionNote()}
-                  onClick={() => setEditingSessionNote(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  class="primary-button"
-                  type="button"
-                  disabled={savingSessionNote()}
-                  onClick={() => void saveSessionNote()}
-                >
-                  {savingSessionNote() ? 'Saving…' : 'Save session note'}
-                </button>
-              </div>
-            </div>
-          </Show>
-          <Show when={props.item.notation}>
-            <SessionExerciseNotation
-              notation={props.item.notation ?? ''}
-              format={props.item.notationFormat}
-              onRecordKey={props.sessionActive ? recordSelectedKey : undefined}
-            />
-          </Show>
-          <Show
-            when={
-              props.sessionActive &&
-              props.item.type === PRACTICE_ITEM_TYPE.REPERTOIRE &&
-              props.item.repertoireChildren.length > 0
-            }
-          >
-            <SessionRepertoireRandomizer
-              children={props.item.repertoireChildren}
-              onRecordChild={recordSelectedRepertoireChild}
-            />
-          </Show>
-        </div>
-      </Show>
-    </article>
-  )
 }
 
 function SessionNotFound() {

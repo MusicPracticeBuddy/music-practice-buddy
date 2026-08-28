@@ -49,12 +49,17 @@ export type SessionTemplatePage = {
 
 export const SESSION_TEMPLATE_PAGE_SIZE = 20
 
+export type SessionTemplateDetailItem = TemplateItemInput & {
+  notation?: string | null
+  notationFormat?: string | null
+}
+
 export type SessionTemplateDetail = {
   id: string
   name: string
   visibility: Visibility
   ownerId: string
-  items: TemplateItemInput[]
+  items: SessionTemplateDetailItem[]
 } & ResourceAccess
 
 export type PlannedSessionEdit = {
@@ -449,7 +454,7 @@ export const getSessionTemplate = createServerFn({ method: 'GET' })
          WHERE id = $1 AND (musician_id = $2 OR visibility = 'PUBLIC')`,
         [templateId, context.user.musicianId],
       ),
-      pool.query<TemplateItemInput>(
+      pool.query<SessionTemplateDetailItem>(
         `
           WITH RECURSIVE repertoire_access AS (
             SELECT id, owner_musician_id, visibility
@@ -471,7 +476,9 @@ export const getSessionTemplate = createServerFn({ method: 'GET' })
             END AS "sourceId",
             COALESCE(item.name, 'Untitled item') AS name,
             COALESCE(item.instruction, '') AS instruction,
-            item.position::float8 AS position
+            item.position::float8 AS position,
+            exercise.notation,
+            exercise.notation_format AS "notationFormat"
           FROM session_template_item item
           LEFT JOIN exercise ON exercise.id = item.exercise_id
             AND exercise.deleted_at IS NULL
