@@ -21,6 +21,22 @@ export type RepertoireRow = {
   systemOwned: boolean
 } & ResourceAccess
 
+export type RepertoireLibraryPage = {
+  items: RepertoireRow[]
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+}
+
+export type RepertoireLibrarySearchInput = {
+  query: string
+  composer: string
+  instrumentId: string
+  visibility: 'ALL' | Visibility
+  page: number
+}
+
 type RepertoireDetail = {
   id: string
   title: string
@@ -131,6 +147,15 @@ export type CatalogSearchPage = {
 }
 
 export const CATALOG_PAGE_SIZE = 25
+export const REPERTOIRE_LIBRARY_PAGE_SIZE = 20
+
+export const EMPTY_REPERTOIRE_LIBRARY_SEARCH: RepertoireLibrarySearchInput = {
+  query: '',
+  composer: '',
+  instrumentId: '',
+  visibility: 'ALL',
+  page: 1,
+}
 
 export const EMPTY_CATALOG_SEARCH: CatalogSearchInput = {
   query: '',
@@ -832,6 +857,172 @@ export const getRepertoire = createServerFn({ method: 'GET' })
         canManage: systemOwned ? false : access.canManage,
       }
     })
+  })
+
+export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .validator((input: RepertoireLibrarySearchInput) => {
+    const query = input.query.trim()
+    const composer = input.composer.trim()
+    if (query.length > 300 || composer.length > 300) throw new Error('Search text is too long')
+    if (input.instrumentId && !/^\d+$/.test(input.instrumentId)) {
+      throw new Error('Invalid instrument filter')
+    }
+    if (
+      input.visibility !== 'ALL' &&
+      input.visibility !== 'PRIVATE' &&
+      input.visibility !== 'PUBLIC'
+    ) {
+      throw new Error('Invalid visibility filter')
+    }
+    if (!Number.isInteger(input.page) || input.page < 1) throw new Error('Invalid page')
+    return { ...input, query, composer }
+  })
+  .handler(async ({ data, context }): Promise<RepertoireLibraryPage> => {
+    const parameters: unknown[] = [context.user.musicianId]
+    const conditions = [`access.owner_musician_id = $1 OR access.visibility = 'PUBLIC'`]
+    const parameter = (value: unknown) => {
+      parameters.push(value)
+      return `$${parameters.length}`
+    }
+    if (data.query) {
+      const substring = parameter(catalogSubstringPattern(data.query))
+      const fuzzyValue = data.query.length >= 4 ? parameter(data.query) : null
+      const fuzzyMatch = (column: string) =>
+        fuzzyValue ? `OR CAST(${fuzzyValue} AS text) <<% CAST(${column} AS text)` : ''
+      conditions.push(`(
+        r.title ILIKE ${substring} ESCAPE '\\'
+        ${fuzzyMatch('r.title')}
+        OR EXISTS (
+          SELECT 1
+          FROM repertoire_credit search_credit
+          JOIN person search_person ON search_person.id = search_credit.person_id
+          WHERE search_credit.repertoire_id = r.id
+            AND search_credit.role = 'COMPOSER'
+            AND (
+              search_person.name ILIKE ${substring} ESCAPE '\\'
+              ${fuzzyMatch('search_person.name')}
+            )
+        )
+      )`)
+    }
+    if (data.composer) {
+      const substring = parameter(catalogSubstringPattern(data.composer))
+      const fuzzyValue = data.composer.length >= 4 ? parameter(data.composer) : null
+      conditions.push(`EXISTS (
+        SELECT 1
+        FROM repertoire_credit filter_credit
+        JOIN person filter_person ON filter_person.id = filter_credit.person_id
+        WHERE filter_credit.repertoire_id = r.id
+          AND filter_credit.role = 'COMPOSER'
+          AND (
+            filter_person.name ILIKE ${substring} ESCAPE '\\'
+            ${fuzzyValue ? `OR CAST(${fuzzyValue} AS text) <<% CAST(filter_person.name AS text)` : ''}
+          )
+      )`)
+    }
+    if (data.instrumentId) {
+      conditions.push(`EXISTS (
+        SELECT 1 FROM repertoire_instrument filter_part
+        WHERE filter_part.repertoire_id = r.id
+          AND filter_part.instrument_id = ${parameter(data.instrumentId)}::bigint
+      )`)
+    }
+    if (data.visibility !== 'ALL') {
+      conditions.push(`access.visibility = ${parameter(data.visibility)}::visibility_type`)
+    }
+    const where = conditions.map((condition) => `(${condition})`).join('\n           AND ')
+    const countParameters = [...parameters]
+    const limit = parameter(REPERTOIRE_LIBRARY_PAGE_SIZE)
+    const offset = parameter((data.page - 1) * REPERTOIRE_LIBRARY_PAGE_SIZE)
+    const [countResult, result] = await Promise.all([
+      pool.query<{ total: number }>(
+        `${ACCESS_CTE}
+         SELECT count(*)::integer AS total
+         FROM repertoire r
+         JOIN repertoire_access access ON access.id = r.id
+         JOIN musician_repertoire_library library
+           ON library.repertoire_id = r.id AND library.musician_id = $1
+         WHERE ${where}`,
+        countParameters,
+      ),
+      pool.query<
+        Omit<RepertoireRow, keyof ResourceAccess | 'systemOwned'> & { externalId: string | null }
+      >(
+        `${ACCESS_CTE},
+         page_repertoire AS (
+           SELECT r.id
+           FROM repertoire r
+           JOIN repertoire_access access ON access.id = r.id
+           JOIN musician_repertoire_library library
+             ON library.repertoire_id = r.id AND library.musician_id = $1
+           WHERE ${where}
+           ORDER BY r.parent_repertoire_id NULLS FIRST, lower(r.title), r.id
+           LIMIT ${limit} OFFSET ${offset}
+         )
+         SELECT
+           r.id::text,
+           r.title,
+           r.external_id AS "externalId",
+           parent.title AS "parentTitle",
+           CASE
+             WHEN r.start_measure IS NOT NULL THEN
+               'Measures ' || r.start_measure || COALESCE('–' || r.end_measure, '')
+             ELSE NULL
+           END AS "measureRange",
+           access.visibility::text,
+           r.status::text,
+           owner.display_name AS owner,
+           access.owner_musician_id::text AS "ownerId",
+           COALESCE(string_agg(DISTINCT person.name, ', '), 'Unknown composer') AS composer,
+           string_agg(DISTINCT instrument.name, ', ') AS instrument,
+           resource.type::text AS "resourceType",
+           resource.url AS "resourceUrl",
+           library.notes AS "libraryNotes"
+         FROM page_repertoire page
+         JOIN repertoire r ON r.id = page.id
+         JOIN repertoire_access access ON access.id = r.id
+         LEFT JOIN musician owner ON owner.id = access.owner_musician_id
+         LEFT JOIN repertoire parent ON parent.id = r.parent_repertoire_id
+         LEFT JOIN repertoire_credit credit
+           ON credit.repertoire_id = r.id AND credit.role = 'COMPOSER'
+         LEFT JOIN person ON person.id = credit.person_id
+         LEFT JOIN repertoire_instrument part ON part.repertoire_id = r.id
+         LEFT JOIN instrument ON instrument.id = part.instrument_id
+         LEFT JOIN LATERAL (
+           SELECT child.type, child.url
+           FROM repertoire_resource child
+           WHERE child.repertoire_id = r.id
+           ORDER BY child.position NULLS LAST, child.id
+           LIMIT 1
+         ) resource ON TRUE
+         JOIN musician_repertoire_library library
+           ON library.repertoire_id = r.id AND library.musician_id = $1
+         GROUP BY r.id, r.external_id, parent.title, access.visibility, access.owner_musician_id,
+           owner.display_name, resource.type, resource.url, library.notes
+         ORDER BY r.parent_repertoire_id NULLS FIRST, lower(r.title), r.id`,
+        parameters,
+      ),
+    ])
+    const total = countResult.rows[0]?.total ?? 0
+
+    return {
+      items: result.rows.map((repertoire) => {
+        const access = resourceAccess(context.user, repertoire.ownerId, repertoire.visibility)
+        const systemOwned = repertoire.externalId !== null
+        return {
+          ...repertoire,
+          systemOwned,
+          ...access,
+          canEdit: systemOwned ? false : access.canEdit,
+          canManage: systemOwned ? false : access.canManage,
+        }
+      }),
+      page: data.page,
+      pageSize: REPERTOIRE_LIBRARY_PAGE_SIZE,
+      total,
+      totalPages: Math.ceil(total / REPERTOIRE_LIBRARY_PAGE_SIZE),
+    }
   })
 
 export const getRepertoireDetail = createServerFn({ method: 'GET' })

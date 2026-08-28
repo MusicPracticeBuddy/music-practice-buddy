@@ -2,9 +2,17 @@ import { readFile } from 'node:fs/promises'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { pool } from '@/data/db'
 import { createDevelopmentUser } from '@/data/auth'
-import { createExercise, deleteExercise, getExercises, updateExercise } from '@/data/exercises'
+import {
+  EMPTY_EXERCISE_LIBRARY_SEARCH,
+  createExercise,
+  deleteExercise,
+  getExerciseLibraryPage,
+  getExercises,
+  updateExercise,
+} from '@/data/exercises'
 import {
   EMPTY_CATALOG_SEARCH,
+  EMPTY_REPERTOIRE_LIBRARY_SEARCH,
   addRepertoireToLibrary,
   createRepertoire,
   deleteRepertoire,
@@ -13,6 +21,7 @@ import {
   getOwnedRepertoirePage,
   getRepertoire,
   getRepertoireDetail,
+  getRepertoireLibraryPage,
   removeRepertoireFromLibrary,
   updateRepertoireLibraryNote,
   updateRepertoire,
@@ -113,6 +122,113 @@ beforeEach(async () => {
 afterAll(() => pool.end())
 
 describe('library item persistence', () => {
+  it('paginates repertoire and exercises in My Library on the server', async () => {
+    await pool.query(
+      `WITH inserted AS (
+         INSERT INTO exercise (musician_id, name)
+         SELECT 1, 'Library exercise ' || lpad(number::text, 2, '0')
+         FROM generate_series(1, 21) number
+         RETURNING id
+       )
+       INSERT INTO musician_exercise_library (musician_id, exercise_id)
+       SELECT 1, id FROM inserted`,
+    )
+    await pool.query(
+      `WITH inserted AS (
+         INSERT INTO repertoire (title, owner_musician_id, visibility, status)
+         SELECT 'Library repertoire ' || lpad(number::text, 2, '0'), 1, 'PRIVATE', 'APPROVED'
+         FROM generate_series(1, 21) number
+         RETURNING id
+       )
+       INSERT INTO musician_repertoire_library (musician_id, repertoire_id)
+       SELECT 1, id FROM inserted`,
+    )
+    await pool.query(
+      `UPDATE exercise
+       SET name = 'Arpeggio workout', visibility = 'PUBLIC', notation_format = 'abc'
+       WHERE name = 'Library exercise 21'`,
+    )
+    await pool.query(
+      `UPDATE repertoire
+       SET title = 'Piano Concerto 21', visibility = 'PUBLIC'
+       WHERE title = 'Library repertoire 21'`,
+    )
+    const libraryComposer = await pool.query<{ id: string }>(
+      `INSERT INTO person (name) VALUES ('Frédéric Chopin') RETURNING id::text`,
+    )
+    const libraryInstrument = await pool.query<{ id: string }>(
+      `INSERT INTO instrument (name, family) VALUES ('Library piano', 'KEYBOARD') RETURNING id::text`,
+    )
+    await pool.query(
+      `INSERT INTO repertoire_credit (repertoire_id, person_id, role, position)
+       SELECT id, $1, 'COMPOSER', 1 FROM repertoire WHERE title = 'Piano Concerto 21'`,
+      [libraryComposer.rows[0]!.id],
+    )
+    await pool.query(
+      `INSERT INTO repertoire_instrument (repertoire_id, instrument_id, role, position)
+       SELECT id, $1, 'SOLO', 1 FROM repertoire WHERE title = 'Piano Concerto 21'`,
+      [libraryInstrument.rows[0]!.id],
+    )
+
+    const exerciseFirstPage = await getExerciseLibraryPage({
+      data: EMPTY_EXERCISE_LIBRARY_SEARCH,
+    })
+    const exerciseSecondPage = await getExerciseLibraryPage({
+      data: { ...EMPTY_EXERCISE_LIBRARY_SEARCH, page: 2 },
+    })
+    expect(exerciseFirstPage).toMatchObject({ page: 1, pageSize: 20, total: 21, totalPages: 2 })
+    expect(exerciseFirstPage.items).toHaveLength(20)
+    expect(exerciseSecondPage.items).toHaveLength(1)
+
+    const repertoireFirstPage = await getRepertoireLibraryPage({
+      data: EMPTY_REPERTOIRE_LIBRARY_SEARCH,
+    })
+    const repertoireSecondPage = await getRepertoireLibraryPage({
+      data: { ...EMPTY_REPERTOIRE_LIBRARY_SEARCH, page: 2 },
+    })
+    expect(repertoireFirstPage).toMatchObject({
+      page: 1,
+      pageSize: 20,
+      total: 21,
+      totalPages: 2,
+    })
+    expect(repertoireFirstPage.items).toHaveLength(20)
+    expect(repertoireSecondPage.items).toHaveLength(1)
+
+    expect(
+      await getExerciseLibraryPage({
+        data: { ...EMPTY_EXERCISE_LIBRARY_SEARCH, query: 'arpegio' },
+      }),
+    ).toMatchObject({ total: 1, items: [expect.objectContaining({ name: 'Arpeggio workout' })] })
+    expect(
+      await getExerciseLibraryPage({
+        data: {
+          ...EMPTY_EXERCISE_LIBRARY_SEARCH,
+          visibility: 'PUBLIC',
+          notationFormat: 'abc',
+        },
+      }),
+    ).toMatchObject({ total: 1, items: [expect.objectContaining({ name: 'Arpeggio workout' })] })
+    expect(
+      await getRepertoireLibraryPage({
+        data: { ...EMPTY_REPERTOIRE_LIBRARY_SEARCH, query: 'cncrto' },
+      }),
+    ).toMatchObject({
+      total: 1,
+      items: [expect.objectContaining({ title: 'Piano Concerto 21' })],
+    })
+    expect(
+      await getRepertoireLibraryPage({
+        data: {
+          ...EMPTY_REPERTOIRE_LIBRARY_SEARCH,
+          composer: 'chopn',
+          instrumentId: libraryInstrument.rows[0]!.id,
+          visibility: 'PUBLIC',
+        },
+      }),
+    ).toMatchObject({ total: 1, items: [expect.objectContaining({ title: 'Piano Concerto 21' })] })
+  })
+
   it('creates, edits, and soft-deletes an exercise while preserving references', async () => {
     const created = await createExercise({
       data: {
