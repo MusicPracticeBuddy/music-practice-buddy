@@ -8,6 +8,8 @@ import {
 
 export type { PracticeLibraryItemType }
 
+const LIBRARY_PAGE_SIZE = 20
+
 function PracticeLibraryList(props: { sortable: boolean; children: JSX.Element }) {
   let element: HTMLDivElement | undefined
 
@@ -128,7 +130,14 @@ export function PracticeLibraryPanel(props: {
   publicRepertoireItems?: TemplateLibraryItem[]
   searchPublicRepertoire?: boolean
   publicRepertoireLoading?: boolean
-  onSearchPublicRepertoireChange?: (enabled: boolean) => void
+  onSearchPublicRepertoireChange?: (enabled: boolean, query: string) => void
+  publicRepertoirePagination?: {
+    page: number
+    total: number
+    totalPages: number
+    onPageChange: (page: number) => void
+    onSearchChange: (query: string) => void
+  }
   disabled?: boolean
   dragMode?: 'sortable' | 'native'
   itemActionLabel?: string
@@ -139,11 +148,33 @@ export function PracticeLibraryPanel(props: {
 }) {
   const [search, setSearch] = createSignal('')
   const [expandedIds, setExpandedIds] = createSignal<string[]>([])
+  const [localPage, setLocalPage] = createSignal(1)
+  let searchTimer: ReturnType<typeof setTimeout> | undefined
+  const serverPaginated = () =>
+    props.type === LIBRARY_ITEM_TYPE.REPERTOIRE &&
+    props.searchPublicRepertoire &&
+    props.publicRepertoirePagination !== undefined
   const selectedItems = createMemo(() =>
     props.type === LIBRARY_ITEM_TYPE.REPERTOIRE && props.searchPublicRepertoire
       ? (props.publicRepertoireItems ?? [])
       : props.items.filter((item) => item.type === props.type),
   )
+  const matchingItems = createMemo(() => {
+    const query = search().trim().toLowerCase()
+    if (serverPaginated() || !query) return selectedItems()
+    return selectedItems().filter((item) => subtreeMatches(item, query))
+  })
+  const totalPages = () =>
+    serverPaginated()
+      ? (props.publicRepertoirePagination?.totalPages ?? 0)
+      : Math.ceil(matchingItems().length / LIBRARY_PAGE_SIZE)
+  const currentPage = () =>
+    serverPaginated() ? (props.publicRepertoirePagination?.page ?? 1) : localPage()
+  const pageItems = createMemo(() => {
+    if (serverPaginated()) return matchingItems()
+    const start = (localPage() - 1) * LIBRARY_PAGE_SIZE
+    return matchingItems().slice(start, start + LIBRARY_PAGE_SIZE)
+  })
   const visibleItems = createMemo(() => {
     const query = search().trim().toLowerCase()
     const visible: { item: TemplateLibraryItem; depth: number }[] = []
@@ -151,18 +182,34 @@ export function PracticeLibraryPanel(props: {
 
     function visit(items: TemplateLibraryItem[], depth: number) {
       for (const item of items) {
-        if (query && !subtreeMatches(item, query)) continue
         visible.push({ item, depth })
         const children = item.children ?? []
-        const matchingChild = query && children.some((child) => subtreeMatches(child, query))
+        const matchingChild =
+          !serverPaginated() && query && children.some((child) => subtreeMatches(child, query))
         if (expanded.has(item.id) || matchingChild) visit(children, depth + 1)
       }
     }
 
-    visit(selectedItems(), 0)
+    visit(pageItems(), 0)
     return visible
   })
   const typeLabel = () => (props.type === LIBRARY_ITEM_TYPE.EXERCISE ? 'exercises' : 'repertoire')
+
+  function changePage(page: number) {
+    setExpandedIds([])
+    if (serverPaginated()) props.publicRepertoirePagination?.onPageChange(page)
+    else setLocalPage(page)
+  }
+
+  function updateSearch(value: string) {
+    setSearch(value)
+    setLocalPage(1)
+    if (!serverPaginated()) return
+    clearTimeout(searchTimer)
+    searchTimer = setTimeout(() => props.publicRepertoirePagination?.onSearchChange(value), 300)
+  }
+
+  onCleanup(() => clearTimeout(searchTimer))
 
   return (
     <aside
@@ -182,7 +229,11 @@ export function PracticeLibraryPanel(props: {
           role="tab"
           aria-selected={props.type === LIBRARY_ITEM_TYPE.EXERCISE}
           classList={{ active: props.type === LIBRARY_ITEM_TYPE.EXERCISE }}
-          onClick={() => props.onTypeChange(LIBRARY_ITEM_TYPE.EXERCISE)}
+          onClick={() => {
+            clearTimeout(searchTimer)
+            setLocalPage(1)
+            props.onTypeChange(LIBRARY_ITEM_TYPE.EXERCISE)
+          }}
         >
           Exercises ({props.items.filter((item) => item.type === LIBRARY_ITEM_TYPE.EXERCISE).length}
           )
@@ -192,7 +243,11 @@ export function PracticeLibraryPanel(props: {
           role="tab"
           aria-selected={props.type === LIBRARY_ITEM_TYPE.REPERTOIRE}
           classList={{ active: props.type === LIBRARY_ITEM_TYPE.REPERTOIRE }}
-          onClick={() => props.onTypeChange(LIBRARY_ITEM_TYPE.REPERTOIRE)}
+          onClick={() => {
+            clearTimeout(searchTimer)
+            setLocalPage(1)
+            props.onTypeChange(LIBRARY_ITEM_TYPE.REPERTOIRE)
+          }}
         >
           Repertoire (
           {props.items.filter((item) => item.type === LIBRARY_ITEM_TYPE.REPERTOIRE).length})
@@ -202,7 +257,7 @@ export function PracticeLibraryPanel(props: {
         class="text-input"
         type="search"
         value={search()}
-        onInput={(event) => setSearch(event.currentTarget.value)}
+        onInput={(event) => updateSearch(event.currentTarget.value)}
         placeholder={`Search ${typeLabel()}…`}
         aria-label={`Search ${typeLabel()}`}
       />
@@ -213,9 +268,11 @@ export function PracticeLibraryPanel(props: {
           <input
             type="checkbox"
             checked={props.searchPublicRepertoire}
-            onChange={(event) =>
-              props.onSearchPublicRepertoireChange?.(event.currentTarget.checked)
-            }
+            onChange={(event) => {
+              clearTimeout(searchTimer)
+              setLocalPage(1)
+              props.onSearchPublicRepertoireChange?.(event.currentTarget.checked, search().trim())
+            }}
           />
           Search public repertoire
         </label>
@@ -251,6 +308,29 @@ export function PracticeLibraryPanel(props: {
           </For>
         </Show>
       </PracticeLibraryList>
+      <Show when={totalPages() > 1}>
+        <nav class="editor-library-pagination" aria-label={`${typeLabel()} pages`}>
+          <button
+            type="button"
+            disabled={currentPage() === 1 || props.loading || props.publicRepertoireLoading}
+            onClick={() => changePage(currentPage() - 1)}
+          >
+            Previous
+          </button>
+          <span>
+            {currentPage()} / {totalPages()}
+          </span>
+          <button
+            type="button"
+            disabled={
+              currentPage() === totalPages() || props.loading || props.publicRepertoireLoading
+            }
+            onClick={() => changePage(currentPage() + 1)}
+          >
+            Next
+          </button>
+        </nav>
+      </Show>
       {props.footer}
       <Show when={props.helpText}>
         <p class="field-help">{props.helpText}</p>

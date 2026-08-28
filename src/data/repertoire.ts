@@ -92,6 +92,38 @@ export type CatalogRepertoireRow = {
   children: CatalogRepertoireRow[]
 }
 
+export type CatalogInstrumentMatch = 'ANY' | 'ALL'
+
+export type CatalogSearchInput = {
+  query: string
+  composer: string
+  instrumentIds: string[]
+  instrumentMatch: CatalogInstrumentMatch
+  yearFrom: number | null
+  yearTo: number | null
+  page: number
+}
+
+export type CatalogSearchPage = {
+  items: CatalogRepertoireRow[]
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+}
+
+export const CATALOG_PAGE_SIZE = 25
+
+export const EMPTY_CATALOG_SEARCH: CatalogSearchInput = {
+  query: '',
+  composer: '',
+  instrumentIds: [],
+  instrumentMatch: 'ANY',
+  yearFrom: null,
+  yearTo: null,
+  page: 1,
+}
+
 export type RepertoireCreditInput = Pick<RepertoireCredit, 'person' | 'role'>
 export type RepertoireInstrumentInput = Pick<
   RepertoireInstrument,
@@ -268,6 +300,228 @@ export const getCatalogComposers = createServerFn({ method: 'GET' })
        ORDER BY person.name`,
     )
     return result.rows
+  })
+
+function validCatalogYear(year: number | null) {
+  return year === null || Number.isInteger(year)
+}
+
+function catalogSubstringPattern(value: string) {
+  return `%${value.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`
+}
+
+function validateCatalogSearch(input: CatalogSearchInput): CatalogSearchInput {
+  const query = input.query.trim()
+  const composer = input.composer.trim()
+  const instrumentIds = [...new Set(input.instrumentIds)]
+  if (query.length > 300 || composer.length > 300) throw new Error('Search text is too long')
+  if (instrumentIds.length > 50 || instrumentIds.some((id) => !/^\d+$/.test(id))) {
+    throw new Error('Invalid instrument filter')
+  }
+  if (input.instrumentMatch !== 'ANY' && input.instrumentMatch !== 'ALL') {
+    throw new Error('Invalid instrument match')
+  }
+  if (!validCatalogYear(input.yearFrom) || !validCatalogYear(input.yearTo)) {
+    throw new Error('Invalid year filter')
+  }
+  if (input.yearFrom !== null && input.yearTo !== null && input.yearFrom > input.yearTo) {
+    throw new Error('The starting year must not be after the ending year')
+  }
+  if (!Number.isInteger(input.page) || input.page < 1) throw new Error('Invalid page')
+
+  return { ...input, query, composer, instrumentIds }
+}
+
+export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .validator(validateCatalogSearch)
+  .handler(async ({ data, context }): Promise<CatalogSearchPage> => {
+    const parameters: unknown[] = [context.user.musicianId]
+    const conditions = [
+      `repertoire.parent_repertoire_id IS NULL`,
+      `repertoire.visibility = 'PUBLIC'`,
+      `repertoire.status = 'APPROVED'`,
+      `repertoire.deleted_at IS NULL`,
+    ]
+    const parameter = (value: unknown) => {
+      parameters.push(value)
+      return `$${parameters.length}`
+    }
+
+    if (data.query) {
+      const substring = parameter(catalogSubstringPattern(data.query))
+      const fuzzyValue = data.query.length >= 4 ? parameter(data.query) : null
+      const fuzzyTitleMatch = (column: string) =>
+        fuzzyValue ? `OR CAST(${fuzzyValue} AS text) <<% CAST(${column} AS text)` : ''
+      conditions.push(`repertoire.id IN (
+        WITH RECURSIVE direct_matches AS (
+          SELECT candidate.id, candidate.parent_repertoire_id
+          FROM repertoire candidate
+          WHERE candidate.status = 'APPROVED'
+            AND candidate.deleted_at IS NULL
+            AND (
+              candidate.title ILIKE ${substring} ESCAPE '\\'
+              ${fuzzyTitleMatch('candidate.title')}
+            )
+          UNION
+          SELECT candidate.id, candidate.parent_repertoire_id
+          FROM repertoire candidate
+          JOIN repertoire_credit search_credit ON search_credit.repertoire_id = candidate.id
+          JOIN person search_person ON search_person.id = search_credit.person_id
+          WHERE candidate.status = 'APPROVED'
+            AND candidate.deleted_at IS NULL
+            AND search_credit.role = 'COMPOSER'
+            AND (
+              search_person.name ILIKE ${substring} ESCAPE '\\'
+              ${fuzzyTitleMatch('search_person.name')}
+            )
+        ), matching_ancestors AS (
+          SELECT id, parent_repertoire_id
+          FROM direct_matches
+          UNION
+          SELECT parent.id, parent.parent_repertoire_id
+          FROM repertoire parent
+          JOIN matching_ancestors child ON parent.id = child.parent_repertoire_id
+          WHERE parent.status = 'APPROVED'
+            AND parent.deleted_at IS NULL
+        )
+        SELECT id
+        FROM matching_ancestors
+        WHERE parent_repertoire_id IS NULL
+      )`)
+    }
+    if (data.composer) {
+      const substring = parameter(catalogSubstringPattern(data.composer))
+      const fuzzyValue = data.composer.length >= 4 ? parameter(data.composer) : null
+      const fuzzyComposerMatch =
+        fuzzyValue !== null ? `OR CAST(${fuzzyValue} AS text) <<% CAST(composer.name AS text)` : ''
+      conditions.push(`repertoire.id IN (
+        SELECT composer_credit.repertoire_id
+        FROM repertoire_credit composer_credit
+        JOIN person composer ON composer.id = composer_credit.person_id
+        WHERE composer_credit.role = 'COMPOSER'
+          AND (
+            composer.name ILIKE ${substring} ESCAPE '\\'
+            ${fuzzyComposerMatch}
+          )
+      )`)
+    }
+    if (data.yearFrom !== null) {
+      conditions.push(
+        `COALESCE(repertoire.composition_year, EXTRACT(YEAR FROM repertoire.publication_date)::integer) >= ${parameter(data.yearFrom)}`,
+      )
+    }
+    if (data.yearTo !== null) {
+      conditions.push(
+        `COALESCE(repertoire.composition_year, EXTRACT(YEAR FROM repertoire.publication_date)::integer) <= ${parameter(data.yearTo)}`,
+      )
+    }
+    if (data.instrumentIds.length > 0) {
+      const ids = parameter(data.instrumentIds)
+      if (data.instrumentMatch === 'ALL') {
+        const count = parameter(data.instrumentIds.length)
+        conditions.push(`(
+          SELECT count(DISTINCT matching_part.instrument_id)::integer
+          FROM repertoire_instrument matching_part
+          WHERE matching_part.repertoire_id = repertoire.id
+            AND matching_part.instrument_id = ANY(${ids}::bigint[])
+        ) = ${count}`)
+      } else {
+        conditions.push(`EXISTS (
+          SELECT 1
+          FROM repertoire_instrument matching_part
+          WHERE matching_part.repertoire_id = repertoire.id
+            AND matching_part.instrument_id = ANY(${ids}::bigint[])
+        )`)
+      }
+    }
+
+    const where = conditions.join('\n          AND ')
+    const countParameters = [...parameters]
+    const limit = parameter(CATALOG_PAGE_SIZE)
+    const offset = parameter((data.page - 1) * CATALOG_PAGE_SIZE)
+    const [countResult, result] = await Promise.all([
+      pool.query<{ total: number }>(
+        `SELECT count(*)::integer AS total
+         FROM repertoire
+         WHERE $1::bigint IS NOT NULL AND ${where}`,
+        countParameters,
+      ),
+      pool.query<Omit<CatalogRepertoireRow, 'children'> & { parentId: string | null }>(
+        `WITH RECURSIVE matching_roots AS (
+           SELECT repertoire.id
+           FROM repertoire
+           WHERE ${where}
+           ORDER BY lower(repertoire.title), repertoire.id
+           LIMIT ${limit} OFFSET ${offset}
+         ), page_catalog AS (
+           SELECT repertoire.id, repertoire.parent_repertoire_id, repertoire.id AS root_id
+           FROM repertoire
+           JOIN matching_roots ON matching_roots.id = repertoire.id
+           UNION ALL
+           SELECT child.id, child.parent_repertoire_id, parent.root_id
+           FROM repertoire child
+           JOIN page_catalog parent ON parent.id = child.parent_repertoire_id
+           WHERE child.status = 'APPROVED' AND child.deleted_at IS NULL
+         )
+         SELECT
+           repertoire.id::text,
+           repertoire.title,
+           repertoire.parent_repertoire_id::text AS "parentId",
+           COALESCE(
+             repertoire.composition_year,
+             EXTRACT(YEAR FROM repertoire.publication_date)::integer
+           ) AS "compositionYear",
+           COALESCE((
+             SELECT jsonb_agg(
+               jsonb_build_object('id', composer.id::text, 'name', composer.name)
+               ORDER BY credit.position NULLS LAST, composer.name
+             )
+             FROM repertoire_credit credit
+             JOIN person composer ON composer.id = credit.person_id
+             WHERE credit.repertoire_id = repertoire.id AND credit.role = 'COMPOSER'
+           ), '[]'::jsonb) AS composers,
+           COALESCE((
+             SELECT jsonb_agg(
+               jsonb_build_object('id', instrument.id::text, 'name', instrument.name)
+               ORDER BY part.position NULLS LAST, instrument.name
+             )
+             FROM repertoire_instrument part
+             JOIN instrument ON instrument.id = part.instrument_id
+             WHERE part.repertoire_id = repertoire.id
+           ), '[]'::jsonb) AS instruments,
+           EXISTS (
+             SELECT 1 FROM musician_repertoire_library library
+             WHERE library.repertoire_id = repertoire.id AND library.musician_id = $1
+           ) AS "inLibrary"
+         FROM repertoire
+         JOIN page_catalog ON page_catalog.id = repertoire.id
+         JOIN repertoire root ON root.id = page_catalog.root_id
+         ORDER BY lower(root.title), root.id, repertoire.parent_repertoire_id NULLS FIRST,
+           lower(repertoire.title), repertoire.id`,
+        parameters,
+      ),
+    ])
+    const total = countResult.rows[0]?.total ?? 0
+
+    const items = new Map(
+      result.rows.map((row) => [row.id, { ...row, children: [] as CatalogRepertoireRow[] }]),
+    )
+    const roots: CatalogRepertoireRow[] = []
+    for (const row of result.rows) {
+      const item = items.get(row.id)!
+      const parent = row.parentId ? items.get(row.parentId) : undefined
+      if (parent) parent.children.push(item)
+      else roots.push(item)
+    }
+
+    return {
+      items: roots,
+      page: data.page,
+      pageSize: CATALOG_PAGE_SIZE,
+      total,
+      totalPages: Math.ceil(total / CATALOG_PAGE_SIZE),
+    }
   })
 
 export const getPublicRepertoireCatalog = createServerFn({ method: 'GET' })

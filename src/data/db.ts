@@ -6,6 +6,7 @@ export const pool = new Pool({
   database: process.env.POSTGRES_DB,
   user: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
+  options: '-c pg_trgm.strict_word_similarity_threshold=0.22',
   max: 5,
 })
 

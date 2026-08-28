@@ -20,7 +20,7 @@ import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as ExercisesExerciseIdRouteImport } from './routes/exercises/$exerciseId'
 import { Route as ExercisesNewRouteImport } from './routes/exercises/new'
 import { Route as RepertoireRepertoireIdRouteImport } from './routes/repertoire/$repertoireId'
-import { Route as RepertoireNewRouteImport } from './routes/repertoire/new'
+import { Route as RepertoireSearchRouteImport } from './routes/repertoire/search'
 import { Route as SessionsIndexRouteImport } from './routes/sessions/index'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessionId'
 import { Route as SessionsNewRouteImport } from './routes/sessions/new'
@@ -87,9 +87,9 @@ const RepertoireRepertoireIdRoute = RepertoireRepertoireIdRouteImport.update({
   path: '/$repertoireId',
   getParentRoute: () => RepertoireRoute,
 } as any)
-const RepertoireNewRoute = RepertoireNewRouteImport.update({
-  id: '/new',
-  path: '/new',
+const RepertoireSearchRoute = RepertoireSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
   getParentRoute: () => RepertoireRoute,
 } as any)
 const SessionsIndexRoute = SessionsIndexRouteImport.update({
@@ -156,7 +156,7 @@ export interface FileRoutesByFullPath {
   '/exercises/$exerciseId': typeof ExercisesExerciseIdRoute
   '/exercises/new': typeof ExercisesNewRoute
   '/repertoire/$repertoireId': typeof RepertoireRepertoireIdRoute
-  '/repertoire/new': typeof RepertoireNewRoute
+  '/repertoire/search': typeof RepertoireSearchRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/sessions/new': typeof SessionsNewRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRoute
@@ -178,7 +178,7 @@ export interface FileRoutesByTo {
   '/exercises/$exerciseId': typeof ExercisesExerciseIdRoute
   '/exercises/new': typeof ExercisesNewRoute
   '/repertoire/$repertoireId': typeof RepertoireRepertoireIdRoute
-  '/repertoire/new': typeof RepertoireNewRoute
+  '/repertoire/search': typeof RepertoireSearchRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/sessions/new': typeof SessionsNewRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRoute
@@ -203,7 +203,7 @@ export interface FileRoutesById {
   '/exercises/$exerciseId': typeof ExercisesExerciseIdRoute
   '/exercises/new': typeof ExercisesNewRoute
   '/repertoire/$repertoireId': typeof RepertoireRepertoireIdRoute
-  '/repertoire/new': typeof RepertoireNewRoute
+  '/repertoire/search': typeof RepertoireSearchRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/sessions/new': typeof SessionsNewRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRoute
@@ -229,7 +229,7 @@ export interface FileRouteTypes {
     | '/exercises/$exerciseId'
     | '/exercises/new'
     | '/repertoire/$repertoireId'
-    | '/repertoire/new'
+    | '/repertoire/search'
     | '/sessions/$sessionId'
     | '/sessions/new'
     | '/templates/$templateId'
@@ -251,7 +251,7 @@ export interface FileRouteTypes {
     | '/exercises/$exerciseId'
     | '/exercises/new'
     | '/repertoire/$repertoireId'
-    | '/repertoire/new'
+    | '/repertoire/search'
     | '/sessions/$sessionId'
     | '/sessions/new'
     | '/templates/$templateId'
@@ -275,7 +275,7 @@ export interface FileRouteTypes {
     | '/exercises/$exerciseId'
     | '/exercises/new'
     | '/repertoire/$repertoireId'
-    | '/repertoire/new'
+    | '/repertoire/search'
     | '/sessions/$sessionId'
     | '/sessions/new'
     | '/templates/$templateId'
@@ -378,11 +378,11 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof RepertoireRepertoireIdRouteImport
       parentRoute: typeof RepertoireRoute
     }
-    '/repertoire/new': {
-      id: '/repertoire/new'
-      path: '/new'
-      fullPath: '/repertoire/new'
-      preLoaderRoute: typeof RepertoireNewRouteImport
+    '/repertoire/search': {
+      id: '/repertoire/search'
+      path: '/search'
+      fullPath: '/repertoire/search'
+      preLoaderRoute: typeof RepertoireSearchRouteImport
       parentRoute: typeof RepertoireRoute
     }
     '/sessions/': {
@@ -476,13 +476,13 @@ const ExercisesRouteWithChildren = ExercisesRoute._addFileChildren(
 
 interface RepertoireRouteChildren {
   RepertoireRepertoireIdRoute: typeof RepertoireRepertoireIdRoute
-  RepertoireNewRoute: typeof RepertoireNewRoute
+  RepertoireSearchRoute: typeof RepertoireSearchRoute
   RepertoireRepertoireIdEditRoute: typeof RepertoireRepertoireIdEditRoute
 }
 
 const RepertoireRouteChildren: RepertoireRouteChildren = {
   RepertoireRepertoireIdRoute: RepertoireRepertoireIdRoute,
-  RepertoireNewRoute: RepertoireNewRoute,
+  RepertoireSearchRoute: RepertoireSearchRoute,
   RepertoireRepertoireIdEditRoute: RepertoireRepertoireIdEditRoute,
 }
 

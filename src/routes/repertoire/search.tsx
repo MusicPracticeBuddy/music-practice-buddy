@@ -2,21 +2,26 @@ import { Show, createSignal } from 'solid-js'
 import { Link, createFileRoute } from '@tanstack/solid-router'
 import { LibraryItemForm } from '@/components/LibraryItemForm'
 import { RepertoireCatalogSearch } from '@/components/RepertoireCatalogSearch'
-import { getCatalogComposers, getInstruments, getPublicRepertoireCatalog } from '@/data/repertoire'
+import {
+  EMPTY_CATALOG_SEARCH,
+  getCatalogComposers,
+  getInstruments,
+  getPublicRepertoireCatalogPage,
+} from '@/data/repertoire'
 
-export const Route = createFileRoute('/repertoire/new')({
+export const Route = createFileRoute('/repertoire/search')({
   loader: async () => {
     const [catalog, composers, instruments] = await Promise.all([
-      getPublicRepertoireCatalog(),
+      getPublicRepertoireCatalogPage({ data: EMPTY_CATALOG_SEARCH }),
       getCatalogComposers(),
       getInstruments(),
     ])
     return { catalog, composers, instruments }
   },
-  component: NewRepertoire,
+  component: SearchRepertoire,
 })
 
-function NewRepertoire() {
+function SearchRepertoire() {
   const data = Route.useLoaderData()
   const [creating, setCreating] = createSignal(false)
 
@@ -62,7 +67,7 @@ function NewRepertoire() {
         }
       >
         <RepertoireCatalogSearch
-          items={data().catalog}
+          initialPage={data().catalog}
           composers={data().composers}
           instruments={data().instruments}
         />

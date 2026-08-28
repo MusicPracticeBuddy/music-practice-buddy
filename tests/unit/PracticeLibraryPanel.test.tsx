@@ -59,4 +59,53 @@ describe('PracticeLibraryPanel repertoire hierarchy', () => {
     expect(screen.getByText('Etude Collection', { selector: 'strong' })).toBeTruthy()
     expect(screen.getByText('Etude No. 1', { selector: 'strong' })).toBeTruthy()
   })
+
+  it('paginates picker results', () => {
+    const items = Array.from({ length: 21 }, (_, index): TemplateLibraryItem => ({
+      id: String(index + 1),
+      type: 'EXERCISE',
+      name: `Exercise ${String(index + 1).padStart(2, '0')}`,
+      detail: 'Exercise',
+    }))
+    render(() => (
+      <PracticeLibraryPanel
+        items={items}
+        type="EXERCISE"
+        onTypeChange={() => undefined}
+        onSelect={() => undefined}
+      />
+    ))
+
+    expect(screen.getByText('Exercise 01')).toBeTruthy()
+    expect(screen.queryByText('Exercise 21')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    expect(screen.queryByText('Exercise 01')).toBeNull()
+    expect(screen.getByText('Exercise 21')).toBeTruthy()
+    expect(screen.getByText('2 / 2')).toBeTruthy()
+  })
+
+  it('requests public repertoire pages from the server', () => {
+    const onPageChange = vi.fn()
+    render(() => (
+      <PracticeLibraryPanel
+        items={[]}
+        publicRepertoireItems={[parent]}
+        searchPublicRepertoire
+        type="REPERTOIRE"
+        onTypeChange={() => undefined}
+        onSelect={() => undefined}
+        publicRepertoirePagination={{
+          page: 1,
+          total: 25,
+          totalPages: 2,
+          onPageChange,
+          onSearchChange: () => undefined,
+        }}
+      />
+    ))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    expect(onPageChange).toHaveBeenCalledWith(2)
+  })
 })

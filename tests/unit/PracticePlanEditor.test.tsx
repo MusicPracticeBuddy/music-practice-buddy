@@ -46,21 +46,36 @@ vi.mock('../../src/data/exercises', () => ({
 }))
 
 vi.mock('../../src/data/repertoire', () => ({
+  EMPTY_CATALOG_SEARCH: {
+    query: '',
+    composer: '',
+    instrumentIds: [],
+    instrumentMatch: 'ANY',
+    yearFrom: null,
+    yearTo: null,
+    page: 1,
+  },
   createRepertoire: vi.fn(),
   getInstruments: vi
     .fn()
     .mockResolvedValue([{ id: '1', name: 'Trumpet in B-flat', family: 'BRASS' }]),
-  getPublicRepertoireCatalog: vi.fn().mockResolvedValue([
-    {
-      id: '2',
-      title: 'Public Repertoire Two',
-      compositionYear: 1900,
-      composers: [{ id: '2', name: 'Public Composer' }],
-      instruments: [],
-      inLibrary: false,
-      children: [],
-    },
-  ]),
+  getPublicRepertoireCatalogPage: vi.fn().mockResolvedValue({
+    items: [
+      {
+        id: '2',
+        title: 'Public Repertoire Two',
+        compositionYear: 1900,
+        composers: [{ id: '2', name: 'Public Composer' }],
+        instruments: [],
+        inLibrary: false,
+        children: [],
+      },
+    ],
+    page: 1,
+    pageSize: 25,
+    total: 1,
+    totalPages: 1,
+  }),
 }))
 
 import { PracticePlanEditor } from '@/components/PracticePlanEditor'

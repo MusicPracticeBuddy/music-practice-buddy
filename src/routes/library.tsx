@@ -37,7 +37,7 @@ function Library() {
               <span class="count-badge">{repertoire().length} entries</span>
             </div>
             <div class="library-section-actions">
-              <Link class="primary-button" to="/repertoire/new">
+              <Link class="primary-button" to="/repertoire/search">
                 + Add repertoire
               </Link>
             </div>

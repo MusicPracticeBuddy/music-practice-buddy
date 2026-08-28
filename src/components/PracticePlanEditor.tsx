@@ -6,8 +6,10 @@ import Sortable, { type MoveEvent, type SortableEvent } from 'sortablejs'
 import { LibraryItemForm } from '@/components/LibraryItemForm'
 import { PracticeLibraryPanel } from '@/components/PracticeLibraryPanel'
 import {
+  EMPTY_CATALOG_SEARCH,
   getInstruments,
-  getPublicRepertoireCatalog,
+  getPublicRepertoireCatalogPage,
+  type CatalogRepertoireRow,
   type InstrumentOption,
 } from '@/data/repertoire'
 import {
@@ -38,6 +40,16 @@ function clientId() {
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Something went wrong. Please try again.'
+}
+
+function catalogLibraryItem(item: CatalogRepertoireRow): TemplateLibraryItem {
+  return {
+    id: item.id,
+    type: LIBRARY_ITEM_TYPE.REPERTOIRE,
+    name: item.title,
+    detail: item.composers.map((composer) => composer.name).join(', ') || 'Unknown composer',
+    children: item.children.map(catalogLibraryItem),
+  }
 }
 
 function flatten(nodes: EditorNode[], parentClientId: string | null = null): TemplateItemInput[] {
@@ -225,12 +237,19 @@ export function PracticePlanEditor(props: {
   const [instrumentOptions, setInstrumentOptions] = createSignal<InstrumentOption[]>([])
   const [searchPublicRepertoire, setSearchPublicRepertoire] = createSignal(false)
   const [publicRepertoire, setPublicRepertoire] = createSignal<TemplateLibraryItem[]>([])
+  const [publicRepertoirePage, setPublicRepertoirePage] = createSignal({
+    page: 1,
+    total: 0,
+    totalPages: 0,
+  })
+  const [publicRepertoireQuery, setPublicRepertoireQuery] = createSignal('')
   const [loadingPublicRepertoire, setLoadingPublicRepertoire] = createSignal(false)
+  let publicRepertoireRequest = 0
 
   const searchableRepertoire = createMemo(() => {
     const libraryRepertoire = library.filter((item) => item.type === LIBRARY_ITEM_TYPE.REPERTOIRE)
-    const libraryIds = new Set(libraryRepertoire.map((item) => item.id))
-    return [...libraryRepertoire, ...publicRepertoire().filter((item) => !libraryIds.has(item.id))]
+    const libraryItems = new Map(libraryRepertoire.map((item) => [item.id, item]))
+    return publicRepertoire().map((item) => libraryItems.get(item.id) ?? item)
   })
 
   const itemCount = createMemo(
@@ -438,31 +457,39 @@ export function PracticePlanEditor(props: {
     }
   }
 
-  async function togglePublicRepertoireSearch(enabled: boolean) {
-    setSearchPublicRepertoire(enabled)
-    if (!enabled || publicRepertoire().length > 0) return
+  async function searchPublicCatalog(query: string, page: number) {
+    const request = ++publicRepertoireRequest
+    setPublicRepertoireQuery(query)
     setLoadingPublicRepertoire(true)
     setError('')
     try {
-      const catalog = await getPublicRepertoireCatalog()
-      setPublicRepertoire(
-        catalog.map(function toLibraryItem(item): TemplateLibraryItem {
-          return {
-            id: item.id,
-            type: LIBRARY_ITEM_TYPE.REPERTOIRE,
-            name: item.title,
-            detail:
-              item.composers.map((composer) => composer.name).join(', ') || 'Unknown composer',
-            children: item.children.map(toLibraryItem),
-          }
-        }),
-      )
+      const catalog = await getPublicRepertoireCatalogPage({
+        data: { ...EMPTY_CATALOG_SEARCH, query, page },
+      })
+      if (request !== publicRepertoireRequest) return
+      setPublicRepertoire(catalog.items.map(catalogLibraryItem))
+      setPublicRepertoirePage({
+        page: catalog.page,
+        total: catalog.total,
+        totalPages: catalog.totalPages,
+      })
     } catch (caught) {
+      if (request !== publicRepertoireRequest) return
       setError(errorMessage(caught))
       setSearchPublicRepertoire(false)
     } finally {
-      setLoadingPublicRepertoire(false)
+      if (request === publicRepertoireRequest) setLoadingPublicRepertoire(false)
     }
+  }
+
+  async function togglePublicRepertoireSearch(enabled: boolean, query: string) {
+    setSearchPublicRepertoire(enabled)
+    if (!enabled) {
+      publicRepertoireRequest += 1
+      setLoadingPublicRepertoire(false)
+      return
+    }
+    await searchPublicCatalog(query, 1)
   }
 
   return (
@@ -670,7 +697,14 @@ export function PracticePlanEditor(props: {
           publicRepertoireItems={searchableRepertoire()}
           searchPublicRepertoire={searchPublicRepertoire()}
           publicRepertoireLoading={loadingPublicRepertoire()}
-          onSearchPublicRepertoireChange={(enabled) => void togglePublicRepertoireSearch(enabled)}
+          onSearchPublicRepertoireChange={(enabled, query) =>
+            void togglePublicRepertoireSearch(enabled, query)
+          }
+          publicRepertoirePagination={{
+            ...publicRepertoirePage(),
+            onPageChange: (page) => void searchPublicCatalog(publicRepertoireQuery(), page),
+            onSearchChange: (query) => void searchPublicCatalog(query, 1),
+          }}
           footer={
             <Dialog.Root
               open={creatingItem()}

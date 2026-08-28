@@ -4,9 +4,11 @@ import { pool } from '@/data/db'
 import { createDevelopmentUser } from '@/data/auth'
 import { createExercise, deleteExercise, getExercises, updateExercise } from '@/data/exercises'
 import {
+  EMPTY_CATALOG_SEARCH,
   createRepertoire,
   deleteRepertoire,
   getPublicRepertoireCatalog,
+  getPublicRepertoireCatalogPage,
   getRepertoire,
   getRepertoireDetail,
   updateRepertoireLibraryNote,
@@ -246,6 +248,132 @@ describe('library item persistence', () => {
     })
     expect(reference.rows[0]?.count).toBe(1)
     expect((await getRepertoire()).some((repertoire) => repertoire.id === created.id)).toBe(false)
+  })
+
+  it('paginates and filters the public repertoire catalog in the database', async () => {
+    const instruments = await pool.query<{ id: string }>(
+      `INSERT INTO instrument (name, family)
+       VALUES ('Catalog piano', 'KEYBOARD'), ('Catalog violin', 'STRING')
+       RETURNING id::text`,
+    )
+    const composer = await pool.query<{ id: string }>(
+      `INSERT INTO person (name) VALUES ('Catalog Composer') RETURNING id::text`,
+    )
+    await pool.query(
+      `INSERT INTO repertoire (title, composition_year, visibility, status)
+       SELECT 'Catalog Work ' || lpad(number::text, 2, '0'), 1800 + number, 'PUBLIC', 'APPROVED'
+       FROM generate_series(1, 28) number`,
+    )
+    await pool.query(
+      `INSERT INTO repertoire (title, parent_repertoire_id, visibility, status)
+       SELECT 'Catalog Work 01 - First movement', id, NULL, 'APPROVED'
+       FROM repertoire WHERE title = 'Catalog Work 01'`,
+    )
+    await pool.query(
+      `INSERT INTO repertoire_credit (repertoire_id, person_id, role, position)
+       SELECT id, $1, 'COMPOSER', 1 FROM repertoire WHERE title LIKE 'Catalog Work %'`,
+      [composer.rows[0]!.id],
+    )
+    await pool.query(
+      `INSERT INTO repertoire_instrument (repertoire_id, instrument_id, role, position)
+       SELECT id, $1, 'SOLO', 1
+       FROM repertoire
+       WHERE title LIKE 'Catalog Work %' AND composition_year % 2 = 0`,
+      [instruments.rows[0]!.id],
+    )
+    await pool.query(
+      `INSERT INTO repertoire_instrument (repertoire_id, instrument_id, role, position)
+       SELECT id, $1, 'SOLO', 2
+       FROM repertoire
+       WHERE title LIKE 'Catalog Work %' AND composition_year % 3 = 0`,
+      [instruments.rows[1]!.id],
+    )
+    const chopin = await pool.query<{ id: string }>(
+      `INSERT INTO person (name) VALUES ('Frédéric Chopin') RETURNING id::text`,
+    )
+    await pool.query(
+      `INSERT INTO repertoire_credit (repertoire_id, person_id, role, position)
+       SELECT id, $1, 'COMPOSER', 2
+       FROM repertoire WHERE title = 'Catalog Work 02'`,
+      [chopin.rows[0]!.id],
+    )
+    await pool.query(
+      `UPDATE repertoire SET title = 'Catalog Piano Concerto 02'
+       WHERE title = 'Catalog Work 02'`,
+    )
+
+    const firstPage = await getPublicRepertoireCatalogPage({ data: EMPTY_CATALOG_SEARCH })
+    expect(firstPage).toMatchObject({ page: 1, pageSize: 25, total: 28, totalPages: 2 })
+    expect(firstPage.items).toHaveLength(25)
+    expect(
+      await getPublicRepertoireCatalogPage({
+        data: { ...EMPTY_CATALOG_SEARCH, query: 'Cat' },
+      }),
+    ).toMatchObject({ total: 28 })
+    expect(firstPage.items.find((item) => item.title === 'Catalog Work 01')?.children).toEqual([
+      expect.objectContaining({ title: 'Catalog Work 01 - First movement' }),
+    ])
+    expect(
+      await getPublicRepertoireCatalogPage({
+        data: { ...EMPTY_CATALOG_SEARCH, query: 'First movement' },
+      }),
+    ).toMatchObject({
+      total: 1,
+      items: [expect.objectContaining({ title: 'Catalog Work 01' })],
+    })
+    const fuzzyDiagnostics = await pool.query<{
+      score: number
+      threshold: string
+      matches: boolean
+    }>(
+      `SELECT strict_word_similarity('cncrto', 'Catalog Piano Concerto 02') AS score,
+         current_setting('pg_trgm.strict_word_similarity_threshold') AS threshold,
+         'cncrto' <<% 'Catalog Piano Concerto 02' AS matches`,
+    )
+    expect(fuzzyDiagnostics.rows[0]).toMatchObject({ threshold: '0.22', matches: true })
+    expect(fuzzyDiagnostics.rows[0]!.score).toBeGreaterThan(0.22)
+    expect(
+      await getPublicRepertoireCatalogPage({
+        data: { ...EMPTY_CATALOG_SEARCH, query: 'cncrto' },
+      }),
+    ).toMatchObject({
+      total: 1,
+      items: [expect.objectContaining({ title: 'Catalog Piano Concerto 02' })],
+    })
+    expect(
+      await getPublicRepertoireCatalogPage({
+        data: { ...EMPTY_CATALOG_SEARCH, composer: 'chopn' },
+      }),
+    ).toMatchObject({
+      total: 1,
+      items: [expect.objectContaining({ title: 'Catalog Piano Concerto 02' })],
+    })
+    const secondPage = await getPublicRepertoireCatalogPage({
+      data: { ...EMPTY_CATALOG_SEARCH, page: 2 },
+    })
+    expect(secondPage).toMatchObject({ page: 2, total: 28 })
+    expect(secondPage.items).toHaveLength(3)
+
+    const filtered = await getPublicRepertoireCatalogPage({
+      data: {
+        ...EMPTY_CATALOG_SEARCH,
+        composer: 'catalog composer',
+        yearFrom: 1810,
+        yearTo: 1812,
+        instrumentIds: instruments.rows.map((instrument) => instrument.id),
+        instrumentMatch: 'ANY',
+      },
+    })
+    expect(filtered.items.map((item) => item.compositionYear)).toEqual([1810, 1812])
+
+    const matchAll = await getPublicRepertoireCatalogPage({
+      data: {
+        ...EMPTY_CATALOG_SEARCH,
+        instrumentIds: instruments.rows.map((instrument) => instrument.id),
+        instrumentMatch: 'ALL',
+      },
+    })
+    expect(matchAll.total).toBe(4)
   })
 
   it('keeps externally identified catalog entities system-owned and immutable', async () => {

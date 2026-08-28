@@ -564,17 +564,73 @@ h1 {
 .catalog-result-list {
   display: grid;
   gap: 10px;
+  transition: opacity 120ms ease;
+}
+
+.catalog-results-loading {
+  opacity: 0.55;
+}
+
+.catalog-pagination {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.catalog-pagination span {
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .catalog-result-card {
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-  align-items: center;
   padding: 18px 20px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--paper);
+}
+
+.catalog-result-summary,
+.catalog-result-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+
+.catalog-result-actions {
+  flex-shrink: 0;
+}
+
+.catalog-expand-button {
+  margin-top: 0;
+}
+
+.catalog-child-list {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 14px 0 0 22px;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.catalog-child-list .catalog-child-list {
+  margin-top: 8px;
+  padding-top: 0;
+  border-top: 0;
+  border-left: 1px solid var(--line);
+}
+
+.catalog-child-list strong,
+.catalog-child-list small {
+  display: block;
+}
+
+.catalog-child-list small {
+  margin-top: 2px;
+  color: var(--muted);
 }
 
 .catalog-result-card h3 {
@@ -1264,6 +1320,30 @@ textarea.text-input {
   max-height: 500px;
   margin: 10px 0;
   overflow: auto;
+}
+
+.editor-library-pagination {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.editor-library-pagination button {
+  border: 0;
+  padding: 4px;
+  color: var(--green);
+  background: transparent;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.editor-library-pagination button:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .library-public-search-toggle {
@@ -2406,6 +2486,16 @@ textarea.text-input {
   .catalog-results > header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .catalog-result-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .catalog-result-actions {
+    width: 100%;
+    flex-wrap: wrap;
   }
 
   .catalog-results > header small {

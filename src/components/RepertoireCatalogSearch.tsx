@@ -1,16 +1,18 @@
-import { For, Show, createMemo, createSignal } from 'solid-js'
+import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useRouter } from '@tanstack/solid-router'
 import {
   addPublicRepertoireToLibrary,
   type CatalogComposerOption,
+  type CatalogInstrumentMatch,
   type CatalogRepertoireRow,
+  type CatalogSearchInput,
+  type CatalogSearchPage,
   type InstrumentOption,
+  getPublicRepertoireCatalogPage,
 } from '@/data/repertoire'
 
-type InstrumentMatch = 'ANY' | 'ALL'
-
 export function RepertoireCatalogSearch(props: {
-  items: CatalogRepertoireRow[]
+  initialPage: CatalogSearchPage
   composers: CatalogComposerOption[]
   instruments: InstrumentOption[]
 }) {
@@ -19,12 +21,17 @@ export function RepertoireCatalogSearch(props: {
   const [composerQuery, setComposerQuery] = createSignal('')
   const [instrumentQuery, setInstrumentQuery] = createSignal('')
   const [selectedInstrumentIds, setSelectedInstrumentIds] = createSignal<string[]>([])
-  const [instrumentMatch, setInstrumentMatch] = createSignal<InstrumentMatch>('ANY')
+  const [instrumentMatch, setInstrumentMatch] = createSignal<CatalogInstrumentMatch>('ANY')
   const [yearFrom, setYearFrom] = createSignal('')
   const [yearTo, setYearTo] = createSignal('')
+  const [results, setResults] = createSignal(props.initialPage)
+  const [loading, setLoading] = createSignal(false)
+  const [expandedIds, setExpandedIds] = createSignal<string[]>([])
   const [addingId, setAddingId] = createSignal<string | null>(null)
   const [addedIds, setAddedIds] = createSignal<string[]>([])
   const [error, setError] = createSignal('')
+  let searchTimer: ReturnType<typeof setTimeout> | undefined
+  let requestId = 0
 
   const visibleInstruments = createMemo(() => {
     const search = instrumentQuery().trim().toLocaleLowerCase()
@@ -35,57 +42,48 @@ export function RepertoireCatalogSearch(props: {
       : props.instruments
   })
 
-  const filteredItems = createMemo(() => {
-    const text = query().trim().toLocaleLowerCase()
-    const composer = composerQuery().trim().toLocaleLowerCase()
-    const instruments = selectedInstrumentIds()
-    const lowerYear = yearFrom() ? Number(yearFrom()) : null
-    const upperYear = yearTo() ? Number(yearTo()) : null
+  function searchInput(page: number): CatalogSearchInput {
+    return {
+      query: query(),
+      composer: composerQuery(),
+      instrumentIds: selectedInstrumentIds(),
+      instrumentMatch: instrumentMatch(),
+      yearFrom: yearFrom() === '' ? null : Number(yearFrom()),
+      yearTo: yearTo() === '' ? null : Number(yearTo()),
+      page,
+    }
+  }
 
-    return props.items.filter((item) => {
-      if (
-        text &&
-        !`${item.title} ${item.composers.map((credit) => credit.name).join(' ')}`
-          .toLocaleLowerCase()
-          .includes(text)
-      ) {
-        return false
+  async function loadPage(page: number) {
+    clearTimeout(searchTimer)
+    const currentRequest = ++requestId
+    setLoading(true)
+    setError('')
+    try {
+      const nextResults = await getPublicRepertoireCatalogPage({ data: searchInput(page) })
+      if (currentRequest === requestId) setResults(nextResults)
+    } catch (caught) {
+      if (currentRequest === requestId) {
+        setError(caught instanceof Error ? caught.message : 'The catalog could not be searched.')
       }
-      if (
-        composer &&
-        !item.composers.some((credit) => credit.name.toLocaleLowerCase().includes(composer))
-      ) {
-        return false
-      }
-      if (
-        lowerYear !== null &&
-        (item.compositionYear === null || item.compositionYear < lowerYear)
-      ) {
-        return false
-      }
-      if (
-        upperYear !== null &&
-        (item.compositionYear === null || item.compositionYear > upperYear)
-      ) {
-        return false
-      }
-      if (instruments.length > 0) {
-        const itemInstrumentIds = new Set(item.instruments.map((instrument) => instrument.id))
-        const matches = instruments.map((id) => itemInstrumentIds.has(id))
-        if (instrumentMatch() === 'ALL' ? !matches.every(Boolean) : !matches.some(Boolean)) {
-          return false
-        }
-      }
-      return true
-    })
-  })
+    } finally {
+      if (currentRequest === requestId) setLoading(false)
+    }
+  }
 
-  const results = createMemo(() => filteredItems().slice(0, 100))
+  function queueSearch(delay = 0) {
+    clearTimeout(searchTimer)
+    requestId += 1
+    searchTimer = setTimeout(() => void loadPage(1), delay)
+  }
+
+  onCleanup(() => clearTimeout(searchTimer))
 
   function toggleInstrument(id: string, checked: boolean) {
     setSelectedInstrumentIds((ids) =>
       checked ? [...ids, id] : ids.filter((candidate) => candidate !== id),
     )
+    queueSearch()
   }
 
   function clearFilters() {
@@ -93,8 +91,10 @@ export function RepertoireCatalogSearch(props: {
     setComposerQuery('')
     setInstrumentQuery('')
     setSelectedInstrumentIds([])
+    setInstrumentMatch('ANY')
     setYearFrom('')
     setYearTo('')
+    queueSearch()
   }
 
   async function addToLibrary(item: CatalogRepertoireRow) {
@@ -123,7 +123,10 @@ export function RepertoireCatalogSearch(props: {
           type="search"
           value={query()}
           placeholder="Title or composer…"
-          onInput={(event) => setQuery(event.currentTarget.value)}
+          onInput={(event) => {
+            setQuery(event.currentTarget.value)
+            queueSearch(300)
+          }}
         />
 
         <label class="field-label" for="catalog-composer-search">
@@ -136,7 +139,10 @@ export function RepertoireCatalogSearch(props: {
           list="catalog-composer-options"
           value={composerQuery()}
           placeholder="Search composers…"
-          onInput={(event) => setComposerQuery(event.currentTarget.value)}
+          onInput={(event) => {
+            setComposerQuery(event.currentTarget.value)
+            queueSearch(300)
+          }}
         />
         <datalist id="catalog-composer-options">
           <For each={props.composers}>{(composer) => <option value={composer.name} />}</For>
@@ -151,7 +157,10 @@ export function RepertoireCatalogSearch(props: {
               class="text-input"
               type="number"
               value={yearFrom()}
-              onInput={(event) => setYearFrom(event.currentTarget.value)}
+              onInput={(event) => {
+                setYearFrom(event.currentTarget.value)
+                queueSearch(300)
+              }}
             />
             <label for="catalog-year-to">To</label>
             <input
@@ -159,7 +168,10 @@ export function RepertoireCatalogSearch(props: {
               class="text-input"
               type="number"
               value={yearTo()}
-              onInput={(event) => setYearTo(event.currentTarget.value)}
+              onInput={(event) => {
+                setYearTo(event.currentTarget.value)
+                queueSearch(300)
+              }}
             />
           </div>
         </fieldset>
@@ -172,7 +184,10 @@ export function RepertoireCatalogSearch(props: {
                 type="radio"
                 name="instrument-match"
                 checked={instrumentMatch() === 'ANY'}
-                onChange={() => setInstrumentMatch('ANY')}
+                onChange={() => {
+                  setInstrumentMatch('ANY')
+                  queueSearch()
+                }}
               />
               Match any
             </label>
@@ -181,7 +196,10 @@ export function RepertoireCatalogSearch(props: {
                 type="radio"
                 name="instrument-match"
                 checked={instrumentMatch() === 'ALL'}
-                onChange={() => setInstrumentMatch('ALL')}
+                onChange={() => {
+                  setInstrumentMatch('ALL')
+                  queueSearch()
+                }}
               />
               Match all
             </label>
@@ -220,15 +238,16 @@ export function RepertoireCatalogSearch(props: {
         </button>
       </aside>
 
-      <section class="catalog-results" aria-live="polite">
+      <section class="catalog-results" aria-live="polite" aria-busy={loading()}>
         <header>
           <div>
             <p class="eyebrow">Public catalog</p>
-            <h2>{filteredItems().length} matching works</h2>
+            <h2>{results().total} matching works</h2>
           </div>
-          <Show when={filteredItems().length > results().length}>
+          <Show when={results().total > 0}>
             <small>
-              Showing the first {results().length}; refine your filters to narrow the list.
+              Showing {(results().page - 1) * results().pageSize + 1}–
+              {Math.min(results().page * results().pageSize, results().total)} of {results().total}
             </small>
           </Show>
         </header>
@@ -237,38 +256,116 @@ export function RepertoireCatalogSearch(props: {
             {error()}
           </p>
         </Show>
-        <div class="catalog-result-list">
-          <For each={results()} fallback={<p class="library-empty">No catalog works match.</p>}>
+        <div class="catalog-result-list" classList={{ 'catalog-results-loading': loading() }}>
+          <For
+            each={results().items}
+            fallback={<p class="library-empty">No catalog works match.</p>}
+          >
             {(item) => {
               const inLibrary = () => item.inLibrary || addedIds().includes(item.id)
+              const expanded = () => expandedIds().includes(item.id)
               return (
                 <article class="catalog-result-card">
-                  <div>
-                    <h3>{item.title}</h3>
-                    <p>
-                      {item.composers.map((composer) => composer.name).join(', ') ||
-                        'Unknown composer'}
-                    </p>
-                    <small>
-                      {item.compositionYear ?? 'Year unknown'}
-                      {item.instruments.length > 0 &&
-                        ` · ${item.instruments.map((instrument) => instrument.name).join(', ')}`}
-                    </small>
+                  <div class="catalog-result-summary">
+                    <div>
+                      <h3>{item.title}</h3>
+                      <p>
+                        {item.composers.map((composer) => composer.name).join(', ') ||
+                          'Unknown composer'}
+                      </p>
+                      <small>
+                        {item.compositionYear ?? 'Year unknown'}
+                        {item.instruments.length > 0 &&
+                          ` · ${item.instruments.map((instrument) => instrument.name).join(', ')}`}
+                      </small>
+                    </div>
+                    <div class="catalog-result-actions">
+                      <Show when={item.children.length > 0}>
+                        <button
+                          class="text-button catalog-expand-button"
+                          type="button"
+                          aria-expanded={expanded()}
+                          onClick={() =>
+                            setExpandedIds((ids) =>
+                              expanded() ? ids.filter((id) => id !== item.id) : [...ids, item.id],
+                            )
+                          }
+                        >
+                          {expanded() ? 'Hide' : 'Show'} {item.children.length}{' '}
+                          {item.children.length === 1 ? 'child' : 'children'}
+                        </button>
+                      </Show>
+                      <button
+                        class={inLibrary() ? 'secondary-button' : 'primary-button'}
+                        type="button"
+                        disabled={inLibrary() || addingId() === item.id}
+                        onClick={() => addToLibrary(item)}
+                      >
+                        {inLibrary()
+                          ? 'In My Library'
+                          : addingId() === item.id
+                            ? 'Adding…'
+                            : '+ Add'}
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    class={inLibrary() ? 'secondary-button' : 'primary-button'}
-                    type="button"
-                    disabled={inLibrary() || addingId() === item.id}
-                    onClick={() => addToLibrary(item)}
-                  >
-                    {inLibrary() ? 'In My Library' : addingId() === item.id ? 'Adding…' : '+ Add'}
-                  </button>
+                  <Show when={expanded()}>
+                    <CatalogChildren items={item.children} />
+                  </Show>
                 </article>
               )
             }}
           </For>
         </div>
+        <Show when={results().totalPages > 1}>
+          <nav class="catalog-pagination" aria-label="Catalog pages">
+            <button
+              class="secondary-button"
+              type="button"
+              disabled={loading() || results().page === 1}
+              onClick={() => void loadPage(results().page - 1)}
+            >
+              Previous
+            </button>
+            <span>
+              Page {results().page} of {results().totalPages}
+            </span>
+            <button
+              class="secondary-button"
+              type="button"
+              disabled={loading() || results().page === results().totalPages}
+              onClick={() => void loadPage(results().page + 1)}
+            >
+              Next
+            </button>
+          </nav>
+        </Show>
       </section>
     </div>
+  )
+}
+
+function CatalogChildren(props: { items: CatalogRepertoireRow[] }) {
+  return (
+    <ul class="catalog-child-list">
+      <For each={props.items}>
+        {(item) => (
+          <li>
+            <div>
+              <strong>{item.title}</strong>
+              <small>
+                {item.composers.map((composer) => composer.name).join(', ') || 'Unknown composer'}
+                {item.compositionYear !== null && ` · ${item.compositionYear}`}
+                {item.instruments.length > 0 &&
+                  ` · ${item.instruments.map((instrument) => instrument.name).join(', ')}`}
+              </small>
+            </div>
+            <Show when={item.children.length > 0}>
+              <CatalogChildren items={item.children} />
+            </Show>
+          </li>
+        )}
+      </For>
+    </ul>
   )
 }
