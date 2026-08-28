@@ -6,6 +6,12 @@
   "runServices": ["app"],
   "shutdownAction": "stopCompose",
   "remoteUser": "node",
+  "remoteEnv": {
+    "CODEX_HOME": "/home/node/.codex"
+  },
+  "mounts": [
+    "source=${localEnv:HOME}/.codex,target=/home/node/.codex,type=bind,consistency=cached"
+  ],
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
   },
@@ -20,5 +26,10 @@
       "onAutoForward": "silent"
     }
   },
-  "postCreateCommand": "sudo chown node:node node_modules && npm ci"
+  "postCreateCommand": "sudo chown node:node node_modules && npm ci",
+  "customizations": {
+    "vscode": {
+      "extensions": ["openai.chatgpt", "oxc.oxc-vscode"]
+    }
+  }
 }
