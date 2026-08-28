@@ -5,6 +5,7 @@ import { createDevelopmentUser } from '@/data/auth'
 import { createExercise, deleteExercise, getExercises, updateExercise } from '@/data/exercises'
 import {
   EMPTY_CATALOG_SEARCH,
+  addPublicRepertoireToLibrary,
   createRepertoire,
   deleteRepertoire,
   getPublicRepertoireCatalog,
@@ -264,10 +265,11 @@ describe('library item persistence', () => {
        SELECT 'Catalog Work ' || lpad(number::text, 2, '0'), 1800 + number, 'PUBLIC', 'APPROVED'
        FROM generate_series(1, 28) number`,
     )
-    await pool.query(
+    const catalogChild = await pool.query<{ id: string }>(
       `INSERT INTO repertoire (title, parent_repertoire_id, visibility, status)
        SELECT 'Catalog Work 01 - First movement', id, NULL, 'APPROVED'
-       FROM repertoire WHERE title = 'Catalog Work 01'`,
+       FROM repertoire WHERE title = 'Catalog Work 01'
+       RETURNING id::text`,
     )
     await pool.query(
       `INSERT INTO repertoire_credit (repertoire_id, person_id, role, position)
@@ -313,6 +315,18 @@ describe('library item persistence', () => {
     expect(firstPage.items.find((item) => item.title === 'Catalog Work 01')?.children).toEqual([
       expect.objectContaining({ title: 'Catalog Work 01 - First movement' }),
     ])
+    expect(await addPublicRepertoireToLibrary({ data: catalogChild.rows[0]!.id })).toEqual({
+      id: catalogChild.rows[0]!.id,
+    })
+    const childLibraryEntry = await pool.query<{ repertoireId: string }>(
+      `SELECT repertoire_id::text AS "repertoireId"
+       FROM musician_repertoire_library
+       WHERE musician_id = 1`,
+    )
+    expect(childLibraryEntry.rows).toEqual([{ repertoireId: catalogChild.rows[0]!.id }])
+    await expect(addPublicRepertoireToLibrary({ data: repertoireId })).rejects.toThrow(
+      'Public repertoire item not found',
+    )
     expect(
       await getPublicRepertoireCatalogPage({
         data: { ...EMPTY_CATALOG_SEARCH, query: 'First movement' },

@@ -310,7 +310,12 @@ export function RepertoireCatalogSearch(props: {
                     </div>
                   </div>
                   <Show when={expanded()}>
-                    <CatalogChildren items={item.children} />
+                    <CatalogChildren
+                      items={item.children}
+                      addingId={addingId()}
+                      addedIds={addedIds()}
+                      onAdd={addToLibrary}
+                    />
                   </Show>
                 </article>
               )
@@ -345,23 +350,58 @@ export function RepertoireCatalogSearch(props: {
   )
 }
 
-function CatalogChildren(props: { items: CatalogRepertoireRow[] }) {
+function CatalogChildren(props: {
+  items: CatalogRepertoireRow[]
+  addingId: string | null
+  addedIds: string[]
+  onAdd: (item: CatalogRepertoireRow) => Promise<void>
+}) {
   return (
     <ul class="catalog-child-list">
       <For each={props.items}>
         {(item) => (
           <li>
-            <div>
-              <strong>{item.title}</strong>
-              <small>
-                {item.composers.map((composer) => composer.name).join(', ') || 'Unknown composer'}
-                {item.compositionYear !== null && ` · ${item.compositionYear}`}
-                {item.instruments.length > 0 &&
-                  ` · ${item.instruments.map((instrument) => instrument.name).join(', ')}`}
-              </small>
+            <div class="catalog-child-summary">
+              <div>
+                <strong>{item.title}</strong>
+                <small>
+                  {item.composers.map((composer) => composer.name).join(', ') || 'Unknown composer'}
+                  {item.compositionYear !== null && ` · ${item.compositionYear}`}
+                  {item.instruments.length > 0 &&
+                    ` · ${item.instruments.map((instrument) => instrument.name).join(', ')}`}
+                </small>
+              </div>
+              <button
+                class={
+                  item.inLibrary || props.addedIds.includes(item.id)
+                    ? 'secondary-button catalog-child-action'
+                    : 'primary-button catalog-child-action'
+                }
+                type="button"
+                aria-label={
+                  item.inLibrary || props.addedIds.includes(item.id)
+                    ? `${item.title} is in My Library`
+                    : `Add ${item.title} to My Library`
+                }
+                disabled={
+                  item.inLibrary || props.addedIds.includes(item.id) || props.addingId === item.id
+                }
+                onClick={() => void props.onAdd(item)}
+              >
+                {item.inLibrary || props.addedIds.includes(item.id)
+                  ? 'In My Library'
+                  : props.addingId === item.id
+                    ? 'Adding…'
+                    : '+ Add'}
+              </button>
             </div>
             <Show when={item.children.length > 0}>
-              <CatalogChildren items={item.children} />
+              <CatalogChildren
+                items={item.children}
+                addingId={props.addingId}
+                addedIds={props.addedIds}
+                onAdd={props.onAdd}
+              />
             </Show>
           </li>
         )}

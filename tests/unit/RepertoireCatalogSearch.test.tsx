@@ -192,4 +192,18 @@ describe('RepertoireCatalogSearch', () => {
     expect(screen.getByText('First movement')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Hide 1 child' })).toBeTruthy()
   })
+
+  it('adds an individual child to My Library', async () => {
+    const child = { ...items[1]!, id: '20', title: 'First concerto' }
+    const parent = { ...items[0]!, children: [child] }
+    renderSearch({ items: [parent], page: 1, pageSize: 25, total: 1, totalPages: 1 })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show 1 child' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add First concerto to My Library' }))
+
+    await waitFor(() => {
+      expect(mocks.addToLibrary).toHaveBeenCalledWith({ data: '20' })
+      expect(screen.getByText('In My Library', { selector: '.catalog-child-action' })).toBeTruthy()
+    })
+  })
 })

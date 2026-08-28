@@ -628,6 +628,19 @@ h1 {
   display: block;
 }
 
+.catalog-child-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+
+.catalog-child-action {
+  flex: 0 0 auto;
+  padding: 7px 11px;
+  font-size: 12px;
+}
+
 .catalog-child-list small {
   margin-top: 2px;
   color: var(--muted);

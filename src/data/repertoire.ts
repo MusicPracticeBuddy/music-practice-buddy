@@ -613,14 +613,24 @@ export const addPublicRepertoireToLibrary = createServerFn({ method: 'POST' })
   })
   .handler(async ({ data: repertoireId, context }): Promise<{ id: string }> => {
     const result = await pool.query<{ id: string }>(
-      `INSERT INTO musician_repertoire_library (musician_id, repertoire_id)
+      `WITH RECURSIVE public_catalog AS (
+         SELECT id
+         FROM repertoire
+         WHERE parent_repertoire_id IS NULL
+           AND visibility = 'PUBLIC'
+           AND status = 'APPROVED'
+           AND deleted_at IS NULL
+         UNION ALL
+         SELECT child.id
+         FROM repertoire child
+         JOIN public_catalog parent ON parent.id = child.parent_repertoire_id
+         WHERE child.status = 'APPROVED' AND child.deleted_at IS NULL
+       )
+       INSERT INTO musician_repertoire_library (musician_id, repertoire_id)
        SELECT $1, repertoire.id
        FROM repertoire
+       JOIN public_catalog ON public_catalog.id = repertoire.id
        WHERE repertoire.id = $2
-         AND repertoire.parent_repertoire_id IS NULL
-         AND repertoire.visibility = 'PUBLIC'
-         AND repertoire.status = 'APPROVED'
-         AND repertoire.deleted_at IS NULL
        ON CONFLICT (musician_id, repertoire_id) DO UPDATE
          SET musician_id = EXCLUDED.musician_id
        RETURNING repertoire_id::text AS id`,
