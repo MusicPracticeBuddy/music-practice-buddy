@@ -89,7 +89,7 @@ describe('SessionExerciseNotation', () => {
       .mockReturnValueOnce(0)
     render(() => <SessionExerciseNotation notation={'K:C\nCDEF|'} format="abc" />)
 
-    const randomKey = screen.getByRole('button', { name: 'Random key' })
+    const randomKey = screen.getByRole('button', { name: 'Random Key' })
     fireEvent.click(randomKey)
 
     expect(
@@ -108,7 +108,7 @@ describe('SessionExerciseNotation', () => {
     vi.spyOn(Math, 'random').mockReturnValue(19.1 / 30)
     render(() => <SessionExerciseNotation notation={'K:C\nCDEF|'} format="abc" />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Random key' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Random Key' }))
 
     expect(screen.getByRole('button', { name: 'Minor' }).getAttribute('aria-pressed')).toBe('true')
     expect(
@@ -176,5 +176,20 @@ describe('SessionExerciseNotation', () => {
 
     expect(screen.getByText('1 octave up')).toBeTruthy()
     expect(screen.getByLabelText('Transposition').textContent).toContain('"steps":12')
+  })
+  it('randomizes within the mode selected by the Major/Minor toggle', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    render(() => <SessionExerciseNotation notation={'K:C\nCDEF|'} format="abc" />)
+
+    expect(screen.getByRole('button', { name: 'Random Major Key' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Minor' }))
+
+    const randomMinorKey = screen.getByRole('button', { name: 'Random Minor Key' })
+    fireEvent.click(randomMinorKey)
+
+    expect(screen.getByRole('button', { name: 'Minor' }).getAttribute('aria-pressed')).toBe('true')
+    expect(
+      screen.getByRole('button', { name: 'Display in A♭ minor' }).getAttribute('aria-pressed'),
+    ).toBe('true')
   })
 })

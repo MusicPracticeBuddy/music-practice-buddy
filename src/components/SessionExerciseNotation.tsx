@@ -113,9 +113,11 @@ export function SessionExerciseNotation(props: SessionExerciseNotationProps) {
     if (target) setTargetKeyId(target.id)
   }
 
-  function selectRandomKey() {
+  function selectRandomKey(mode?: AbcKeyMode) {
     const current = targetKey()
-    const allKeys = [...abcKeyOptionsForMode('major'), ...abcKeyOptionsForMode('minor')]
+    const allKeys = mode
+      ? abcKeyOptionsForMode(mode)
+      : [...abcKeyOptionsForMode('major'), ...abcKeyOptionsForMode('minor')]
     const candidates = hasRandomizedKey()
       ? allKeys.filter((key) => key.id !== current?.id)
       : allKeys
@@ -157,9 +159,16 @@ export function SessionExerciseNotation(props: SessionExerciseNotationProps) {
               <button
                 class="secondary-button random-key-button"
                 type="button"
-                onClick={selectRandomKey}
+                onClick={() => selectRandomKey()}
               >
-                Random key
+                Random Key
+              </button>
+              <button
+                class="secondary-button random-key-button"
+                type="button"
+                onClick={() => selectRandomKey(displayMode())}
+              >
+                Random {displayMode() === 'major' ? 'Major' : 'Minor'} Key
               </button>
               <button
                 class="secondary-button"
