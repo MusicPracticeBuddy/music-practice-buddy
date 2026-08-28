@@ -14,6 +14,9 @@
 The application is forwarded on port 3000. PostgreSQL is available inside the container at
 `postgres:5432` and on the host at `localhost:5432`.
 
+The development image includes the PostgreSQL client tools and `libpq` development headers needed
+to install and build Node modules such as `pg-native`.
+
 The configuration uses safe local defaults for the database when `.env` is absent. Values in a
 local `.env` override those defaults. The development login defaults to enabled in the container
 and can be changed with `AUTH_DEV_LOGIN_ENABLED` in `.env`.

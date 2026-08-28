@@ -1,6 +1,8 @@
 services:
   app:
-    image: mcr.microsoft.com/devcontainers/javascript-node:24-bookworm
+    build:
+      context: .devcontainer
+      dockerfile: Dockerfile
     init: true
     command: sleep infinity
 
