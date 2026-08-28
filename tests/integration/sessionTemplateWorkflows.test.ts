@@ -10,7 +10,9 @@ import {
   deleteExercise,
   getExerciseLibraryPage,
   getExercises,
+  getOwnedExercisePage,
   getPublicExerciseCatalogPage,
+  removeExerciseFromLibrary,
   updateExercise,
 } from '@/data/exercises'
 import {
@@ -285,6 +287,27 @@ describe('library item persistence', () => {
         },
       }),
     ).toMatchObject({ total: 1, items: [expect.objectContaining({ title: 'Piano Concerto 21' })] })
+
+    const ownedExercises = await getOwnedExercisePage({ data: 1 })
+    expect(ownedExercises).toMatchObject({ page: 1, pageSize: 25, total: 22, totalPages: 1 })
+    const privateOwnedExercise = ownedExercises.items.find(
+      (exercise) => exercise.name === 'Library exercise 01',
+    )!
+    expect(privateOwnedExercise.inLibrary).toBe(true)
+    expect(await removeExerciseFromLibrary({ data: privateOwnedExercise.id })).toEqual({
+      id: privateOwnedExercise.id,
+    })
+    await expect(removeExerciseFromLibrary({ data: privateOwnedExercise.id })).rejects.toThrow(
+      'Exercise is not in My Library',
+    )
+    expect(await getOwnedExercisePage({ data: 1 })).toMatchObject({
+      items: expect.arrayContaining([
+        expect.objectContaining({ id: privateOwnedExercise.id, inLibrary: false }),
+      ]),
+    })
+    expect(await addExerciseToLibrary({ data: privateOwnedExercise.id })).toEqual({
+      id: privateOwnedExercise.id,
+    })
   })
 
   it('creates, edits, and soft-deletes an exercise while preserving references', async () => {

@@ -29,6 +29,8 @@ export function DeleteConfirmationDialog(props: {
     setError('')
     try {
       await props.onConfirm()
+      setInternalOpen(false)
+      props.onOpenChange?.(false)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The item could not be deleted.')
     } finally {

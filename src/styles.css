@@ -895,6 +895,19 @@ h1 {
   color: var(--muted);
 }
 
+.exercise-library-card h2 a {
+  color: inherit;
+  text-underline-offset: 4px;
+}
+
+.exercise-library-actions {
+  margin-top: 18px;
+}
+
+.exercise-library-actions .text-link {
+  margin-top: 0;
+}
+
 .session-row {
   display: flex;
   align-items: center;

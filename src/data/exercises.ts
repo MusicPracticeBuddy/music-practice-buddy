@@ -53,6 +53,23 @@ export type ExerciseCatalogPage = {
   totalPages: number
 }
 
+export type OwnedExerciseRow = {
+  id: string
+  name: string
+  notationFormat: ExerciseNotationFormat
+  visibility: Visibility
+  copiedFrom: string | null
+  inLibrary: boolean
+}
+
+export type OwnedExercisePage = {
+  items: OwnedExerciseRow[]
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+}
+
 export const EXERCISE_LIBRARY_PAGE_SIZE = 20
 export const EXERCISE_CATALOG_PAGE_SIZE = 25
 
@@ -326,7 +343,7 @@ export const addExerciseToLibrary = createServerFn({ method: 'POST' })
        SELECT $1, exercise.id
        FROM exercise
        WHERE exercise.id = $2
-         AND exercise.visibility = 'PUBLIC'
+         AND (exercise.musician_id = $1 OR exercise.visibility = 'PUBLIC')
          AND exercise.deleted_at IS NULL
        ON CONFLICT (musician_id, exercise_id) DO UPDATE
          SET musician_id = EXCLUDED.musician_id
@@ -336,6 +353,70 @@ export const addExerciseToLibrary = createServerFn({ method: 'POST' })
     const exercise = result.rows[0]
     if (!exercise) throw new Error('Exercise not found')
     return exercise
+  })
+
+export const removeExerciseFromLibrary = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .validator((exerciseId: string) => {
+    if (!/^\d+$/.test(exerciseId)) throw new Error('Invalid exercise')
+    return exerciseId
+  })
+  .handler(async ({ data: exerciseId, context }): Promise<{ id: string }> => {
+    const result = await pool.query<{ id: string }>(
+      `DELETE FROM musician_exercise_library
+       WHERE musician_id = $1 AND exercise_id = $2
+       RETURNING exercise_id::text AS id`,
+      [context.user.musicianId, exerciseId],
+    )
+    const exercise = result.rows[0]
+    if (!exercise) throw new Error('Exercise is not in My Library')
+    return exercise
+  })
+
+export const getOwnedExercisePage = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .validator((page: number) => {
+    if (!Number.isInteger(page) || page < 1) throw new Error('Invalid page')
+    return page
+  })
+  .handler(async ({ data: page, context }): Promise<OwnedExercisePage> => {
+    const offset = (page - 1) * EXERCISE_CATALOG_PAGE_SIZE
+    const [countResult, result] = await Promise.all([
+      pool.query<{ total: number }>(
+        `SELECT count(*)::integer AS total
+         FROM exercise
+         WHERE musician_id = $1 AND deleted_at IS NULL`,
+        [context.user.musicianId],
+      ),
+      pool.query<OwnedExerciseRow>(
+        `SELECT
+           exercise.id::text,
+           COALESCE(exercise.name, 'Untitled exercise') AS name,
+           exercise.notation_format AS "notationFormat",
+           exercise.visibility::text,
+           source.name AS "copiedFrom",
+           EXISTS (
+             SELECT 1 FROM musician_exercise_library library
+             WHERE library.exercise_id = exercise.id AND library.musician_id = $1
+           ) AS "inLibrary"
+         FROM exercise
+         LEFT JOIN exercise source ON source.id = exercise.copied_from_exercise_id
+           AND source.deleted_at IS NULL
+           AND (source.musician_id = $1 OR source.visibility = 'PUBLIC')
+         WHERE exercise.musician_id = $1 AND exercise.deleted_at IS NULL
+         ORDER BY lower(exercise.name), exercise.id
+         LIMIT $2 OFFSET $3`,
+        [context.user.musicianId, EXERCISE_CATALOG_PAGE_SIZE, offset],
+      ),
+    ])
+    const total = countResult.rows[0]?.total ?? 0
+    return {
+      items: result.rows,
+      page,
+      pageSize: EXERCISE_CATALOG_PAGE_SIZE,
+      total,
+      totalPages: Math.ceil(total / EXERCISE_CATALOG_PAGE_SIZE),
+    }
   })
 
 export const getExerciseDetail = createServerFn({ method: 'GET' })

@@ -6,7 +6,9 @@ import { ExerciseNotation } from '@/components/ExerciseNotation'
 import {
   EMPTY_EXERCISE_LIBRARY_SEARCH,
   getExerciseLibraryPage,
+  removeExerciseFromLibrary,
   type ExerciseLibrarySearchInput,
+  type ExerciseRow,
 } from '@/data/exercises'
 import {
   EMPTY_REPERTOIRE_LIBRARY_SEARCH,
@@ -299,6 +301,9 @@ function Library() {
               <span class="count-badge">{exercises().total} exercises</span>
             </div>
             <div class="library-section-actions">
+              <Link class="secondary-button" to="/exercises/owned">
+                Owned exercises
+              </Link>
               <Link class="secondary-button" to="/exercises/new">
                 + Create exercise
               </Link>
@@ -383,32 +388,14 @@ function Library() {
             <div class="list-stack" classList={{ 'catalog-results-loading': exercisesLoading() }}>
               <For each={exercises().items}>
                 {(exercise, index) => (
-                  <Link
-                    class="list-card"
-                    to="/exercises/$exerciseId"
-                    params={{ exerciseId: exercise.id }}
-                  >
-                    <span class="list-number">
-                      {String((exercises().page - 1) * exercises().pageSize + index() + 1).padStart(
-                        2,
-                        '0',
-                      )}
-                    </span>
-                    <div class="list-main">
-                      <div class="card-topline">
-                        <span class="tag">{exercise.visibility.toLowerCase()}</span>
-                        <span>{exercise.notationFormat}</span>
-                      </div>
-                      <h2>{exercise.name}</h2>
-                      <Show when={exercise.notation} fallback={<p>No notation added yet.</p>}>
-                        <ExerciseNotation
-                          notation={exercise.notation ?? ''}
-                          format={exercise.notationFormat}
-                        />
-                      </Show>
-                      {exercise.copiedFrom && <small>Adapted from {exercise.copiedFrom}</small>}
-                    </div>
-                  </Link>
+                  <ExerciseLibraryCard
+                    exercise={exercise}
+                    number={(exercises().page - 1) * exercises().pageSize + index() + 1}
+                    onRemove={async () => {
+                      await removeExerciseFromLibrary({ data: exercise.id })
+                      await loadExercisePage(exercises().page)
+                    }}
+                  />
                 )}
               </For>
             </div>
@@ -440,6 +427,54 @@ function Library() {
         </section>
       </div>
     </main>
+  )
+}
+
+function ExerciseLibraryCard(props: {
+  exercise: ExerciseRow
+  number: number
+  onRemove: () => Promise<void>
+}) {
+  return (
+    <article class="list-card exercise-library-card">
+      <span class="list-number">{String(props.number).padStart(2, '0')}</span>
+      <div class="list-main">
+        <div class="card-topline">
+          <span class="tag">{props.exercise.visibility.toLowerCase()}</span>
+          <span>{props.exercise.notationFormat}</span>
+        </div>
+        <h2>
+          <Link to="/exercises/$exerciseId" params={{ exerciseId: props.exercise.id }}>
+            {props.exercise.name}
+          </Link>
+        </h2>
+        <Show when={props.exercise.notation} fallback={<p>No notation added yet.</p>}>
+          <ExerciseNotation
+            notation={props.exercise.notation ?? ''}
+            format={props.exercise.notationFormat}
+          />
+        </Show>
+        {props.exercise.copiedFrom && <small>Adapted from {props.exercise.copiedFrom}</small>}
+        <div class="library-section-actions exercise-library-actions">
+          <Link
+            class="text-link"
+            to="/exercises/$exerciseId"
+            params={{ exerciseId: props.exercise.id }}
+          >
+            View details →
+          </Link>
+          <DeleteConfirmationDialog
+            triggerLabel="Remove"
+            title="Remove from My Library?"
+            itemName={props.exercise.name}
+            description="This removes the library entry. The exercise and your practice history remain available."
+            confirmLabel="Remove from My Library"
+            pendingLabel="Removing…"
+            onConfirm={props.onRemove}
+          />
+        </div>
+      </div>
+    </article>
   )
 }
 

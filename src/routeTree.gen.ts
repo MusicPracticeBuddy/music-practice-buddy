@@ -19,6 +19,7 @@ import { Route as SessionsRouteImport } from './routes/sessions'
 import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as ExercisesExerciseIdRouteImport } from './routes/exercises/$exerciseId'
 import { Route as ExercisesNewRouteImport } from './routes/exercises/new'
+import { Route as ExercisesOwnedRouteImport } from './routes/exercises/owned'
 import { Route as ExercisesSearchRouteImport } from './routes/exercises/search'
 import { Route as RepertoireRepertoireIdRouteImport } from './routes/repertoire/$repertoireId'
 import { Route as RepertoireOwnedRouteImport } from './routes/repertoire/owned'
@@ -82,6 +83,11 @@ const ExercisesExerciseIdRoute = ExercisesExerciseIdRouteImport.update({
 const ExercisesNewRoute = ExercisesNewRouteImport.update({
   id: '/new',
   path: '/new',
+  getParentRoute: () => ExercisesRoute,
+} as any)
+const ExercisesOwnedRoute = ExercisesOwnedRouteImport.update({
+  id: '/owned',
+  path: '/owned',
   getParentRoute: () => ExercisesRoute,
 } as any)
 const ExercisesSearchRoute = ExercisesSearchRouteImport.update({
@@ -167,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/templates': typeof TemplatesRouteWithChildren
   '/exercises/$exerciseId': typeof ExercisesExerciseIdRoute
   '/exercises/new': typeof ExercisesNewRoute
+  '/exercises/owned': typeof ExercisesOwnedRoute
   '/exercises/search': typeof ExercisesSearchRoute
   '/repertoire/$repertoireId': typeof RepertoireRepertoireIdRoute
   '/repertoire/owned': typeof RepertoireOwnedRoute
@@ -191,6 +198,7 @@ export interface FileRoutesByTo {
   '/repertoire': typeof RepertoireRouteWithChildren
   '/exercises/$exerciseId': typeof ExercisesExerciseIdRoute
   '/exercises/new': typeof ExercisesNewRoute
+  '/exercises/owned': typeof ExercisesOwnedRoute
   '/exercises/search': typeof ExercisesSearchRoute
   '/repertoire/$repertoireId': typeof RepertoireRepertoireIdRoute
   '/repertoire/owned': typeof RepertoireOwnedRoute
@@ -218,6 +226,7 @@ export interface FileRoutesById {
   '/templates': typeof TemplatesRouteWithChildren
   '/exercises/$exerciseId': typeof ExercisesExerciseIdRoute
   '/exercises/new': typeof ExercisesNewRoute
+  '/exercises/owned': typeof ExercisesOwnedRoute
   '/exercises/search': typeof ExercisesSearchRoute
   '/repertoire/$repertoireId': typeof RepertoireRepertoireIdRoute
   '/repertoire/owned': typeof RepertoireOwnedRoute
@@ -246,6 +255,7 @@ export interface FileRouteTypes {
     | '/templates'
     | '/exercises/$exerciseId'
     | '/exercises/new'
+    | '/exercises/owned'
     | '/exercises/search'
     | '/repertoire/$repertoireId'
     | '/repertoire/owned'
@@ -270,6 +280,7 @@ export interface FileRouteTypes {
     | '/repertoire'
     | '/exercises/$exerciseId'
     | '/exercises/new'
+    | '/exercises/owned'
     | '/exercises/search'
     | '/repertoire/$repertoireId'
     | '/repertoire/owned'
@@ -296,6 +307,7 @@ export interface FileRouteTypes {
     | '/templates'
     | '/exercises/$exerciseId'
     | '/exercises/new'
+    | '/exercises/owned'
     | '/exercises/search'
     | '/repertoire/$repertoireId'
     | '/repertoire/owned'
@@ -393,6 +405,13 @@ declare module '@tanstack/solid-router' {
       path: '/new'
       fullPath: '/exercises/new'
       preLoaderRoute: typeof ExercisesNewRouteImport
+      parentRoute: typeof ExercisesRoute
+    }
+    '/exercises/owned': {
+      id: '/exercises/owned'
+      path: '/owned'
+      fullPath: '/exercises/owned'
+      preLoaderRoute: typeof ExercisesOwnedRouteImport
       parentRoute: typeof ExercisesRoute
     }
     '/exercises/search': {
@@ -499,6 +518,7 @@ declare module '@tanstack/solid-router' {
 interface ExercisesRouteChildren {
   ExercisesExerciseIdRoute: typeof ExercisesExerciseIdRoute
   ExercisesNewRoute: typeof ExercisesNewRoute
+  ExercisesOwnedRoute: typeof ExercisesOwnedRoute
   ExercisesSearchRoute: typeof ExercisesSearchRoute
   ExercisesExerciseIdEditRoute: typeof ExercisesExerciseIdEditRoute
 }
@@ -506,6 +526,7 @@ interface ExercisesRouteChildren {
 const ExercisesRouteChildren: ExercisesRouteChildren = {
   ExercisesExerciseIdRoute: ExercisesExerciseIdRoute,
   ExercisesNewRoute: ExercisesNewRoute,
+  ExercisesOwnedRoute: ExercisesOwnedRoute,
   ExercisesSearchRoute: ExercisesSearchRoute,
   ExercisesExerciseIdEditRoute: ExercisesExerciseIdEditRoute,
 }
