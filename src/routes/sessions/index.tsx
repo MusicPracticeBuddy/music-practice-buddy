@@ -1,12 +1,12 @@
 import { For, Show, createSignal } from 'solid-js'
-import { Link, createFileRoute, useRouter } from '@tanstack/solid-router'
+import { Link, createFileRoute } from '@tanstack/solid-router'
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
 import { SwipeToDelete } from '@/components/SwipeToDelete'
-import { deletePlannedSession, getSessions, type SessionRow } from '@/data/sessions'
+import { deletePlannedSession, getSessionsPage, type SessionRow } from '@/data/sessions'
 import { SESSION_STATUS } from '@/domain/session'
 
 export const Route = createFileRoute('/sessions/')({
-  loader: () => getSessions(),
+  loader: () => getSessionsPage({ data: 1 }),
   component: Sessions,
 })
 
@@ -44,7 +44,25 @@ function datePart(value: string | null, assignedDate: string | null, part: 'day'
 }
 
 function Sessions() {
-  const sessions = Route.useLoaderData()
+  const initialPage = Route.useLoaderData()
+  const [sessions, setSessions] = createSignal(initialPage())
+  const [loading, setLoading] = createSignal(false)
+  const [error, setError] = createSignal('')
+
+  async function loadPage(page: number) {
+    setLoading(true)
+    setError('')
+    try {
+      let result = await getSessionsPage({ data: page })
+      const lastPage = Math.max(1, result.totalPages)
+      if (result.page > lastPage) result = await getSessionsPage({ data: lastPage })
+      setSessions(result)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Sessions could not be loaded.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <main class="page">
@@ -54,22 +72,66 @@ function Sessions() {
           <h1>Sessions</h1>
         </div>
         <div class="header-actions">
-          <span class="count-badge">{sessions().length} sessions</span>
+          <span class="count-badge">{sessions().total} sessions</span>
           <Link class="primary-button" to="/sessions/new" search={{}}>
             Create session
           </Link>
         </div>
       </header>
 
-      <section class="session-table">
-        <For each={sessions()}>{(session) => <SessionListItem session={session} />}</For>
+      <Show when={error()}>
+        <p class="form-error" role="alert">
+          {error()}
+        </p>
+      </Show>
+
+      <section
+        class="session-table"
+        classList={{ 'catalog-results-loading': loading() }}
+        aria-live="polite"
+        aria-busy={loading()}
+      >
+        <For each={sessions().items} fallback={<p class="library-empty">No sessions yet.</p>}>
+          {(session) => (
+            <SessionListItem
+              session={session}
+              onDelete={async () => {
+                await deletePlannedSession({ data: session.id })
+                await loadPage(sessions().page)
+              }}
+            />
+          )}
+        </For>
       </section>
+
+      <Show when={sessions().totalPages > 1}>
+        <nav class="catalog-pagination" aria-label="Session pages">
+          <button
+            class="secondary-button"
+            type="button"
+            disabled={loading() || sessions().page === 1}
+            onClick={() => void loadPage(sessions().page - 1)}
+          >
+            Previous
+          </button>
+          <span>
+            Page {sessions().page} of {sessions().totalPages}
+          </span>
+          <button
+            class="secondary-button"
+            type="button"
+            disabled={loading() || sessions().page === sessions().totalPages}
+            onClick={() => void loadPage(sessions().page + 1)}
+          >
+            Next
+          </button>
+        </nav>
+      </Show>
     </main>
   )
 }
 
-function SessionListItem(props: { session: SessionRow }) {
-  const router = useRouter()
+function SessionListItem(props: { session: SessionRow; onDelete: () => Promise<void> }) {
   const [deleteOpen, setDeleteOpen] = createSignal(false)
   const isPlanned = () => props.session.status === SESSION_STATUS.PLANNED
   const displayedStatus = () =>
@@ -117,10 +179,7 @@ function SessionListItem(props: { session: SessionRow }) {
             confirmLabel="Delete session"
             open={deleteOpen()}
             onOpenChange={setDeleteOpen}
-            onConfirm={async () => {
-              await deletePlannedSession({ data: props.session.id })
-              await router.invalidate()
-            }}
+            onConfirm={props.onDelete}
           />
         </Show>
       </article>

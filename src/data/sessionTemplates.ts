@@ -39,6 +39,16 @@ export type SessionTemplateSummary = {
   updatedAt: string
 } & ResourceAccess
 
+export type SessionTemplatePage = {
+  items: SessionTemplateSummary[]
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+}
+
+export const SESSION_TEMPLATE_PAGE_SIZE = 20
+
 export type SessionTemplateDetail = {
   id: string
   name: string
@@ -284,6 +294,59 @@ export const getSessionTemplates = createServerFn({ method: 'GET' })
       updatedAt: row.updatedAt.toISOString(),
       ...resourceAccess(context.user, row.ownerId, row.visibility),
     }))
+  })
+
+export const getSessionTemplatesPage = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .validator((page: number) => {
+    if (!Number.isInteger(page) || page < 1) throw new Error('Invalid page')
+    return page
+  })
+  .handler(async ({ data: page, context }): Promise<SessionTemplatePage> => {
+    const offset = (page - 1) * SESSION_TEMPLATE_PAGE_SIZE
+    const [countResult, result] = await Promise.all([
+      pool.query<{ total: number }>(
+        `SELECT count(*)::integer AS total
+         FROM session_template
+         WHERE musician_id = $1 OR visibility = 'PUBLIC'`,
+        [context.user.musicianId],
+      ),
+      pool.query<{
+        id: string
+        name: string
+        visibility: Visibility
+        ownerId: string
+        itemCount: number
+        updatedAt: Date
+      }>(
+        `SELECT
+           template.id::text,
+           template.name,
+           template.visibility::text,
+           template.musician_id::text AS "ownerId",
+           count(item.id) FILTER (WHERE item.type <> 'SECTION')::int AS "itemCount",
+           template.updated_at AS "updatedAt"
+         FROM session_template template
+         LEFT JOIN session_template_item item ON item.session_template_id = template.id
+         WHERE template.musician_id = $1 OR template.visibility = 'PUBLIC'
+         GROUP BY template.id
+         ORDER BY template.updated_at DESC, template.id DESC
+         LIMIT $2 OFFSET $3`,
+        [context.user.musicianId, SESSION_TEMPLATE_PAGE_SIZE, offset],
+      ),
+    ])
+    const total = countResult.rows[0]?.total ?? 0
+    return {
+      items: result.rows.map((row) => ({
+        ...row,
+        updatedAt: row.updatedAt.toISOString(),
+        ...resourceAccess(context.user, row.ownerId, row.visibility),
+      })),
+      page,
+      pageSize: SESSION_TEMPLATE_PAGE_SIZE,
+      total,
+      totalPages: Math.ceil(total / SESSION_TEMPLATE_PAGE_SIZE),
+    }
   })
 
 export const getTemplateLibrary = createServerFn({ method: 'GET' })

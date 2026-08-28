@@ -1,20 +1,40 @@
 import { For, Show, createSignal } from 'solid-js'
-import { Link, createFileRoute, useRouter } from '@tanstack/solid-router'
+import { Link, createFileRoute } from '@tanstack/solid-router'
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
 import { SwipeToDelete } from '@/components/SwipeToDelete'
 import {
   deleteSessionTemplate,
-  getSessionTemplates,
+  getSessionTemplatesPage,
   type SessionTemplateSummary,
 } from '@/data/sessionTemplates'
 
 export const Route = createFileRoute('/templates/')({
-  loader: () => getSessionTemplates(),
+  loader: () => getSessionTemplatesPage({ data: 1 }),
   component: Templates,
 })
 
 function Templates() {
-  const templates = Route.useLoaderData()
+  const initialPage = Route.useLoaderData()
+  const [templates, setTemplates] = createSignal(initialPage())
+  const [loading, setLoading] = createSignal(false)
+  const [error, setError] = createSignal('')
+
+  async function loadPage(page: number) {
+    setLoading(true)
+    setError('')
+    try {
+      let result = await getSessionTemplatesPage({ data: page })
+      const lastPage = Math.max(1, result.totalPages)
+      if (result.page > lastPage) {
+        result = await getSessionTemplatesPage({ data: lastPage })
+      }
+      setTemplates(result)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Templates could not be loaded.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <main class="page">
@@ -28,8 +48,14 @@ function Templates() {
         </Link>
       </header>
 
+      <Show when={error()}>
+        <p class="form-error" role="alert">
+          {error()}
+        </p>
+      </Show>
+
       <Show
-        when={templates().length > 0}
+        when={templates().items.length > 0}
         fallback={
           <section class="empty-state">
             <h2>No templates yet</h2>
@@ -40,16 +66,57 @@ function Templates() {
           </section>
         }
       >
-        <section class="list-stack">
-          <For each={templates()}>{(template) => <TemplateListItem template={template} />}</For>
+        <section
+          class="list-stack"
+          classList={{ 'catalog-results-loading': loading() }}
+          aria-live="polite"
+          aria-busy={loading()}
+        >
+          <For each={templates().items}>
+            {(template) => (
+              <TemplateListItem
+                template={template}
+                onDelete={async () => {
+                  await deleteSessionTemplate({ data: template.id })
+                  await loadPage(templates().page)
+                }}
+              />
+            )}
+          </For>
         </section>
+      </Show>
+
+      <Show when={templates().totalPages > 1}>
+        <nav class="catalog-pagination" aria-label="Template pages">
+          <button
+            class="secondary-button"
+            type="button"
+            disabled={loading() || templates().page === 1}
+            onClick={() => void loadPage(templates().page - 1)}
+          >
+            Previous
+          </button>
+          <span>
+            Page {templates().page} of {templates().totalPages}
+          </span>
+          <button
+            class="secondary-button"
+            type="button"
+            disabled={loading() || templates().page === templates().totalPages}
+            onClick={() => void loadPage(templates().page + 1)}
+          >
+            Next
+          </button>
+        </nav>
       </Show>
     </main>
   )
 }
 
-function TemplateListItem(props: { template: SessionTemplateSummary }) {
-  const router = useRouter()
+function TemplateListItem(props: {
+  template: SessionTemplateSummary
+  onDelete: () => Promise<void>
+}) {
   const [deleteOpen, setDeleteOpen] = createSignal(false)
 
   return (
@@ -99,10 +166,7 @@ function TemplateListItem(props: { template: SessionTemplateSummary }) {
               confirmLabel="Delete template"
               open={deleteOpen()}
               onOpenChange={setDeleteOpen}
-              onConfirm={async () => {
-                await deleteSessionTemplate({ data: props.template.id })
-                await router.invalidate()
-              }}
+              onConfirm={props.onDelete}
             />
           </Show>
         </div>

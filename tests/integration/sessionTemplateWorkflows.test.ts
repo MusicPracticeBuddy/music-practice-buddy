@@ -39,6 +39,7 @@ import {
   duplicatePracticeSession,
   getSessionDetail,
   getSessions,
+  getSessionsPage,
   removeRunningSessionItem,
   startPracticeSession,
   updateSessionName,
@@ -51,6 +52,7 @@ import {
   deleteSessionTemplate,
   getPlannedSessionForEdit,
   getSessionTemplates,
+  getSessionTemplatesPage,
   getTemplateLibrary,
   updatePlannedSession,
   updateSessionTemplate,
@@ -756,6 +758,32 @@ describe('template persistence', () => {
 })
 
 describe('session persistence', () => {
+  it('paginates template and session index views on the server', async () => {
+    await pool.query(
+      `INSERT INTO session_template (musician_id, name)
+       SELECT 1, 'Paginated template ' || lpad(number::text, 2, '0')
+       FROM generate_series(1, 21) number`,
+    )
+    await pool.query(
+      `INSERT INTO session (musician_id, name, assigned_date)
+       SELECT 1, 'Paginated session ' || lpad(number::text, 2, '0'),
+         DATE '2030-01-01' + number
+       FROM generate_series(1, 21) number`,
+    )
+
+    const templateFirstPage = await getSessionTemplatesPage({ data: 1 })
+    const templateSecondPage = await getSessionTemplatesPage({ data: 2 })
+    expect(templateFirstPage).toMatchObject({ page: 1, pageSize: 20, total: 21, totalPages: 2 })
+    expect(templateFirstPage.items).toHaveLength(20)
+    expect(templateSecondPage.items).toHaveLength(1)
+
+    const sessionFirstPage = await getSessionsPage({ data: 1 })
+    const sessionSecondPage = await getSessionsPage({ data: 2 })
+    expect(sessionFirstPage).toMatchObject({ page: 1, pageSize: 20, total: 21, totalPages: 2 })
+    expect(sessionFirstPage.items).toHaveLength(20)
+    expect(sessionSecondPage.items).toHaveLength(1)
+  })
+
   it('creates a blank session, edits its plan, and deletes it with cascading item cleanup', async () => {
     const created = await createPracticeSession({
       data: { templateId: null, assignedDate: null },

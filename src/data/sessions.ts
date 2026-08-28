@@ -36,6 +36,16 @@ export type SessionRow = {
   readyToFinalize: boolean
 }
 
+export type SessionPage = {
+  items: SessionRow[]
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+}
+
+export const SESSION_PAGE_SIZE = 20
+
 export type SessionDetailItem = {
   id: string
   parentId: string | null
@@ -132,6 +142,78 @@ export const getSessions = createServerFn({ method: 'GET' })
       startedAt: toIsoString(row.startedAt),
       endedAt: toIsoString(row.endedAt),
     }))
+  })
+
+export const getSessionsPage = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .validator((page: number) => {
+    if (!Number.isInteger(page) || page < 1) throw new Error('Invalid page')
+    return page
+  })
+  .handler(async ({ data: page, context }): Promise<SessionPage> => {
+    const offset = (page - 1) * SESSION_PAGE_SIZE
+    const [countResult, result] = await Promise.all([
+      pool.query<{ total: number }>(
+        `SELECT count(*)::integer AS total FROM session WHERE musician_id = $1`,
+        [context.user.musicianId],
+      ),
+      pool.query<{
+        id: string
+        templateName: string
+        status: SessionStatus
+        assignedDate: string | null
+        assignedAt: Date | null
+        startedAt: Date | null
+        endedAt: Date | null
+        durationMinutes: number | null
+        itemCount: number
+        readyToFinalize: boolean
+      }>(
+        `SELECT
+           session.id::text,
+           session.name AS "templateName",
+           session.status::text,
+           to_char(session.assigned_date, 'YYYY-MM-DD') AS "assignedDate",
+           session.assigned_at AS "assignedAt",
+           session.started_at AS "startedAt",
+           session.ended_at AS "endedAt",
+           CASE WHEN count(item.id) FILTER (
+             WHERE item.started_at IS NOT NULL AND item.ended_at IS NOT NULL
+           ) > 0 THEN round(sum(extract(epoch FROM (item.ended_at - item.started_at))) / 60)::int
+           ELSE NULL END AS "durationMinutes",
+           count(item.id)::int AS "itemCount",
+           (
+             session.status = 'IN_PROGRESS'
+             AND count(item.id) FILTER (
+               WHERE item.status NOT IN ('COMPLETE', 'SKIPPED')
+             ) = 0
+           ) AS "readyToFinalize"
+         FROM session
+         LEFT JOIN session_template template ON template.id = session.session_template_id
+         LEFT JOIN session_item item ON item.session_id = session.id AND item.type <> 'SECTION'
+         WHERE session.musician_id = $1
+         GROUP BY session.id, template.name
+         ORDER BY COALESCE(
+           session.started_at,
+           session.assigned_date::timestamp AT TIME ZONE current_setting('TIMEZONE')
+         ) DESC NULLS LAST, session.id DESC
+         LIMIT $2 OFFSET $3`,
+        [context.user.musicianId, SESSION_PAGE_SIZE, offset],
+      ),
+    ])
+    const total = countResult.rows[0]?.total ?? 0
+    return {
+      items: result.rows.map((row) => ({
+        ...row,
+        assignedAt: toIsoString(row.assignedAt),
+        startedAt: toIsoString(row.startedAt),
+        endedAt: toIsoString(row.endedAt),
+      })),
+      page,
+      pageSize: SESSION_PAGE_SIZE,
+      total,
+      totalPages: Math.ceil(total / SESSION_PAGE_SIZE),
+    }
   })
 
 export const getSessionDetail = createServerFn({ method: 'GET' })
