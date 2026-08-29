@@ -6,6 +6,7 @@ import type { CatalogRepertoireRow } from '@/data/repertoire'
 const mocks = vi.hoisted(() => ({
   addToLibrary: vi.fn(async () => ({ id: '1' })),
   searchCatalog: vi.fn(),
+  searchComposerNames: vi.fn(),
   invalidate: vi.fn(async () => undefined),
 }))
 
@@ -17,6 +18,7 @@ vi.mock('@tanstack/solid-router', () => ({
 vi.mock('../../src/data/repertoire', () => ({
   addRepertoireToLibrary: mocks.addToLibrary,
   getPublicRepertoireCatalogPage: mocks.searchCatalog,
+  searchComposerNames: mocks.searchComposerNames,
 }))
 
 import { RepertoireCatalogSearch } from '@/components/RepertoireCatalogSearch'
@@ -68,7 +70,6 @@ function renderSearch(
   return render(() => (
     <RepertoireCatalogSearch
       initialPage={initialPage}
-      composers={composers}
       instruments={instruments}
       initialInstrumentIds={initialInstrumentIds}
     />
@@ -116,6 +117,7 @@ function matchingPage(input: {
 
 beforeEach(() => {
   mocks.searchCatalog.mockImplementation(async ({ data }) => matchingPage(data))
+  mocks.searchComposerNames.mockResolvedValue([{ id: '10', name: 'Wolfgang Amadeus Mozart' }])
 })
 
 describe('RepertoireCatalogSearch', () => {
@@ -136,6 +138,22 @@ describe('RepertoireCatalogSearch', () => {
     expect(mocks.searchCatalog).toHaveBeenLastCalledWith({
       data: expect.objectContaining({ yearFrom: 1800, yearTo: 1900, page: 1 }),
     })
+  })
+
+  it('uses fuzzy full-name composer suggestions and stops after one is accepted', async () => {
+    renderSearch()
+    const input = screen.getByLabelText('Composer')
+
+    fireEvent.input(input, { target: { value: 'Moaart' } })
+    await waitFor(() => expect(mocks.searchComposerNames).toHaveBeenCalledWith({ data: 'Moaart' }))
+    await waitFor(() =>
+      expect(document.querySelector('option[value="Wolfgang Amadeus Mozart"]')).not.toBeNull(),
+    )
+
+    mocks.searchComposerNames.mockClear()
+    fireEvent.input(input, { target: { value: 'Wolfgang Amadeus Mozart' } })
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    expect(mocks.searchComposerNames).not.toHaveBeenCalled()
   })
 
   it('starts with the musician instruments selected and can clear them', async () => {

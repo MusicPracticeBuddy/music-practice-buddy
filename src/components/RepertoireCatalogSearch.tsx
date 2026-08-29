@@ -2,8 +2,9 @@ import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
 import { useRouter } from '@tanstack/solid-router'
 import {
   addRepertoireToLibrary,
-  type CatalogComposerOption,
+  searchComposerNames,
   type CatalogInstrumentMatch,
+  type ComposerNameSuggestion,
   type CatalogRepertoireRow,
   type CatalogSearchInput,
   type CatalogSearchPage,
@@ -14,13 +15,14 @@ import { groupExpandedInstrumentOptions, groupInstrumentOptions } from '@/domain
 
 export function RepertoireCatalogSearch(props: {
   initialPage: CatalogSearchPage
-  composers: CatalogComposerOption[]
   instruments: InstrumentOption[]
   initialInstrumentIds?: string[]
 }) {
   const router = useRouter()
   const [query, setQuery] = createSignal('')
   const [composerQuery, setComposerQuery] = createSignal('')
+  const [composerSuggestions, setComposerSuggestions] = createSignal<ComposerNameSuggestion[]>([])
+  const [acceptedComposerName, setAcceptedComposerName] = createSignal('')
   const [instrumentQuery, setInstrumentQuery] = createSignal('')
   const [showAllInstruments, setShowAllInstruments] = createSignal(false)
   const [selectedInstrumentIds, setSelectedInstrumentIds] = createSignal<string[]>(
@@ -36,7 +38,9 @@ export function RepertoireCatalogSearch(props: {
   const [addedIds, setAddedIds] = createSignal<string[]>([])
   const [error, setError] = createSignal('')
   let searchTimer: ReturnType<typeof setTimeout> | undefined
+  let composerSearchTimer: ReturnType<typeof setTimeout> | undefined
   let requestId = 0
+  let composerRequestId = 0
 
   const visibleInstruments = createMemo(() => {
     const search = instrumentQuery().trim().toLocaleLowerCase()
@@ -90,7 +94,43 @@ export function RepertoireCatalogSearch(props: {
     searchTimer = setTimeout(() => void loadPage(1), delay)
   }
 
-  onCleanup(() => clearTimeout(searchTimer))
+  function queueComposerLookup(composerName: string) {
+    clearTimeout(composerSearchTimer)
+    const request = ++composerRequestId
+    const normalizedQuery = composerName.trim().toLocaleLowerCase()
+    if (acceptedComposerName().toLocaleLowerCase() === normalizedQuery) {
+      setComposerSuggestions([])
+      return
+    }
+    if (
+      normalizedQuery &&
+      composerSuggestions().some(
+        (suggestion) => suggestion.name.toLocaleLowerCase() === normalizedQuery,
+      )
+    ) {
+      setAcceptedComposerName(composerName.trim())
+      setComposerSuggestions([])
+      return
+    }
+    setAcceptedComposerName('')
+    if (normalizedQuery.length < 2) {
+      setComposerSuggestions([])
+      return
+    }
+    composerSearchTimer = setTimeout(async () => {
+      try {
+        const suggestions = await searchComposerNames({ data: composerName })
+        if (request === composerRequestId) setComposerSuggestions(suggestions)
+      } catch {
+        if (request === composerRequestId) setComposerSuggestions([])
+      }
+    }, 200)
+  }
+
+  onCleanup(() => {
+    clearTimeout(searchTimer)
+    clearTimeout(composerSearchTimer)
+  })
 
   function toggleInstrument(id: string, checked: boolean) {
     setSelectedInstrumentIds((ids) =>
@@ -102,6 +142,8 @@ export function RepertoireCatalogSearch(props: {
   function clearFilters() {
     setQuery('')
     setComposerQuery('')
+    setComposerSuggestions([])
+    setAcceptedComposerName('')
     setInstrumentQuery('')
     setShowAllInstruments(false)
     setSelectedInstrumentIds([])
@@ -153,13 +195,15 @@ export function RepertoireCatalogSearch(props: {
           list="catalog-composer-options"
           value={composerQuery()}
           placeholder="Search composers…"
+          onFocus={() => queueComposerLookup(composerQuery())}
           onInput={(event) => {
             setComposerQuery(event.currentTarget.value)
+            queueComposerLookup(event.currentTarget.value)
             queueSearch(300)
           }}
         />
         <datalist id="catalog-composer-options">
-          <For each={props.composers}>{(composer) => <option value={composer.name} />}</For>
+          <For each={composerSuggestions()}>{(composer) => <option value={composer.name} />}</For>
         </datalist>
 
         <fieldset class="catalog-year-filter">

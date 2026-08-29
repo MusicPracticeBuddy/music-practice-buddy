@@ -4,7 +4,6 @@ import { LibraryItemForm } from '@/components/LibraryItemForm'
 import { RepertoireCatalogSearch } from '@/components/RepertoireCatalogSearch'
 import {
   EMPTY_CATALOG_SEARCH,
-  getCatalogComposers,
   getInstruments,
   getPublicRepertoireCatalogPage,
 } from '@/data/repertoire'
@@ -12,15 +11,14 @@ import { getMusicianInstrumentIds } from '@/data/preferences'
 
 export const Route = createFileRoute('/repertoire/search')({
   loader: async () => {
-    const [composers, instruments, instrumentIds] = await Promise.all([
-      getCatalogComposers(),
+    const [instruments, instrumentIds] = await Promise.all([
       getInstruments(),
       getMusicianInstrumentIds(),
     ])
     const catalog = await getPublicRepertoireCatalogPage({
       data: { ...EMPTY_CATALOG_SEARCH, instrumentIds },
     })
-    return { catalog, composers, instruments, instrumentIds }
+    return { catalog, instruments, instrumentIds }
   },
   component: SearchRepertoire,
 })
@@ -74,7 +72,6 @@ function SearchRepertoire() {
       >
         <RepertoireCatalogSearch
           initialPage={data().catalog}
-          composers={data().composers}
           instruments={data().instruments}
           initialInstrumentIds={data().instrumentIds}
         />

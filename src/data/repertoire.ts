@@ -94,11 +94,6 @@ export type InstrumentOption = {
   isPreferred: boolean
 }
 
-export type CatalogComposerOption = {
-  id: string
-  name: string
-}
-
 export type ComposerNameSuggestion = {
   id: string
   name: string
@@ -372,34 +367,6 @@ export const getInstruments = createServerFn({ method: 'GET' })
          ON preference.instrument_id = instrument.id
         AND preference.musician_id = $1
        ORDER BY "isPreferred" DESC, instrument.family, instrument.name`,
-      [context.user.musicianId],
-    )
-    return result.rows
-  })
-
-export const getCatalogComposers = createServerFn({ method: 'GET' })
-  .middleware([authMiddleware])
-  .handler(async ({ context }): Promise<CatalogComposerOption[]> => {
-    const result = await pool.query<CatalogComposerOption>(
-      `SELECT DISTINCT person.id::text, person.name
-       FROM person
-       JOIN repertoire_credit credit ON credit.person_id = person.id
-       JOIN repertoire ON repertoire.id = credit.repertoire_id
-       WHERE credit.role = 'COMPOSER'
-         AND repertoire.parent_repertoire_id IS NULL
-         AND repertoire.status = 'APPROVED'
-         AND repertoire.deleted_at IS NULL
-         AND (
-           repertoire.visibility = 'PUBLIC'
-           OR (
-             repertoire.owner_musician_id = $1
-             AND NOT EXISTS (
-               SELECT 1 FROM musician_repertoire_library library
-               WHERE library.repertoire_id = repertoire.id AND library.musician_id = $1
-             )
-           )
-         )
-       ORDER BY person.name`,
       [context.user.musicianId],
     )
     return result.rows
