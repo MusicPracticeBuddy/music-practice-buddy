@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from 'solid-js'
+import { For, Show, createEffect, createSignal } from 'solid-js'
 import { Link, createFileRoute } from '@tanstack/solid-router'
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
 import { SwipeToDelete } from '@/components/SwipeToDelete'
@@ -62,6 +62,11 @@ function Sessions() {
   const [instrumentIds, setInstrumentIds] = createSignal<string[]>([])
   const [loading, setLoading] = createSignal(false)
   const [error, setError] = createSignal('')
+
+  createEffect(() => {
+    const refreshedPage = initialPage().page
+    if (instrumentIds().length === 0) setSessions(refreshedPage)
+  })
 
   async function loadPage(page: number) {
     setLoading(true)

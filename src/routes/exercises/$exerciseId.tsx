@@ -1,5 +1,5 @@
 import { For, Show } from 'solid-js'
-import { Link, createFileRoute, notFound, useNavigate } from '@tanstack/solid-router'
+import { Link, createFileRoute, notFound, useNavigate, useRouter } from '@tanstack/solid-router'
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
 import { ExerciseNotation } from '@/components/ExerciseNotation'
 import { deleteExercise, getExerciseDetail } from '@/data/exercises'
@@ -26,6 +26,7 @@ function formatDate(value: string | null) {
 function ExerciseDetail() {
   const exercise = Route.useLoaderData()
   const navigate = useNavigate()
+  const router = useRouter()
 
   return (
     <main class="page detail-page">
@@ -56,6 +57,7 @@ function ExerciseDetail() {
               confirmLabel="Delete exercise"
               onConfirm={async () => {
                 await deleteExercise({ data: exercise().id })
+                await router.invalidate({ sync: true })
                 await navigate({ to: '/library' })
               }}
             />

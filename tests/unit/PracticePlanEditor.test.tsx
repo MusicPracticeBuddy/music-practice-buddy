@@ -3,7 +3,9 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@solidjs/te
 import type { JSX } from 'solid-js'
 import type { SortableEvent } from 'sortablejs'
 import {
+  createSessionTemplate,
   getTemplateLibrary,
+  updatePlannedSession,
   updateSessionTemplate,
   type SessionTemplateDetail,
   type TemplateLibraryItem,
@@ -16,6 +18,11 @@ type SortableOptions = {
 
 const sortableMock = vi.hoisted(() => ({
   instances: [] as Array<{ element: HTMLElement; options: SortableOptions }>,
+}))
+
+const routerMock = vi.hoisted(() => ({
+  invalidate: vi.fn(async () => undefined),
+  navigate: vi.fn(async () => undefined),
 }))
 
 vi.mock('sortablejs', () => ({
@@ -32,8 +39,8 @@ vi.mock('@tanstack/solid-router', () => ({
   Link: (props: { children: JSX.Element; class?: string }) => (
     <a class={props.class}>{props.children}</a>
   ),
-  useNavigate: () => async () => undefined,
-  useRouter: () => ({ invalidate: async () => undefined }),
+  useNavigate: () => routerMock.navigate,
+  useRouter: () => ({ invalidate: routerMock.invalidate }),
 }))
 
 vi.mock('../../src/data/sessionTemplates', () => ({
@@ -189,6 +196,54 @@ beforeEach(() => {
 })
 
 describe('PracticePlanEditor', () => {
+  it('invalidates cached template data before leaving a newly created template', async () => {
+    vi.mocked(createSessionTemplate).mockResolvedValue({ id: 'template-1' })
+    render(() => <PracticePlanEditor library={library} />)
+
+    fireEvent.input(screen.getByLabelText('Template name'), {
+      target: { value: 'New template' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save template' }))
+
+    await waitFor(() => {
+      expect(createSessionTemplate).toHaveBeenCalled()
+      expect(routerMock.invalidate).toHaveBeenCalledWith({ sync: true })
+      expect(routerMock.navigate).toHaveBeenCalledWith({ to: '/templates' })
+    })
+    expect(routerMock.invalidate.mock.invocationCallOrder[0]).toBeLessThan(
+      routerMock.navigate.mock.invocationCallOrder[0]!,
+    )
+  })
+
+  it('invalidates cached session data before leaving a saved planned session', async () => {
+    render(() => (
+      <PracticePlanEditor
+        library={library}
+        session={{
+          id: 'session-1',
+          name: 'Duplicated session',
+          assignedDate: null,
+          instrumentId: null,
+          items: [],
+        }}
+      />
+    ))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save session' }))
+
+    await waitFor(() => {
+      expect(updatePlannedSession).toHaveBeenCalled()
+      expect(routerMock.invalidate).toHaveBeenCalledWith({ sync: true })
+      expect(routerMock.navigate).toHaveBeenCalledWith({
+        to: '/sessions/$sessionId',
+        params: { sessionId: 'session-1' },
+      })
+    })
+    expect(routerMock.invalidate.mock.invocationCallOrder[0]).toBeLessThan(
+      routerMock.navigate.mock.invocationCallOrder[0]!,
+    )
+  })
+
   it('filters picker items by the plan instrument and supports independent any-instrument overrides', async () => {
     const instrumentLibrary: TemplateLibraryItem[] = [
       {

@@ -1,5 +1,5 @@
 import { Show } from 'solid-js'
-import { Link, createFileRoute, notFound, useNavigate } from '@tanstack/solid-router'
+import { Link, createFileRoute, notFound, useNavigate, useRouter } from '@tanstack/solid-router'
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
 import { PracticePlanOutline } from '@/components/PracticePlanOutline'
 import { deleteSessionTemplate, getSessionTemplate } from '@/data/sessionTemplates'
@@ -23,6 +23,7 @@ export const Route = createFileRoute('/templates/$templateId')({
 function TemplateDetail() {
   const template = Route.useLoaderData()
   const navigate = useNavigate()
+  const router = useRouter()
   const practiceItemCount = () =>
     template().items.filter((item) => item.type !== PRACTICE_ITEM_TYPE.SECTION).length
 
@@ -62,6 +63,7 @@ function TemplateDetail() {
               confirmLabel="Delete template"
               onConfirm={async () => {
                 await deleteSessionTemplate({ data: template().id })
+                await router.invalidate({ sync: true })
                 await navigate({ to: '/templates' })
               }}
             />

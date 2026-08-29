@@ -1,5 +1,5 @@
 import { For, Show, createSignal } from 'solid-js'
-import { Link, createFileRoute, useNavigate } from '@tanstack/solid-router'
+import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/solid-router'
 import { InstrumentSelect } from '@/components/InstrumentFields'
 import { createPracticeSession, getSessionTemplates } from '@/data/sessionTemplates'
 import { getInstruments } from '@/data/repertoire'
@@ -18,6 +18,7 @@ function NewSession() {
   const data = Route.useLoaderData()
   const search = Route.useSearch()
   const navigate = useNavigate()
+  const router = useRouter()
   const [templateId, setTemplateId] = createSignal(search().template ?? '')
   const selectedTemplate = () => data().templates.find((template) => template.id === templateId())
   const [instrumentId, setInstrumentId] = createSignal(selectedTemplate()?.instrumentId ?? '')
@@ -37,6 +38,7 @@ function NewSession() {
           instrumentId: instrumentId() || null,
         },
       })
+      await router.invalidate({ sync: true })
       await navigate({ to: '/sessions/$sessionId', params: { sessionId: session.id } })
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The session could not be created.')

@@ -1,4 +1,4 @@
-import { For, Show, createSignal, onCleanup } from 'solid-js'
+import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js'
 import { Link, createFileRoute } from '@tanstack/solid-router'
 import { RepertoireLibraryNote } from '@/components/RepertoireLibraryNote'
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
@@ -60,6 +60,25 @@ function Library() {
   let exerciseTimer: ReturnType<typeof setTimeout> | undefined
   let repertoireRequestId = 0
   let exerciseRequestId = 0
+
+  createEffect(() => {
+    const refreshed = data()
+    const defaultRepertoireInstrumentIds = refreshed.instrumentIds
+    const repertoireFiltersAreDefault =
+      repertoireQuery() === '' &&
+      composer() === '' &&
+      repertoireVisibility() === 'ALL' &&
+      instrumentIds().length === defaultRepertoireInstrumentIds.length &&
+      instrumentIds().every((id, index) => id === defaultRepertoireInstrumentIds[index])
+    if (repertoireFiltersAreDefault) setRepertoire(refreshed.repertoire)
+
+    const exerciseFiltersAreDefault =
+      exerciseQuery() === '' &&
+      exerciseVisibility() === 'ALL' &&
+      notationFormat() === 'ALL' &&
+      exerciseInstrumentIds().length === 0
+    if (exerciseFiltersAreDefault) setExercises(refreshed.exercises)
+  })
 
   function repertoireSearchInput(page: number): RepertoireLibrarySearchInput {
     return {

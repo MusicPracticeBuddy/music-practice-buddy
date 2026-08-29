@@ -461,6 +461,7 @@ function SessionDetailPage() {
     try {
       await drainChanges()
       const duplicated = await duplicatePracticeSession({ data: session.id })
+      await router.invalidate({ sync: true })
       await navigate({
         to: '/sessions/$sessionId/edit',
         params: { sessionId: duplicated.id },

@@ -1,5 +1,5 @@
 import { For, Show } from 'solid-js'
-import { Link, createFileRoute, notFound, useNavigate } from '@tanstack/solid-router'
+import { Link, createFileRoute, notFound, useNavigate, useRouter } from '@tanstack/solid-router'
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
 import { RepertoireLibraryNote } from '@/components/RepertoireLibraryNote'
 import { deleteRepertoire, getRepertoireDetail } from '@/data/repertoire'
@@ -26,6 +26,7 @@ function formatDate(value: string | null) {
 function RepertoireDetail() {
   const repertoire = Route.useLoaderData()
   const navigate = useNavigate()
+  const router = useRouter()
 
   return (
     <main class="page detail-page">
@@ -69,6 +70,7 @@ function RepertoireDetail() {
               confirmLabel="Delete repertoire"
               onConfirm={async () => {
                 await deleteRepertoire({ data: repertoire().id })
+                await router.invalidate({ sync: true })
                 await navigate({ to: '/library' })
               }}
             />

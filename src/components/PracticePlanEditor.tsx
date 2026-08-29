@@ -1,6 +1,6 @@
 import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js'
 import { createStore, produce } from 'solid-js/store'
-import { Link, useNavigate } from '@tanstack/solid-router'
+import { Link, useNavigate, useRouter } from '@tanstack/solid-router'
 import * as Dialog from '@kobalte/core/dialog'
 import Sortable, { type MoveEvent, type SortableEvent } from 'sortablejs'
 import { LibraryItemForm } from '@/components/LibraryItemForm'
@@ -247,6 +247,7 @@ export function PracticePlanEditor(props: {
   canCreatePublic?: boolean
 }) {
   const navigate = useNavigate()
+  const router = useRouter()
   const initialRecord = props.session ?? props.template
   const [nodes, setNodes] = createStore<EditorNode[]>(buildTree(initialRecord?.items ?? []))
   const [library, setLibrary] = createStore<TemplateLibraryItem[]>([...props.library])
@@ -460,6 +461,7 @@ export function PracticePlanEditor(props: {
             items: data.items,
           },
         })
+        await router.invalidate({ sync: true })
         await navigate({
           to: '/sessions/$sessionId',
           params: { sessionId: props.session.id },
@@ -470,6 +472,7 @@ export function PracticePlanEditor(props: {
       const template = props.template
         ? await updateSessionTemplate({ data: { id: props.template.id, ...data } })
         : await createSessionTemplate({ data })
+      await router.invalidate({ sync: true })
       if (action === 'save-and-use') {
         await navigate({ to: '/sessions/new', search: { template: template.id } })
       } else {
