@@ -9,17 +9,15 @@ import {
   getSessionTemplatesPage,
   type SessionTemplateSummary,
 } from '@/data/sessionTemplates'
-import { getMusicianInstrumentIds } from '@/data/preferences'
 import { getInstruments } from '@/data/repertoire'
 
 export const Route = createFileRoute('/templates/')({
   loader: async () => {
-    const instrumentIds = await getMusicianInstrumentIds()
     const [page, instruments] = await Promise.all([
-      getSessionTemplatesPage({ data: { ...EMPTY_SESSION_TEMPLATE_SEARCH, instrumentIds } }),
+      getSessionTemplatesPage({ data: EMPTY_SESSION_TEMPLATE_SEARCH }),
       getInstruments(),
     ])
-    return { page, instruments, instrumentIds }
+    return { page, instruments }
   },
   component: Templates,
 })
@@ -27,7 +25,7 @@ export const Route = createFileRoute('/templates/')({
 function Templates() {
   const initialPage = Route.useLoaderData()
   const [templates, setTemplates] = createSignal(initialPage().page)
-  const [instrumentIds, setInstrumentIds] = createSignal(initialPage().instrumentIds)
+  const [instrumentIds, setInstrumentIds] = createSignal<string[]>([])
   const [loading, setLoading] = createSignal(false)
   const [error, setError] = createSignal('')
 

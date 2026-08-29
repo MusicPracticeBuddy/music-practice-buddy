@@ -53,6 +53,9 @@ export function InstrumentFilter(props: {
                   <label>
                     <input
                       type="checkbox"
+                      ref={(element) => {
+                        element.checked = props.selectedIds.includes(instrument.id)
+                      }}
                       checked={props.selectedIds.includes(instrument.id)}
                       onChange={(event) =>
                         props.onChange(

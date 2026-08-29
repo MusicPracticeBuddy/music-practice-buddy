@@ -1,19 +1,15 @@
 import { Link, createFileRoute } from '@tanstack/solid-router'
 import { ExerciseCatalogSearch } from '@/components/ExerciseCatalogSearch'
 import { EMPTY_EXERCISE_CATALOG_SEARCH, getPublicExerciseCatalogPage } from '@/data/exercises'
-import { getMusicianInstrumentIds } from '@/data/preferences'
 import { getInstruments } from '@/data/repertoire'
 
 export const Route = createFileRoute('/exercises/search')({
   loader: async () => {
-    const instrumentIds = await getMusicianInstrumentIds()
     const [catalog, instruments] = await Promise.all([
-      getPublicExerciseCatalogPage({
-        data: { ...EMPTY_EXERCISE_CATALOG_SEARCH, instrumentIds },
-      }),
+      getPublicExerciseCatalogPage({ data: EMPTY_EXERCISE_CATALOG_SEARCH }),
       getInstruments(),
     ])
-    return { catalog, instruments, instrumentIds }
+    return { catalog, instruments }
   },
   component: SearchExercises,
 })
@@ -42,7 +38,7 @@ function SearchExercises() {
       <ExerciseCatalogSearch
         initialPage={data().catalog}
         instruments={data().instruments}
-        initialInstrumentIds={data().instrumentIds}
+        initialInstrumentIds={[]}
       />
     </main>
   )

@@ -9,18 +9,16 @@ import {
   getSessionsPage,
   type SessionRow,
 } from '@/data/sessions'
-import { getMusicianInstrumentIds } from '@/data/preferences'
 import { getInstruments } from '@/data/repertoire'
 import { SESSION_STATUS } from '@/domain/session'
 
 export const Route = createFileRoute('/sessions/')({
   loader: async () => {
-    const instrumentIds = await getMusicianInstrumentIds()
     const [page, instruments] = await Promise.all([
-      getSessionsPage({ data: { ...EMPTY_SESSION_SEARCH, instrumentIds } }),
+      getSessionsPage({ data: EMPTY_SESSION_SEARCH }),
       getInstruments(),
     ])
-    return { page, instruments, instrumentIds }
+    return { page, instruments }
   },
   component: Sessions,
 })
@@ -61,7 +59,7 @@ function datePart(value: string | null, assignedDate: string | null, part: 'day'
 function Sessions() {
   const initialPage = Route.useLoaderData()
   const [sessions, setSessions] = createSignal(initialPage().page)
-  const [instrumentIds, setInstrumentIds] = createSignal(initialPage().instrumentIds)
+  const [instrumentIds, setInstrumentIds] = createSignal<string[]>([])
   const [loading, setLoading] = createSignal(false)
   const [error, setError] = createSignal('')
 

@@ -19,17 +19,15 @@ import {
   type RepertoireLibrarySearchInput,
   type RepertoireRow,
 } from '@/data/repertoire'
-import { getMusicianInstrumentIds } from '@/data/preferences'
-import { groupInstrumentOptions } from '@/domain/instrument'
 
 export const Route = createFileRoute('/library')({
   loader: async () => {
-    const instrumentIds = await getMusicianInstrumentIds()
-    const [exercises, instruments, repertoire] = await Promise.all([
-      getExerciseLibraryPage({
-        data: { ...EMPTY_EXERCISE_LIBRARY_SEARCH, instrumentIds },
-      }),
-      getInstruments(),
+    const instruments = await getInstruments()
+    const instrumentIds = instruments
+      .filter((instrument) => instrument.isPreferred)
+      .map((instrument) => instrument.id)
+    const [exercises, repertoire] = await Promise.all([
+      getExerciseLibraryPage({ data: EMPTY_EXERCISE_LIBRARY_SEARCH }),
       getRepertoireLibraryPage({
         data: { ...EMPTY_REPERTOIRE_LIBRARY_SEARCH, instrumentIds },
       }),
@@ -50,9 +48,7 @@ function Library() {
   const [repertoireQuery, setRepertoireQuery] = createSignal('')
   const [composer, setComposer] = createSignal('')
   const [instrumentIds, setInstrumentIds] = createSignal<string[]>(data().instrumentIds)
-  const [exerciseInstrumentIds, setExerciseInstrumentIds] = createSignal<string[]>(
-    data().instrumentIds,
-  )
+  const [exerciseInstrumentIds, setExerciseInstrumentIds] = createSignal<string[]>([])
   const [repertoireVisibility, setRepertoireVisibility] =
     createSignal<RepertoireLibrarySearchInput['visibility']>('ALL')
   const [exerciseQuery, setExerciseQuery] = createSignal('')
@@ -203,37 +199,14 @@ function Library() {
                 }}
               />
             </label>
-            <fieldset class="library-instrument-filter">
-              <legend>Instruments</legend>
-              <div class="library-instrument-options">
-                <For each={groupInstrumentOptions(data().instruments)}>
-                  {(group) => (
-                    <div class="instrument-option-group">
-                      <p>{group.label}</p>
-                      <For each={group.instruments}>
-                        {(instrument) => (
-                          <label>
-                            <input
-                              type="checkbox"
-                              checked={instrumentIds().includes(instrument.id)}
-                              onChange={(event) => {
-                                setInstrumentIds((ids) =>
-                                  event.currentTarget.checked
-                                    ? [...ids, instrument.id]
-                                    : ids.filter((id) => id !== instrument.id),
-                                )
-                                queueRepertoireSearch()
-                              }}
-                            />
-                            <span>{instrument.name}</span>
-                          </label>
-                        )}
-                      </For>
-                    </div>
-                  )}
-                </For>
-              </div>
-            </fieldset>
+            <InstrumentFilter
+              instruments={data().instruments}
+              selectedIds={instrumentIds()}
+              onChange={(ids) => {
+                setInstrumentIds(ids)
+                queueRepertoireSearch()
+              }}
+            />
             <label>
               <span>Visibility</span>
               <select
