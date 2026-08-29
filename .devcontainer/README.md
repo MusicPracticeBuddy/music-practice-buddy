@@ -30,6 +30,11 @@ The host's `~/.codex` directory is mounted read-write at `/home/node/.codex`, an
 extension is installed in the container. This reuses the host's cached login, configuration, and
 saved chats, and keeps changes made inside the container available on the host.
 
+The app service disables Docker's default seccomp profile so Codex can create its nested
+`bubblewrap` sandbox. Without this setting, Docker blocks unprivileged user namespaces and Codex
+file operations fail with `bwrap: No permissions to create new namespace`. Codex still applies
+its own workspace sandbox and approval policy inside the trusted development container.
+
 Treat the development container as trusted: the mount includes `auth.json`, which contains Codex
 access tokens. Rebuild the container after changing this configuration. If the host uses an OS
 keyring instead of file-based authentication and `~/.codex/auth.json` is absent, sign in with Codex

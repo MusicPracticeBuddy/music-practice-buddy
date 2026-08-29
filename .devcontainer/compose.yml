@@ -6,6 +6,11 @@ services:
     init: true
     command: sleep infinity
 
+    # Codex uses bubblewrap for its Linux workspace sandbox. Docker's default
+    # seccomp profile blocks the unprivileged user namespaces bubblewrap needs.
+    security_opt:
+      - seccomp=unconfined
+
     environment:
       AUTH_DEV_LOGIN_ENABLED: ${AUTH_DEV_LOGIN_ENABLED:-true}
       PGHOST: postgres
