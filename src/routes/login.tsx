@@ -27,8 +27,9 @@ function LoginPage() {
     setError('')
     try {
       await developmentLogin({ data: username })
+      router.clearCache()
       router.history.push(search().redirect)
-      await router.invalidate()
+      await router.invalidate({ sync: true })
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Sign in failed.')
       setSubmitting(null)
@@ -41,8 +42,9 @@ function LoginPage() {
     setError('')
     try {
       await createDevelopmentUser({ data: newUsername() })
+      router.clearCache()
       router.history.push(search().redirect)
-      await router.invalidate()
+      await router.invalidate({ sync: true })
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'User creation failed.')
       setSubmitting(null)

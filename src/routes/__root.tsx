@@ -72,13 +72,15 @@ function AuthenticatedShell({ user }: Readonly<{ user: AuthenticatedUser }>) {
 
   async function signOut() {
     await logout()
-    await router.invalidate()
+    router.clearCache()
+    await router.invalidate({ sync: true })
   }
 
   async function switchUser() {
     await logout()
+    router.clearCache()
     router.history.push('/login')
-    await router.invalidate()
+    await router.invalidate({ sync: true })
   }
 
   return (
