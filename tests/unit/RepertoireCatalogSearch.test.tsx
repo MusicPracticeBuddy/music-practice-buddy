@@ -27,8 +27,8 @@ const composers = [
 ]
 
 const instruments = [
-  { id: '20', name: 'Piano', family: 'KEYBOARD' },
-  { id: '21', name: 'Violin', family: 'STRING' },
+  { id: '20', name: 'Piano', family: 'KEYBOARD', isPreferred: true },
+  { id: '21', name: 'Violin', family: 'STRING', isPreferred: false },
 ]
 
 const items: CatalogRepertoireRow[] = [

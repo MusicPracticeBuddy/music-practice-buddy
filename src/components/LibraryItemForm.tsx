@@ -3,6 +3,7 @@ import { Link, useNavigate, useRouter } from '@tanstack/solid-router'
 import { ExerciseNotation } from '@/components/ExerciseNotation'
 import { createExercise, updateExercise, type ExerciseInput } from '@/data/exercises'
 import { EXERCISE_NOTATION_FORMAT, type ExerciseNotationFormat } from '@/domain/exercise'
+import { groupInstrumentOptions } from '@/domain/instrument'
 import {
   createRepertoire,
   updateRepertoire,
@@ -325,11 +326,13 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
                       )
                     }
                   >
-                    <For each={props.instrumentOptions}>
-                      {(option) => (
-                        <option value={option.id}>
-                          {option.name} · {option.family.toLowerCase()}
-                        </option>
+                    <For each={groupInstrumentOptions(props.instrumentOptions ?? [])}>
+                      {(group) => (
+                        <optgroup label={group.label}>
+                          <For each={group.instruments}>
+                            {(option) => <option value={option.id}>{option.name}</option>}
+                          </For>
+                        </optgroup>
                       )}
                     </For>
                   </select>

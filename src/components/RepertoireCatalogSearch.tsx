@@ -10,6 +10,7 @@ import {
   type InstrumentOption,
   getPublicRepertoireCatalogPage,
 } from '@/data/repertoire'
+import { groupInstrumentOptions } from '@/domain/instrument'
 
 export function RepertoireCatalogSearch(props: {
   initialPage: CatalogSearchPage
@@ -44,6 +45,7 @@ export function RepertoireCatalogSearch(props: {
         )
       : props.instruments
   })
+  const visibleInstrumentGroups = createMemo(() => groupInstrumentOptions(visibleInstruments()))
 
   function searchInput(page: number): CatalogSearchInput {
     return {
@@ -216,21 +218,25 @@ export function RepertoireCatalogSearch(props: {
             onInput={(event) => setInstrumentQuery(event.currentTarget.value)}
           />
           <div class="catalog-instrument-options">
-            <For each={visibleInstruments()}>
-              {(instrument) => (
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={selectedInstrumentIds().includes(instrument.id)}
-                    onChange={(event) =>
-                      toggleInstrument(instrument.id, event.currentTarget.checked)
-                    }
-                  />
-                  <span>
-                    {instrument.name}
-                    <small>{instrument.family.toLocaleLowerCase()}</small>
-                  </span>
-                </label>
+            <For each={visibleInstrumentGroups()}>
+              {(group) => (
+                <div class="instrument-option-group">
+                  <p>{group.label}</p>
+                  <For each={group.instruments}>
+                    {(instrument) => (
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={selectedInstrumentIds().includes(instrument.id)}
+                          onChange={(event) =>
+                            toggleInstrument(instrument.id, event.currentTarget.checked)
+                          }
+                        />
+                        <span>{instrument.name}</span>
+                      </label>
+                    )}
+                  </For>
+                </div>
               )}
             </For>
           </div>

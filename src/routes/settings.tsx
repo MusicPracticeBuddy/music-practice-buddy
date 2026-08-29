@@ -1,7 +1,8 @@
-import { For, Show, createSignal } from 'solid-js'
+import { For, Show, createMemo, createSignal } from 'solid-js'
 import { createFileRoute, useRouter } from '@tanstack/solid-router'
 import { getMusicianInstrumentIds, updateMusicianInstrumentIds } from '@/data/preferences'
 import { getInstruments } from '@/data/repertoire'
+import { groupInstrumentOptions } from '@/domain/instrument'
 
 export const Route = createFileRoute('/settings')({
   loader: async () => {
@@ -17,6 +18,7 @@ export const Route = createFileRoute('/settings')({
 function Settings() {
   const router = useRouter()
   const data = Route.useLoaderData()
+  const instrumentGroups = createMemo(() => groupInstrumentOptions(data().instruments))
   const [instrumentIds, setInstrumentIds] = createSignal<string[]>(data().instrumentIds)
   const [saving, setSaving] = createSignal(false)
   const [error, setError] = createSignal('')
@@ -64,29 +66,38 @@ function Settings() {
         }}
       >
         <fieldset class="settings-instrument-fieldset">
-          <legend>My instruments</legend>
+          <legend>Instrument preferences</legend>
           <p class="field-help">
             Leave all instruments unchecked if you do not want a default instrument filter.
           </p>
-          <div class="settings-instrument-options">
+          <div class="settings-instrument-groups">
             <For
-              each={data().instruments}
+              each={instrumentGroups()}
               fallback={<p class="muted">No instruments are available.</p>}
             >
-              {(instrument) => (
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={instrumentIds().includes(instrument.id)}
-                    onChange={(event) =>
-                      toggleInstrument(instrument.id, event.currentTarget.checked)
-                    }
-                  />
-                  <span>
-                    <strong>{instrument.name}</strong>
-                    <small>{instrument.family.toLocaleLowerCase()}</small>
-                  </span>
-                </label>
+              {(group) => (
+                <section class="settings-instrument-group">
+                  <h2>{group.label}</h2>
+                  <div class="settings-instrument-options">
+                    <For each={group.instruments}>
+                      {(instrument) => (
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={instrumentIds().includes(instrument.id)}
+                            onChange={(event) =>
+                              toggleInstrument(instrument.id, event.currentTarget.checked)
+                            }
+                          />
+                          <span>
+                            <strong>{instrument.name}</strong>
+                            <small>{instrument.family.toLocaleLowerCase()}</small>
+                          </span>
+                        </label>
+                      )}
+                    </For>
+                  </div>
+                </section>
               )}
             </For>
           </div>

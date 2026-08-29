@@ -19,6 +19,7 @@ import {
   type RepertoireRow,
 } from '@/data/repertoire'
 import { getMusicianInstrumentIds } from '@/data/preferences'
+import { groupInstrumentOptions } from '@/domain/instrument'
 
 export const Route = createFileRoute('/library')({
   loader: async () => {
@@ -198,23 +199,30 @@ function Library() {
             <fieldset class="library-instrument-filter">
               <legend>Instruments</legend>
               <div class="library-instrument-options">
-                <For each={data().instruments}>
-                  {(instrument) => (
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={instrumentIds().includes(instrument.id)}
-                        onChange={(event) => {
-                          setInstrumentIds((ids) =>
-                            event.currentTarget.checked
-                              ? [...ids, instrument.id]
-                              : ids.filter((id) => id !== instrument.id),
-                          )
-                          queueRepertoireSearch()
-                        }}
-                      />
-                      <span>{instrument.name}</span>
-                    </label>
+                <For each={groupInstrumentOptions(data().instruments)}>
+                  {(group) => (
+                    <div class="instrument-option-group">
+                      <p>{group.label}</p>
+                      <For each={group.instruments}>
+                        {(instrument) => (
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={instrumentIds().includes(instrument.id)}
+                              onChange={(event) => {
+                                setInstrumentIds((ids) =>
+                                  event.currentTarget.checked
+                                    ? [...ids, instrument.id]
+                                    : ids.filter((id) => id !== instrument.id),
+                                )
+                                queueRepertoireSearch()
+                              }}
+                            />
+                            <span>{instrument.name}</span>
+                          </label>
+                        )}
+                      </For>
+                    </div>
                   )}
                 </For>
               </div>

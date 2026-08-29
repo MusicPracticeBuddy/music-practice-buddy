@@ -22,6 +22,7 @@ import {
   addRepertoireToLibrary,
   createRepertoire,
   deleteRepertoire,
+  getInstruments,
   getPublicRepertoireCatalog,
   getPublicRepertoireCatalogPage,
   getOwnedRepertoirePage,
@@ -145,6 +146,16 @@ describe('musician instrument preferences', () => {
 
     await updateMusicianInstrumentIds({ data: [ids[0]!] })
     await expect(getMusicianInstrumentIds()).resolves.toEqual([ids[0]])
+    const orderedOptions = await getInstruments()
+    expect(
+      orderedOptions.map((instrument) => ({
+        id: instrument.id,
+        isPreferred: instrument.isPreferred,
+      })),
+    ).toEqual([
+      { id: ids[0], isPreferred: true },
+      { id: ids[1], isPreferred: false },
+    ])
 
     await expect(updateMusicianInstrumentIds({ data: ['999999'] })).rejects.toThrow(
       'Instrument not found',

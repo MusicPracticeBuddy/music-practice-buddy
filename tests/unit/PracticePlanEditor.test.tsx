@@ -58,7 +58,9 @@ vi.mock('../../src/data/repertoire', () => ({
   createRepertoire: vi.fn(),
   getInstruments: vi
     .fn()
-    .mockResolvedValue([{ id: '1', name: 'Trumpet in B-flat', family: 'BRASS' }]),
+    .mockResolvedValue([
+      { id: '1', name: 'Trumpet in B-flat', family: 'BRASS', isPreferred: true },
+    ]),
   getPublicRepertoireCatalogPage: vi.fn().mockResolvedValue({
     items: [
       {

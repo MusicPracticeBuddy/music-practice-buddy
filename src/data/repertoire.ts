@@ -91,6 +91,7 @@ export type InstrumentOption = {
   id: string
   name: string
   family: string
+  isPreferred: boolean
 }
 
 export type CatalogComposerOption = {
@@ -320,9 +321,19 @@ async function replaceRepertoireDetails(
 
 export const getInstruments = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
-  .handler(async (): Promise<InstrumentOption[]> => {
+  .handler(async ({ context }): Promise<InstrumentOption[]> => {
     const result = await pool.query<InstrumentOption>(
-      `SELECT id::text, name, family::text FROM instrument ORDER BY family, name`,
+      `SELECT
+         instrument.id::text,
+         instrument.name,
+         instrument.family::text,
+         (preference.instrument_id IS NOT NULL) AS "isPreferred"
+       FROM instrument
+       LEFT JOIN musician_instrument preference
+         ON preference.instrument_id = instrument.id
+        AND preference.musician_id = $1
+       ORDER BY "isPreferred" DESC, instrument.family, instrument.name`,
+      [context.user.musicianId],
     )
     return result.rows
   })
