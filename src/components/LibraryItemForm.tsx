@@ -1,6 +1,7 @@
 import { For, Show, createEffect, createSignal, type JSX } from 'solid-js'
 import { Link, useNavigate, useRouter } from '@tanstack/solid-router'
 import { ExerciseNotation } from '@/components/ExerciseNotation'
+import { InstrumentSelect } from '@/components/InstrumentFields'
 import { createExercise, updateExercise, type ExerciseInput } from '@/data/exercises'
 import { EXERCISE_NOTATION_FORMAT, type ExerciseNotationFormat } from '@/domain/exercise'
 import { groupInstrumentOptions } from '@/domain/instrument'
@@ -21,6 +22,7 @@ type LibraryItemFormProps = {
   compositionYear?: number | null
   notation?: string | null
   notationFormat?: ExerciseNotationFormat
+  instrumentId?: string | null
   visibility?: 'PRIVATE' | 'PUBLIC'
   credits?: RepertoireCreditInput[]
   instruments?: RepertoireInstrumentInput[]
@@ -59,6 +61,7 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
   const [visibility, setVisibility] = createSignal<'PRIVATE' | 'PUBLIC'>(
     props.visibility ?? 'PRIVATE',
   )
+  const [instrumentId, setInstrumentId] = createSignal(props.instrumentId ?? '')
   const [credits, setCredits] = createSignal<RepertoireCreditInput[]>(props.credits ?? [])
   const [instruments, setInstruments] = createSignal<RepertoireInstrumentInput[]>(
     props.instruments ?? [],
@@ -73,6 +76,7 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
     setNotation(props.notation ?? '')
     setNotationFormat(props.notationFormat ?? EXERCISE_NOTATION_FORMAT.TEXT)
     setVisibility(props.visibility ?? 'PRIVATE')
+    setInstrumentId(props.instrumentId ?? '')
     setCredits(props.credits ?? [])
     setInstruments(props.instruments ?? [])
     setResources(props.resources ?? [])
@@ -89,6 +93,7 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
           notation: notation(),
           notationFormat: notationFormat(),
           visibility: visibility(),
+          instrumentId: instrumentId() || null,
         }
         const result = props.id
           ? await updateExercise({ data: { id: props.id, ...data } })
@@ -170,6 +175,13 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
       </Show>
 
       <Show when={props.kind === 'exercise'}>
+        <InstrumentSelect
+          id="exercise-instrument"
+          instruments={props.instrumentOptions ?? []}
+          value={instrumentId()}
+          onChange={setInstrumentId}
+        />
+
         <label class="field-label" for="exercise-instructions">
           Instructions or notation (optional)
         </label>

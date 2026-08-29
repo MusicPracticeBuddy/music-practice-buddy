@@ -2,20 +2,32 @@ import { For, Show, createSignal } from 'solid-js'
 import { Link, createFileRoute } from '@tanstack/solid-router'
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
 import { SwipeToDelete } from '@/components/SwipeToDelete'
+import { InstrumentFilter } from '@/components/InstrumentFields'
 import {
   deleteSessionTemplate,
+  EMPTY_SESSION_TEMPLATE_SEARCH,
   getSessionTemplatesPage,
   type SessionTemplateSummary,
 } from '@/data/sessionTemplates'
+import { getMusicianInstrumentIds } from '@/data/preferences'
+import { getInstruments } from '@/data/repertoire'
 
 export const Route = createFileRoute('/templates/')({
-  loader: () => getSessionTemplatesPage({ data: 1 }),
+  loader: async () => {
+    const instrumentIds = await getMusicianInstrumentIds()
+    const [page, instruments] = await Promise.all([
+      getSessionTemplatesPage({ data: { ...EMPTY_SESSION_TEMPLATE_SEARCH, instrumentIds } }),
+      getInstruments(),
+    ])
+    return { page, instruments, instrumentIds }
+  },
   component: Templates,
 })
 
 function Templates() {
   const initialPage = Route.useLoaderData()
-  const [templates, setTemplates] = createSignal(initialPage())
+  const [templates, setTemplates] = createSignal(initialPage().page)
+  const [instrumentIds, setInstrumentIds] = createSignal(initialPage().instrumentIds)
   const [loading, setLoading] = createSignal(false)
   const [error, setError] = createSignal('')
 
@@ -23,10 +35,12 @@ function Templates() {
     setLoading(true)
     setError('')
     try {
-      let result = await getSessionTemplatesPage({ data: page })
+      let result = await getSessionTemplatesPage({ data: { instrumentIds: instrumentIds(), page } })
       const lastPage = Math.max(1, result.totalPages)
       if (result.page > lastPage) {
-        result = await getSessionTemplatesPage({ data: lastPage })
+        result = await getSessionTemplatesPage({
+          data: { instrumentIds: instrumentIds(), page: lastPage },
+        })
       }
       setTemplates(result)
     } catch (caught) {
@@ -53,6 +67,27 @@ function Templates() {
           {error()}
         </p>
       </Show>
+
+      <div class="library-filter-bar" role="search" aria-label="Filter templates">
+        <InstrumentFilter
+          instruments={initialPage().instruments}
+          selectedIds={instrumentIds()}
+          onChange={(ids) => {
+            setInstrumentIds(ids)
+            void loadPage(1)
+          }}
+        />
+        <button
+          class="text-button library-filter-clear"
+          type="button"
+          onClick={() => {
+            setInstrumentIds([])
+            void loadPage(1)
+          }}
+        >
+          Clear filters
+        </button>
+      </div>
 
       <Show
         when={templates().items.length > 0}
@@ -136,6 +171,10 @@ function TemplateListItem(props: {
             {props.template.itemCount} practice {props.template.itemCount === 1 ? 'item' : 'items'}
             {' · '}
             {props.template.visibility.toLowerCase()}
+            <Show when={props.template.instrumentName}>
+              {' · '}
+              {props.template.instrumentName}
+            </Show>
           </p>
         </div>
         <div class="header-actions">

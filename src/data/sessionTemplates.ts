@@ -37,6 +37,8 @@ export type SessionTemplateSummary = {
   ownerId: string
   itemCount: number
   updatedAt: string
+  instrumentId?: string | null
+  instrumentName?: string | null
 } & ResourceAccess
 
 export type SessionTemplatePage = {
@@ -48,6 +50,11 @@ export type SessionTemplatePage = {
 }
 
 export const SESSION_TEMPLATE_PAGE_SIZE = 20
+export type SessionTemplateSearchInput = { instrumentIds: string[]; page: number }
+export const EMPTY_SESSION_TEMPLATE_SEARCH: SessionTemplateSearchInput = {
+  instrumentIds: [],
+  page: 1,
+}
 
 export type SessionTemplateDetailItem = TemplateItemInput & {
   notation?: string | null
@@ -59,6 +66,8 @@ export type SessionTemplateDetail = {
   name: string
   visibility: Visibility
   ownerId: string
+  instrumentId?: string | null
+  instrumentName?: string | null
   items: SessionTemplateDetailItem[]
 } & ResourceAccess
 
@@ -66,12 +75,14 @@ export type PlannedSessionEdit = {
   id: string
   name: string
   assignedDate: string | null
+  instrumentId: string | null
   items: TemplateItemInput[]
 }
 
 type SaveTemplateInput = {
   name: string
   visibility?: Visibility
+  instrumentId?: string | null
   items: TemplateItemInput[]
 }
 
@@ -80,6 +91,20 @@ type UpdateTemplateInput = SaveTemplateInput & { id: string }
 type CreateSessionInput = {
   templateId: string | null
   assignedDate: string | null
+  instrumentId?: string | null
+}
+
+function validateInstrumentId(instrumentId: string | null) {
+  if (instrumentId !== null && !/^\d+$/.test(instrumentId)) throw new Error('Invalid instrument')
+  return instrumentId
+}
+
+function validateInstrumentIds(instrumentIds: string[]) {
+  const ids = [...new Set(instrumentIds)]
+  if (ids.length > 50 || ids.some((id) => !/^\d+$/.test(id))) {
+    throw new Error('Invalid instrument filter')
+  }
+  return ids
 }
 
 function validateTemplate(input: SaveTemplateInput): Required<SaveTemplateInput> {
@@ -124,7 +149,12 @@ function validateTemplate(input: SaveTemplateInput): Required<SaveTemplateInput>
     }
   }
 
-  return { name, visibility, items: input.items }
+  return {
+    name,
+    visibility,
+    instrumentId: validateInstrumentId(input.instrumentId ?? null),
+    items: input.items,
+  }
 }
 
 async function resolveLibrarySource(
@@ -276,6 +306,8 @@ export const getSessionTemplates = createServerFn({ method: 'GET' })
       ownerId: string
       itemCount: number
       updatedAt: Date
+      instrumentId: string | null
+      instrumentName: string | null
     }>(
       `
       SELECT
@@ -285,10 +317,13 @@ export const getSessionTemplates = createServerFn({ method: 'GET' })
         template.musician_id::text AS "ownerId",
         count(item.id) FILTER (WHERE item.type <> 'SECTION')::int AS "itemCount",
         template.updated_at AS "updatedAt"
+        ,template.instrument_id::text AS "instrumentId"
+        ,instrument.name AS "instrumentName"
       FROM session_template template
       LEFT JOIN session_template_item item ON item.session_template_id = template.id
+      LEFT JOIN instrument ON instrument.id = template.instrument_id
       WHERE template.musician_id = $1 OR template.visibility = 'PUBLIC'
-      GROUP BY template.id
+      GROUP BY template.id, instrument.name
       ORDER BY template.updated_at DESC, template.id DESC
     `,
       [context.user.musicianId],
@@ -303,18 +338,31 @@ export const getSessionTemplates = createServerFn({ method: 'GET' })
 
 export const getSessionTemplatesPage = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
-  .validator((page: number) => {
-    if (!Number.isInteger(page) || page < 1) throw new Error('Invalid page')
-    return page
+  .validator((input: SessionTemplateSearchInput | number) => {
+    const search = typeof input === 'number' ? { instrumentIds: [], page: input } : input
+    if (!Number.isInteger(search.page) || search.page < 1) throw new Error('Invalid page')
+    return { ...search, instrumentIds: validateInstrumentIds(search.instrumentIds) }
   })
-  .handler(async ({ data: page, context }): Promise<SessionTemplatePage> => {
+  .handler(async ({ data, context }): Promise<SessionTemplatePage> => {
+    const page = data.page
     const offset = (page - 1) * SESSION_TEMPLATE_PAGE_SIZE
+    const instrumentCondition =
+      data.instrumentIds.length > 0 ? ` AND template.instrument_id = ANY($2::bigint[])` : ''
+    const countInstrumentCondition =
+      data.instrumentIds.length > 0 ? ` AND instrument_id = ANY($2::bigint[])` : ''
+    const countParameters =
+      data.instrumentIds.length > 0
+        ? [context.user.musicianId, data.instrumentIds]
+        : [context.user.musicianId]
+    const listParameters = [...countParameters, SESSION_TEMPLATE_PAGE_SIZE, offset]
+    const limitParameter = `$${countParameters.length + 1}`
+    const offsetParameter = `$${countParameters.length + 2}`
     const [countResult, result] = await Promise.all([
       pool.query<{ total: number }>(
         `SELECT count(*)::integer AS total
          FROM session_template
-         WHERE musician_id = $1 OR visibility = 'PUBLIC'`,
-        [context.user.musicianId],
+         WHERE (musician_id = $1 OR visibility = 'PUBLIC')${countInstrumentCondition}`,
+        countParameters,
       ),
       pool.query<{
         id: string
@@ -323,6 +371,8 @@ export const getSessionTemplatesPage = createServerFn({ method: 'GET' })
         ownerId: string
         itemCount: number
         updatedAt: Date
+        instrumentId: string | null
+        instrumentName: string | null
       }>(
         `SELECT
            template.id::text,
@@ -331,13 +381,16 @@ export const getSessionTemplatesPage = createServerFn({ method: 'GET' })
            template.musician_id::text AS "ownerId",
            count(item.id) FILTER (WHERE item.type <> 'SECTION')::int AS "itemCount",
            template.updated_at AS "updatedAt"
+           ,template.instrument_id::text AS "instrumentId"
+           ,instrument.name AS "instrumentName"
          FROM session_template template
          LEFT JOIN session_template_item item ON item.session_template_id = template.id
-         WHERE template.musician_id = $1 OR template.visibility = 'PUBLIC'
-         GROUP BY template.id
+         LEFT JOIN instrument ON instrument.id = template.instrument_id
+         WHERE (template.musician_id = $1 OR template.visibility = 'PUBLIC')${instrumentCondition}
+         GROUP BY template.id, instrument.name
          ORDER BY template.updated_at DESC, template.id DESC
-         LIMIT $2 OFFSET $3`,
-        [context.user.musicianId, SESSION_TEMPLATE_PAGE_SIZE, offset],
+         LIMIT ${limitParameter} OFFSET ${offsetParameter}`,
+        listParameters,
       ),
     ])
     const total = countResult.rows[0]?.total ?? 0
@@ -448,10 +501,20 @@ export const getSessionTemplate = createServerFn({ method: 'GET' })
 
   .handler(async ({ data: templateId, context }): Promise<SessionTemplateDetail | null> => {
     const [templateResult, itemResult] = await Promise.all([
-      pool.query<{ id: string; name: string; visibility: Visibility; ownerId: string }>(
-        `SELECT id::text, name, visibility::text, musician_id::text AS "ownerId"
-         FROM session_template
-         WHERE id = $1 AND (musician_id = $2 OR visibility = 'PUBLIC')`,
+      pool.query<{
+        id: string
+        name: string
+        visibility: Visibility
+        ownerId: string
+        instrumentId: string | null
+        instrumentName: string | null
+      }>(
+        `SELECT template.id::text, template.name, template.visibility::text,
+           template.musician_id::text AS "ownerId", template.instrument_id::text AS "instrumentId",
+           instrument.name AS "instrumentName"
+         FROM session_template template
+         LEFT JOIN instrument ON instrument.id = template.instrument_id
+         WHERE template.id = $1 AND (template.musician_id = $2 OR template.visibility = 'PUBLIC')`,
         [templateId, context.user.musicianId],
       ),
       pool.query<SessionTemplateDetailItem>(
@@ -515,9 +578,14 @@ export const getPlannedSessionForEdit = createServerFn({ method: 'GET' })
   })
   .handler(async ({ data: sessionId, context }): Promise<PlannedSessionEdit | null> => {
     const [sessionResult, itemResult] = await Promise.all([
-      pool.query<{ id: string; name: string; assignedDate: string | null }>(
+      pool.query<{
+        id: string
+        name: string
+        assignedDate: string | null
+        instrumentId: string | null
+      }>(
         `
-          SELECT session.id::text, session.name,
+          SELECT session.id::text, session.name, session.instrument_id::text AS "instrumentId",
             to_char(session.assigned_date, 'YYYY-MM-DD') AS "assignedDate"
           FROM session
           LEFT JOIN session_template template ON template.id = session.session_template_id
@@ -563,9 +631,9 @@ export const createSessionTemplate = createServerFn({ method: 'POST' })
     try {
       await client.query('BEGIN')
       const templateResult = await client.query<{ id: string }>(
-        `INSERT INTO session_template (musician_id, name, visibility)
-         VALUES ($1, $2, $3) RETURNING id::text`,
-        [context.user.musicianId, data.name, data.visibility],
+        `INSERT INTO session_template (musician_id, name, visibility, instrument_id)
+         VALUES ($1, $2, $3, $4) RETURNING id::text`,
+        [context.user.musicianId, data.name, data.visibility, data.instrumentId],
       )
       const templateId = templateResult.rows[0]?.id
       if (!templateId) throw new Error('Template could not be created')
@@ -611,11 +679,10 @@ export const updateSessionTemplate = createServerFn({ method: 'POST' })
       }
       const visibility =
         current.ownerId === context.user.musicianId ? data.visibility : current.visibility
-      await client.query(`UPDATE session_template SET name = $1, visibility = $2 WHERE id = $3`, [
-        data.name,
-        visibility,
-        data.id,
-      ])
+      await client.query(
+        `UPDATE session_template SET name = $1, visibility = $2, instrument_id = $3 WHERE id = $4`,
+        [data.name, visibility, data.instrumentId, data.id],
+      )
       await client.query(`DELETE FROM session_template_item WHERE session_template_id = $1`, [
         data.id,
       ])
@@ -660,6 +727,7 @@ export const updatePlannedSession = createServerFn({ method: 'POST' })
       id: string
       name: string
       assignedDate: string | null
+      instrumentId?: string | null
       items: TemplateItemInput[]
     }) => {
       const name = input.name.trim()
@@ -669,6 +737,7 @@ export const updatePlannedSession = createServerFn({ method: 'POST' })
       if (input.assignedDate !== null && !/^\d{4}-\d{2}-\d{2}$/.test(input.assignedDate)) {
         throw new Error('Invalid scheduled date')
       }
+      validateInstrumentId(input.instrumentId ?? null)
       return {
         ...input,
         name,
@@ -683,10 +752,10 @@ export const updatePlannedSession = createServerFn({ method: 'POST' })
       const result = await client.query(
         `
           UPDATE session
-          SET name = $1, assigned_date = $2, assigned_at = NULL
-          WHERE id = $3 AND musician_id = $4 AND status = 'PLANNED'
+          SET name = $1, assigned_date = $2, assigned_at = NULL, instrument_id = $3
+          WHERE id = $4 AND musician_id = $5 AND status = 'PLANNED'
         `,
-        [data.name, data.assignedDate, data.id, context.user.musicianId],
+        [data.name, data.assignedDate, data.instrumentId ?? null, data.id, context.user.musicianId],
       )
       if (result.rowCount === 0) throw new Error('Only planned sessions can be edited')
       const existingItems = await client.query<{
@@ -732,7 +801,7 @@ export const createPracticeSession = createServerFn({ method: 'POST' })
     if (input.assignedDate !== null && !/^\d{4}-\d{2}-\d{2}$/.test(input.assignedDate)) {
       throw new Error('Invalid scheduled date')
     }
-    return input
+    return { ...input, instrumentId: validateInstrumentId(input.instrumentId ?? null) }
   })
   .handler(async ({ data, context }): Promise<{ id: string }> => {
     const client = await pool.connect()
@@ -752,11 +821,11 @@ export const createPracticeSession = createServerFn({ method: 'POST' })
 
       const sessionResult = await client.query<{ id: string }>(
         `
-          INSERT INTO session (musician_id, session_template_id, name, assigned_date)
-          VALUES ($1, $2, $3, $4)
+          INSERT INTO session (musician_id, session_template_id, name, assigned_date, instrument_id)
+          VALUES ($1, $2, $3, $4, $5)
           RETURNING id::text
         `,
-        [musicianId, data.templateId, sessionName, data.assignedDate],
+        [musicianId, data.templateId, sessionName, data.assignedDate, data.instrumentId],
       )
       const sessionId = sessionResult.rows[0]!.id
 

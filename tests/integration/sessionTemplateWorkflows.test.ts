@@ -38,6 +38,7 @@ import {
   completePracticeSession,
   createTemplateFromSession,
   deletePlannedSession,
+  EMPTY_SESSION_SEARCH,
   duplicatePracticeSession,
   getSessionDetail,
   getSessions,
@@ -52,6 +53,7 @@ import {
   createPracticeSession,
   createSessionTemplate,
   deleteSessionTemplate,
+  EMPTY_SESSION_TEMPLATE_SEARCH,
   getPlannedSessionForEdit,
   getSessionTemplates,
   getSessionTemplatesPage,
@@ -722,6 +724,48 @@ describe('library item persistence', () => {
 })
 
 describe('template persistence', () => {
+  it('tags exercises, templates, and sessions and filters each list by instrument', async () => {
+    const instrument = await pool.query<{ id: string }>(
+      `INSERT INTO instrument (name, family) VALUES ('Filter trumpet', 'BRASS') RETURNING id::text`,
+    )
+    const instrumentId = instrument.rows[0]!.id
+    const exercise = await createExercise({
+      data: {
+        name: 'Tagged exercise',
+        notation: '',
+        notationFormat: 'text',
+        visibility: 'PRIVATE',
+        instrumentId,
+      },
+    })
+    const template = await createSessionTemplate({
+      data: { name: 'Tagged template', instrumentId, items: [] },
+    })
+    const session = await createPracticeSession({
+      data: { templateId: template.id, assignedDate: null, instrumentId },
+    })
+
+    const exercises = await getExerciseLibraryPage({
+      data: { ...EMPTY_EXERCISE_LIBRARY_SEARCH, instrumentIds: [instrumentId] },
+    })
+    const templates = await getSessionTemplatesPage({
+      data: { ...EMPTY_SESSION_TEMPLATE_SEARCH, instrumentIds: [instrumentId] },
+    })
+    const sessions = await getSessionsPage({
+      data: { ...EMPTY_SESSION_SEARCH, instrumentIds: [instrumentId] },
+    })
+
+    expect(exercises.items).toEqual([
+      expect.objectContaining({ id: exercise.id, instrumentId, instrumentName: 'Filter trumpet' }),
+    ])
+    expect(templates.items).toEqual([
+      expect.objectContaining({ id: template.id, instrumentId, instrumentName: 'Filter trumpet' }),
+    ])
+    expect(sessions.items).toEqual([
+      expect.objectContaining({ id: session.id, instrumentId, instrumentName: 'Filter trumpet' }),
+    ])
+  })
+
   it('creates, edits, and deletes a template with cascading item cleanup', async () => {
     const created = await createSessionTemplate({
       data: {

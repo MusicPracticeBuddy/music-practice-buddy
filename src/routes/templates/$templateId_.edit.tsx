@@ -1,15 +1,17 @@
 import { createFileRoute, notFound } from '@tanstack/solid-router'
 import { PracticePlanEditor } from '@/components/PracticePlanEditor'
 import { getSessionTemplate, getTemplateLibrary } from '@/data/sessionTemplates'
+import { getInstruments } from '@/data/repertoire'
 
 export const Route = createFileRoute('/templates/$templateId_/edit')({
   loader: async ({ params }) => {
-    const [template, library] = await Promise.all([
+    const [template, library, instruments] = await Promise.all([
       getSessionTemplate({ data: params.templateId }),
       getTemplateLibrary(),
+      getInstruments(),
     ])
     if (!template?.canEdit) throw notFound()
-    return { template, library }
+    return { template, library, instruments }
   },
   component: EditTemplate,
   notFoundComponent: () => (
@@ -22,5 +24,11 @@ export const Route = createFileRoute('/templates/$templateId_/edit')({
 
 function EditTemplate() {
   const data = Route.useLoaderData()
-  return <PracticePlanEditor template={data().template} library={data().library} />
+  return (
+    <PracticePlanEditor
+      template={data().template}
+      library={data().library}
+      instruments={data().instruments}
+    />
+  )
 }

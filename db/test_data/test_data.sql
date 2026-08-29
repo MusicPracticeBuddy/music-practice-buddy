@@ -58,6 +58,11 @@ VALUES (
     'PRIVATE'
 );
 
+UPDATE exercise
+SET instrument_id = instrument.id
+FROM instrument
+WHERE instrument.name = 'Trumpet in B-flat';
+
 INSERT INTO musician_exercise_library (musician_id, exercise_id)
 SELECT musician_id, id
 FROM exercise;
@@ -139,6 +144,11 @@ VALUES
     ((SELECT id FROM musician WHERE is_admin LIMIT 1), 'Daily Brass Practice'),
     ((SELECT id FROM musician WHERE is_admin LIMIT 1), 'Short Practice Session');
 
+UPDATE session_template
+SET instrument_id = instrument.id
+FROM instrument
+WHERE instrument.name = 'Trumpet in B-flat';
+
 INSERT INTO session_template_item (session_template_id, type, position, name, instruction)
 VALUES
     ((SELECT id FROM session_template WHERE name = 'Daily Brass Practice'), 'SECTION', 1, 'Warmup', 'Focus on relaxed sound and efficient breathing.'),
@@ -161,6 +171,11 @@ VALUES
     ((SELECT id FROM musician WHERE is_admin LIMIT 1), (SELECT id FROM session_template WHERE name = 'Daily Brass Practice'), 'Daily Brass Practice', 'COMPLETED', 'AUTO', '2026-08-23', '2026-08-23 08:00:00-04', '2026-08-23 08:05:00-04', '2026-08-23 08:55:00-04'),
     ((SELECT id FROM musician WHERE is_admin LIMIT 1), (SELECT id FROM session_template WHERE name = 'Daily Brass Practice'), 'Daily Brass Practice', 'IN_PROGRESS', 'AUTO', '2026-08-25', '2026-08-25 08:00:00-04', '2026-08-25 08:05:00-04', NULL),
     ((SELECT id FROM musician WHERE is_admin LIMIT 1), (SELECT id FROM session_template WHERE name = 'Short Practice Session'), 'Short Practice Session', 'PLANNED', NULL, '2026-08-26', '2026-08-26 08:00:00-04', NULL, NULL);
+
+UPDATE session
+SET instrument_id = instrument.id
+FROM instrument
+WHERE instrument.name = 'Trumpet in B-flat';
 
 INSERT INTO session_item (session_id, type, position, name, status, instruction, session_note)
 VALUES

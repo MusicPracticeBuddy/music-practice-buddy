@@ -13,6 +13,8 @@ export type ExerciseRow = {
   owner: string
   ownerId: string
   copiedFrom: string | null
+  instrumentId: string | null
+  instrumentName: string | null
 } & ResourceAccess
 
 export type ExerciseLibraryPage = {
@@ -27,6 +29,7 @@ export type ExerciseLibrarySearchInput = {
   query: string
   visibility: 'ALL' | Visibility
   notationFormat: 'ALL' | ExerciseNotationFormat
+  instrumentIds: string[]
   page: number
 }
 
@@ -36,12 +39,15 @@ export type ExerciseCatalogRow = {
   notationFormat: ExerciseNotationFormat
   owner: string
   copiedFrom: string | null
+  instrumentId: string | null
+  instrumentName: string | null
   inLibrary: boolean
 }
 
 export type ExerciseCatalogSearchInput = {
   query: string
   notationFormat: 'ALL' | ExerciseNotationFormat
+  instrumentIds: string[]
   page: number
 }
 
@@ -77,12 +83,14 @@ export const EMPTY_EXERCISE_LIBRARY_SEARCH: ExerciseLibrarySearchInput = {
   query: '',
   visibility: 'ALL',
   notationFormat: 'ALL',
+  instrumentIds: [],
   page: 1,
 }
 
 export const EMPTY_EXERCISE_CATALOG_SEARCH: ExerciseCatalogSearchInput = {
   query: '',
   notationFormat: 'ALL',
+  instrumentIds: [],
   page: 1,
 }
 
@@ -94,6 +102,8 @@ type ExerciseDetail = {
   visibility: string
   owner: string
   ownerId: string
+  instrumentId: string | null
+  instrumentName: string | null
   createdAt: string
   copiedFrom: { id: string; name: string } | null
   adaptations: { id: string; name: string }[]
@@ -110,6 +120,7 @@ export type ExerciseInput = {
   notation: string
   notationFormat: ExerciseNotationFormat
   visibility: Visibility
+  instrumentId?: string | null
 }
 
 type UpdateExerciseInput = ExerciseInput & { id: string }
@@ -124,7 +135,24 @@ function validateExercise(input: ExerciseInput): ExerciseInput {
   if (input.visibility !== 'PRIVATE' && input.visibility !== 'PUBLIC') {
     throw new Error('Invalid exercise visibility')
   }
-  return { name, notation, notationFormat, visibility: input.visibility }
+  if (input.instrumentId != null && !/^\d+$/.test(input.instrumentId)) {
+    throw new Error('Invalid instrument')
+  }
+  return {
+    name,
+    notation,
+    notationFormat,
+    visibility: input.visibility,
+    instrumentId: input.instrumentId ?? null,
+  }
+}
+
+function validateInstrumentIds(instrumentIds: string[]) {
+  const uniqueIds = [...new Set(instrumentIds)]
+  if (uniqueIds.length > 50 || uniqueIds.some((id) => !/^\d+$/.test(id))) {
+    throw new Error('Invalid instrument filter')
+  }
+  return uniqueIds
 }
 
 function catalogSubstringPattern(value: string) {
@@ -146,11 +174,14 @@ export const getExercises = createServerFn({ method: 'GET' })
         exercise.visibility::text,
         musician.display_name AS owner,
         exercise.musician_id::text AS "ownerId",
-        source.name AS "copiedFrom"
+        source.name AS "copiedFrom",
+        exercise.instrument_id::text AS "instrumentId",
+        instrument.name AS "instrumentName"
       FROM exercise
       JOIN musician_exercise_library library
         ON library.exercise_id = exercise.id AND library.musician_id = $1
       JOIN musician ON musician.id = exercise.musician_id
+      LEFT JOIN instrument ON instrument.id = exercise.instrument_id
       LEFT JOIN exercise source ON source.id = exercise.copied_from_exercise_id
         AND (source.musician_id = $1 OR source.visibility = 'PUBLIC')
         AND source.deleted_at IS NULL
@@ -183,7 +214,7 @@ export const getExerciseLibraryPage = createServerFn({ method: 'GET' })
       throw new Error('Invalid notation format filter')
     }
     if (!Number.isInteger(input.page) || input.page < 1) throw new Error('Invalid page')
-    return { ...input, query }
+    return { ...input, query, instrumentIds: validateInstrumentIds(input.instrumentIds) }
   })
 
   .handler(async ({ data, context }): Promise<ExerciseLibraryPage> => {
@@ -210,6 +241,9 @@ export const getExerciseLibraryPage = createServerFn({ method: 'GET' })
     if (data.notationFormat !== 'ALL') {
       conditions.push(`exercise.notation_format = ${parameter(data.notationFormat)}`)
     }
+    if (data.instrumentIds.length > 0) {
+      conditions.push(`exercise.instrument_id = ANY(${parameter(data.instrumentIds)}::bigint[])`)
+    }
     const where = conditions.join('\n           AND ')
     const countParameters = [...parameters]
     const limit = parameter(EXERCISE_LIBRARY_PAGE_SIZE)
@@ -233,10 +267,13 @@ export const getExerciseLibraryPage = createServerFn({ method: 'GET' })
            musician.display_name AS owner,
            exercise.musician_id::text AS "ownerId",
            source.name AS "copiedFrom"
+           ,exercise.instrument_id::text AS "instrumentId"
+           ,instrument.name AS "instrumentName"
          FROM exercise
          JOIN musician_exercise_library library
            ON library.exercise_id = exercise.id AND library.musician_id = $1
          JOIN musician ON musician.id = exercise.musician_id
+         LEFT JOIN instrument ON instrument.id = exercise.instrument_id
          LEFT JOIN exercise source ON source.id = exercise.copied_from_exercise_id
            AND (source.musician_id = $1 OR source.visibility = 'PUBLIC')
            AND source.deleted_at IS NULL
@@ -269,7 +306,7 @@ export const getPublicExerciseCatalogPage = createServerFn({ method: 'GET' })
       throw new Error('Invalid notation format filter')
     }
     if (!Number.isInteger(input.page) || input.page < 1) throw new Error('Invalid page')
-    return { ...input, query }
+    return { ...input, query, instrumentIds: validateInstrumentIds(input.instrumentIds) }
   })
   .handler(async ({ data, context }): Promise<ExerciseCatalogPage> => {
     const parameters: unknown[] = []
@@ -289,6 +326,9 @@ export const getPublicExerciseCatalogPage = createServerFn({ method: 'GET' })
     if (data.notationFormat !== 'ALL') {
       conditions.push(`exercise.notation_format = ${parameter(data.notationFormat)}`)
     }
+    if (data.instrumentIds.length > 0) {
+      conditions.push(`exercise.instrument_id = ANY(${parameter(data.instrumentIds)}::bigint[])`)
+    }
     const where = conditions.join('\n           AND ')
     const countParameters = [...parameters]
     const musicianId = parameter(context.user.musicianId)
@@ -306,12 +346,15 @@ export const getPublicExerciseCatalogPage = createServerFn({ method: 'GET' })
            exercise.notation_format AS "notationFormat",
            musician.display_name AS owner,
            source.name AS "copiedFrom",
+           exercise.instrument_id::text AS "instrumentId",
+           instrument.name AS "instrumentName",
            EXISTS (
              SELECT 1 FROM musician_exercise_library library
              WHERE library.exercise_id = exercise.id AND library.musician_id = ${musicianId}
            ) AS "inLibrary"
          FROM exercise
          JOIN musician ON musician.id = exercise.musician_id
+         LEFT JOIN instrument ON instrument.id = exercise.instrument_id
          LEFT JOIN exercise source ON source.id = exercise.copied_from_exercise_id
            AND source.deleted_at IS NULL
            AND (source.visibility = 'PUBLIC' OR source.musician_id = ${musicianId})
@@ -441,6 +484,8 @@ export const getExerciseDetail = createServerFn({ method: 'GET' })
         createdAt: Date
         copiedFromId: string | null
         copiedFromName: string | null
+        instrumentId: string | null
+        instrumentName: string | null
       }>(
         `
           SELECT
@@ -454,8 +499,11 @@ export const getExerciseDetail = createServerFn({ method: 'GET' })
             exercise.created_at AS "createdAt",
             source.id::text AS "copiedFromId",
             source.name AS "copiedFromName"
+            ,exercise.instrument_id::text AS "instrumentId"
+            ,instrument.name AS "instrumentName"
           FROM exercise
           JOIN musician ON musician.id = exercise.musician_id
+          LEFT JOIN instrument ON instrument.id = exercise.instrument_id
           LEFT JOIN exercise source ON source.id = exercise.copied_from_exercise_id
             AND (source.musician_id = $2 OR source.visibility = 'PUBLIC')
             AND source.deleted_at IS NULL
@@ -507,6 +555,8 @@ export const getExerciseDetail = createServerFn({ method: 'GET' })
       visibility: exercise.visibility,
       owner: exercise.owner,
       ownerId: exercise.ownerId,
+      instrumentId: exercise.instrumentId,
+      instrumentName: exercise.instrumentName,
       createdAt: exercise.createdAt.toISOString(),
       copiedFrom:
         exercise.copiedFromId && exercise.copiedFromName
@@ -529,8 +579,8 @@ export const createExercise = createServerFn({ method: 'POST' })
     try {
       await client.query('BEGIN')
       const result = await client.query<{ id: string }>(
-        `INSERT INTO exercise (musician_id, name, notation, notation_format, visibility)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO exercise (musician_id, name, notation, notation_format, visibility, instrument_id)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id::text`,
         [
           context.user.musicianId,
@@ -538,6 +588,7 @@ export const createExercise = createServerFn({ method: 'POST' })
           data.notation || null,
           data.notationFormat,
           data.visibility,
+          data.instrumentId,
         ],
       )
       const exercise = result.rows[0]
@@ -566,14 +617,15 @@ export const updateExercise = createServerFn({ method: 'POST' })
   .handler(async ({ data, context }): Promise<{ id: string }> => {
     const result = await pool.query<{ id: string }>(
       `UPDATE exercise
-       SET name = $1, notation = $2, notation_format = $3, visibility = $4
-       WHERE id = $5 AND musician_id = $6 AND deleted_at IS NULL
+       SET name = $1, notation = $2, notation_format = $3, visibility = $4, instrument_id = $5
+       WHERE id = $6 AND musician_id = $7 AND deleted_at IS NULL
        RETURNING id::text`,
       [
         data.name,
         data.notation || null,
         data.notationFormat,
         data.visibility,
+        data.instrumentId,
         data.id,
         context.user.musicianId,
       ],

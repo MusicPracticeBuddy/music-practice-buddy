@@ -2,11 +2,26 @@ import { For, Show, createSignal } from 'solid-js'
 import { Link, createFileRoute } from '@tanstack/solid-router'
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
 import { SwipeToDelete } from '@/components/SwipeToDelete'
-import { deletePlannedSession, getSessionsPage, type SessionRow } from '@/data/sessions'
+import { InstrumentFilter } from '@/components/InstrumentFields'
+import {
+  deletePlannedSession,
+  EMPTY_SESSION_SEARCH,
+  getSessionsPage,
+  type SessionRow,
+} from '@/data/sessions'
+import { getMusicianInstrumentIds } from '@/data/preferences'
+import { getInstruments } from '@/data/repertoire'
 import { SESSION_STATUS } from '@/domain/session'
 
 export const Route = createFileRoute('/sessions/')({
-  loader: () => getSessionsPage({ data: 1 }),
+  loader: async () => {
+    const instrumentIds = await getMusicianInstrumentIds()
+    const [page, instruments] = await Promise.all([
+      getSessionsPage({ data: { ...EMPTY_SESSION_SEARCH, instrumentIds } }),
+      getInstruments(),
+    ])
+    return { page, instruments, instrumentIds }
+  },
   component: Sessions,
 })
 
@@ -45,7 +60,8 @@ function datePart(value: string | null, assignedDate: string | null, part: 'day'
 
 function Sessions() {
   const initialPage = Route.useLoaderData()
-  const [sessions, setSessions] = createSignal(initialPage())
+  const [sessions, setSessions] = createSignal(initialPage().page)
+  const [instrumentIds, setInstrumentIds] = createSignal(initialPage().instrumentIds)
   const [loading, setLoading] = createSignal(false)
   const [error, setError] = createSignal('')
 
@@ -53,9 +69,11 @@ function Sessions() {
     setLoading(true)
     setError('')
     try {
-      let result = await getSessionsPage({ data: page })
+      let result = await getSessionsPage({ data: { instrumentIds: instrumentIds(), page } })
       const lastPage = Math.max(1, result.totalPages)
-      if (result.page > lastPage) result = await getSessionsPage({ data: lastPage })
+      if (result.page > lastPage) {
+        result = await getSessionsPage({ data: { instrumentIds: instrumentIds(), page: lastPage } })
+      }
       setSessions(result)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Sessions could not be loaded.')
@@ -84,6 +102,27 @@ function Sessions() {
           {error()}
         </p>
       </Show>
+
+      <div class="library-filter-bar" role="search" aria-label="Filter sessions">
+        <InstrumentFilter
+          instruments={initialPage().instruments}
+          selectedIds={instrumentIds()}
+          onChange={(ids) => {
+            setInstrumentIds(ids)
+            void loadPage(1)
+          }}
+        />
+        <button
+          class="text-button library-filter-clear"
+          type="button"
+          onClick={() => {
+            setInstrumentIds([])
+            void loadPage(1)
+          }}
+        >
+          Clear filters
+        </button>
+      </div>
 
       <section
         class="session-table"
@@ -158,6 +197,9 @@ function SessionListItem(props: { session: SessionRow; onDelete: () => Promise<v
           <div class="session-main">
             <h2>{props.session.templateName}</h2>
             <p>{formatSchedule(props.session.startedAt, props.session.assignedDate)}</p>
+            <Show when={props.session.instrumentName}>
+              <small>{props.session.instrumentName}</small>
+            </Show>
           </div>
           <div class="session-meta">
             <strong>

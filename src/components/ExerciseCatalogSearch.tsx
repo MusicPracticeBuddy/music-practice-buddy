@@ -1,5 +1,6 @@
 import { For, Show, createSignal, onCleanup } from 'solid-js'
 import { Link, useRouter } from '@tanstack/solid-router'
+import { InstrumentFilter } from '@/components/InstrumentFields'
 import {
   addExerciseToLibrary,
   getPublicExerciseCatalogPage,
@@ -7,13 +8,19 @@ import {
   type ExerciseCatalogRow,
   type ExerciseCatalogSearchInput,
 } from '@/data/exercises'
+import type { InstrumentOption } from '@/data/repertoire'
 
-export function ExerciseCatalogSearch(props: { initialPage: ExerciseCatalogPage }) {
+export function ExerciseCatalogSearch(props: {
+  initialPage: ExerciseCatalogPage
+  instruments: InstrumentOption[]
+  initialInstrumentIds: string[]
+}) {
   const router = useRouter()
   const [query, setQuery] = createSignal('')
   const [notationFormat, setNotationFormat] =
     createSignal<ExerciseCatalogSearchInput['notationFormat']>('ALL')
   const [results, setResults] = createSignal(props.initialPage)
+  const [instrumentIds, setInstrumentIds] = createSignal(props.initialInstrumentIds)
   const [loading, setLoading] = createSignal(false)
   const [addingId, setAddingId] = createSignal<string | null>(null)
   const [addedIds, setAddedIds] = createSignal<string[]>([])
@@ -22,7 +29,12 @@ export function ExerciseCatalogSearch(props: { initialPage: ExerciseCatalogPage 
   let requestId = 0
 
   function searchInput(page: number): ExerciseCatalogSearchInput {
-    return { query: query(), notationFormat: notationFormat(), page }
+    return {
+      query: query(),
+      notationFormat: notationFormat(),
+      instrumentIds: instrumentIds(),
+      page,
+    }
   }
 
   async function loadPage(page: number) {
@@ -103,12 +115,22 @@ export function ExerciseCatalogSearch(props: { initialPage: ExerciseCatalogPage 
           <option value="abc">ABC notation</option>
         </select>
 
+        <InstrumentFilter
+          instruments={props.instruments}
+          selectedIds={instrumentIds()}
+          onChange={(ids) => {
+            setInstrumentIds(ids)
+            queueSearch()
+          }}
+        />
+
         <button
           class="text-button"
           type="button"
           onClick={() => {
             setQuery('')
             setNotationFormat('ALL')
+            setInstrumentIds([])
             queueSearch()
           }}
         >
@@ -149,6 +171,9 @@ export function ExerciseCatalogSearch(props: { initialPage: ExerciseCatalogPage 
                     <div>
                       <div class="card-topline">
                         <span class="tag">{exercise.notationFormat}</span>
+                        <Show when={exercise.instrumentName}>
+                          <span>{exercise.instrumentName}</span>
+                        </Show>
                         <span>By {exercise.owner}</span>
                       </div>
                       <h3>{exercise.name}</h3>

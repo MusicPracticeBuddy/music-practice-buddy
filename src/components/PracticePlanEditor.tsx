@@ -4,6 +4,7 @@ import { Link, useNavigate } from '@tanstack/solid-router'
 import * as Dialog from '@kobalte/core/dialog'
 import Sortable, { type MoveEvent, type SortableEvent } from 'sortablejs'
 import { LibraryItemForm } from '@/components/LibraryItemForm'
+import { InstrumentSelect } from '@/components/InstrumentFields'
 import { PracticeLibraryPanel } from '@/components/PracticeLibraryPanel'
 import {
   EMPTY_CATALOG_SEARCH,
@@ -217,6 +218,7 @@ function PlanSortableList(props: {
 
 export function PracticePlanEditor(props: {
   library: TemplateLibraryItem[]
+  instruments?: InstrumentOption[]
   template?: SessionTemplateDetail
   session?: PlannedSessionEdit
 }) {
@@ -227,6 +229,7 @@ export function PracticePlanEditor(props: {
   const [name, setName] = createSignal(initialRecord?.name ?? '')
   const [visibility, setVisibility] = createSignal(props.template?.visibility ?? 'PRIVATE')
   const [assignedDate, setAssignedDate] = createSignal(props.session?.assignedDate ?? '')
+  const [instrumentId, setInstrumentId] = createSignal(initialRecord?.instrumentId ?? '')
   const [libraryType, setLibraryType] = createSignal<LibraryItemType>(LIBRARY_ITEM_TYPE.EXERCISE)
   const [selectedParentId, setSelectedParentId] = createSignal<string | null>(null)
   const [savingAction, setSavingAction] = createSignal<'save' | 'save-and-use' | null>(null)
@@ -234,7 +237,9 @@ export function PracticePlanEditor(props: {
   const [creatingItem, setCreatingItem] = createSignal(false)
   const [newItemType, setNewItemType] = createSignal<LibraryItemType>(LIBRARY_ITEM_TYPE.EXERCISE)
   const [newItemInstruction, setNewItemInstruction] = createSignal('')
-  const [instrumentOptions, setInstrumentOptions] = createSignal<InstrumentOption[]>([])
+  const [instrumentOptions, setInstrumentOptions] = createSignal<InstrumentOption[]>(
+    props.instruments ?? [],
+  )
   const [searchPublicRepertoire, setSearchPublicRepertoire] = createSignal(false)
   const [publicRepertoire, setPublicRepertoire] = createSignal<TemplateLibraryItem[]>([])
   const [publicRepertoirePage, setPublicRepertoirePage] = createSignal({
@@ -402,13 +407,19 @@ export function PracticePlanEditor(props: {
     }
     setSavingAction(action)
     try {
-      const data = { name: name(), visibility: visibility(), items: flatten(nodes) }
+      const data = {
+        name: name(),
+        visibility: visibility(),
+        instrumentId: instrumentId() || null,
+        items: flatten(nodes),
+      }
       if (props.session) {
         await updatePlannedSession({
           data: {
             id: props.session.id,
             name: name(),
             assignedDate: assignedDate() || null,
+            instrumentId: instrumentId() || null,
             items: data.items,
           },
         })
@@ -629,6 +640,12 @@ export function PracticePlanEditor(props: {
           </select>
         </Show>
       </Show>
+      <InstrumentSelect
+        id={props.session ? 'session-instrument' : 'template-instrument'}
+        instruments={props.instruments ?? []}
+        value={instrumentId()}
+        onChange={setInstrumentId}
+      />
       <Show when={error()}>
         <p class="form-error" role="alert">
           {error()}

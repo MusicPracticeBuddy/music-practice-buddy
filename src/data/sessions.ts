@@ -34,6 +34,8 @@ export type SessionRow = {
   durationMinutes: number | null
   itemCount: number
   readyToFinalize: boolean
+  instrumentId: string | null
+  instrumentName: string | null
 }
 
 export type SessionPage = {
@@ -45,6 +47,16 @@ export type SessionPage = {
 }
 
 export const SESSION_PAGE_SIZE = 20
+export type SessionSearchInput = { instrumentIds: string[]; page: number }
+export const EMPTY_SESSION_SEARCH: SessionSearchInput = { instrumentIds: [], page: 1 }
+
+function validateInstrumentIds(instrumentIds: string[]) {
+  const ids = [...new Set(instrumentIds)]
+  if (ids.length > 50 || ids.some((id) => !/^\d+$/.test(id))) {
+    throw new Error('Invalid instrument filter')
+  }
+  return ids
+}
 
 export type SessionDetailItem = {
   id: string
@@ -102,6 +114,8 @@ export const getSessions = createServerFn({ method: 'GET' })
       durationMinutes: number | null
       itemCount: number
       readyToFinalize: boolean
+      instrumentId: string | null
+      instrumentName: string | null
     }>(
       `
       SELECT
@@ -123,11 +137,14 @@ export const getSessions = createServerFn({ method: 'GET' })
             WHERE item.status NOT IN ('COMPLETE', 'SKIPPED')
           ) = 0
         ) AS "readyToFinalize"
+        ,session.instrument_id::text AS "instrumentId"
+        ,instrument.name AS "instrumentName"
       FROM session
       LEFT JOIN session_template template ON template.id = session.session_template_id
       LEFT JOIN session_item item ON item.session_id = session.id AND item.type <> 'SECTION'
+      LEFT JOIN instrument ON instrument.id = session.instrument_id
       WHERE session.musician_id = $1
-      GROUP BY session.id, template.name
+      GROUP BY session.id, template.name, instrument.name
       ORDER BY COALESCE(
         session.started_at,
         session.assigned_date::timestamp AT TIME ZONE current_setting('TIMEZONE')
@@ -146,16 +163,27 @@ export const getSessions = createServerFn({ method: 'GET' })
 
 export const getSessionsPage = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
-  .validator((page: number) => {
-    if (!Number.isInteger(page) || page < 1) throw new Error('Invalid page')
-    return page
+  .validator((input: SessionSearchInput | number) => {
+    const search = typeof input === 'number' ? { instrumentIds: [], page: input } : input
+    if (!Number.isInteger(search.page) || search.page < 1) throw new Error('Invalid page')
+    return { ...search, instrumentIds: validateInstrumentIds(search.instrumentIds) }
   })
-  .handler(async ({ data: page, context }): Promise<SessionPage> => {
+  .handler(async ({ data, context }): Promise<SessionPage> => {
+    const page = data.page
     const offset = (page - 1) * SESSION_PAGE_SIZE
+    const instrumentCondition =
+      data.instrumentIds.length > 0 ? ` AND session.instrument_id = ANY($2::bigint[])` : ''
+    const countParameters =
+      data.instrumentIds.length > 0
+        ? [context.user.musicianId, data.instrumentIds]
+        : [context.user.musicianId]
+    const listParameters = [...countParameters, SESSION_PAGE_SIZE, offset]
+    const limitParameter = `$${countParameters.length + 1}`
+    const offsetParameter = `$${countParameters.length + 2}`
     const [countResult, result] = await Promise.all([
       pool.query<{ total: number }>(
-        `SELECT count(*)::integer AS total FROM session WHERE musician_id = $1`,
-        [context.user.musicianId],
+        `SELECT count(*)::integer AS total FROM session WHERE musician_id = $1${instrumentCondition}`,
+        countParameters,
       ),
       pool.query<{
         id: string
@@ -168,6 +196,8 @@ export const getSessionsPage = createServerFn({ method: 'GET' })
         durationMinutes: number | null
         itemCount: number
         readyToFinalize: boolean
+        instrumentId: string | null
+        instrumentName: string | null
       }>(
         `SELECT
            session.id::text,
@@ -188,17 +218,20 @@ export const getSessionsPage = createServerFn({ method: 'GET' })
                WHERE item.status NOT IN ('COMPLETE', 'SKIPPED')
              ) = 0
            ) AS "readyToFinalize"
+           ,session.instrument_id::text AS "instrumentId"
+           ,instrument.name AS "instrumentName"
          FROM session
          LEFT JOIN session_template template ON template.id = session.session_template_id
          LEFT JOIN session_item item ON item.session_id = session.id AND item.type <> 'SECTION'
-         WHERE session.musician_id = $1
-         GROUP BY session.id, template.name
+         LEFT JOIN instrument ON instrument.id = session.instrument_id
+         WHERE session.musician_id = $1${instrumentCondition}
+         GROUP BY session.id, template.name, instrument.name
          ORDER BY COALESCE(
            session.started_at,
            session.assigned_date::timestamp AT TIME ZONE current_setting('TIMEZONE')
          ) DESC NULLS LAST, session.id DESC
-         LIMIT $2 OFFSET $3`,
-        [context.user.musicianId, SESSION_PAGE_SIZE, offset],
+         LIMIT ${limitParameter} OFFSET ${offsetParameter}`,
+        listParameters,
       ),
     ])
     const total = countResult.rows[0]?.total ?? 0

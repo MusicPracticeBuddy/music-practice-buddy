@@ -1,19 +1,26 @@
 import { For, Show, createSignal } from 'solid-js'
 import { Link, createFileRoute, useNavigate } from '@tanstack/solid-router'
+import { InstrumentSelect } from '@/components/InstrumentFields'
 import { createPracticeSession, getSessionTemplates } from '@/data/sessionTemplates'
+import { getInstruments } from '@/data/repertoire'
 
 export const Route = createFileRoute('/sessions/new')({
   validateSearch: (search: Record<string, unknown>): { template?: string } =>
     typeof search.template === 'string' ? { template: search.template } : {},
-  loader: () => getSessionTemplates(),
+  loader: async () => {
+    const [templates, instruments] = await Promise.all([getSessionTemplates(), getInstruments()])
+    return { templates, instruments }
+  },
   component: NewSession,
 })
 
 function NewSession() {
-  const templates = Route.useLoaderData()
+  const data = Route.useLoaderData()
   const search = Route.useSearch()
   const navigate = useNavigate()
   const [templateId, setTemplateId] = createSignal(search().template ?? '')
+  const selectedTemplate = () => data().templates.find((template) => template.id === templateId())
+  const [instrumentId, setInstrumentId] = createSignal(selectedTemplate()?.instrumentId ?? '')
   const [assignedDate, setAssignedDate] = createSignal('')
   const [saving, setSaving] = createSignal(false)
   const [error, setError] = createSignal('')
@@ -27,6 +34,7 @@ function NewSession() {
         data: {
           templateId: templateId() || null,
           assignedDate: assignedDate() || null,
+          instrumentId: instrumentId() || null,
         },
       })
       await navigate({ to: '/sessions/$sessionId', params: { sessionId: session.id } })
@@ -56,10 +64,17 @@ function NewSession() {
           id="session-template"
           class="text-input"
           value={templateId()}
-          onChange={(event) => setTemplateId(event.currentTarget.value)}
+          onChange={(event) => {
+            const nextTemplateId = event.currentTarget.value
+            setTemplateId(nextTemplateId)
+            setInstrumentId(
+              data().templates.find((template) => template.id === nextTemplateId)?.instrumentId ??
+                '',
+            )
+          }}
         >
           <option value="">Open practice (no template)</option>
-          <For each={templates()}>
+          <For each={data().templates}>
             {(template) => (
               <option value={template.id}>
                 {template.name} · {template.itemCount} items
@@ -70,6 +85,13 @@ function NewSession() {
         <p class="field-help">
           Template items are copied into the session and can change independently.
         </p>
+
+        <InstrumentSelect
+          id="session-instrument"
+          instruments={data().instruments}
+          value={instrumentId()}
+          onChange={setInstrumentId}
+        />
 
         <label class="field-label" for="assigned-date">
           Schedule date (optional)

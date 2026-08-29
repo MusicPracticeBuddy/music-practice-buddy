@@ -3,6 +3,7 @@ import { Link, createFileRoute } from '@tanstack/solid-router'
 import { RepertoireLibraryNote } from '@/components/RepertoireLibraryNote'
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
 import { ExerciseNotation } from '@/components/ExerciseNotation'
+import { InstrumentFilter } from '@/components/InstrumentFields'
 import {
   EMPTY_EXERCISE_LIBRARY_SEARCH,
   getExerciseLibraryPage,
@@ -23,14 +24,16 @@ import { groupInstrumentOptions } from '@/domain/instrument'
 
 export const Route = createFileRoute('/library')({
   loader: async () => {
-    const [exercises, instruments, instrumentIds] = await Promise.all([
-      getExerciseLibraryPage({ data: EMPTY_EXERCISE_LIBRARY_SEARCH }),
+    const instrumentIds = await getMusicianInstrumentIds()
+    const [exercises, instruments, repertoire] = await Promise.all([
+      getExerciseLibraryPage({
+        data: { ...EMPTY_EXERCISE_LIBRARY_SEARCH, instrumentIds },
+      }),
       getInstruments(),
-      getMusicianInstrumentIds(),
+      getRepertoireLibraryPage({
+        data: { ...EMPTY_REPERTOIRE_LIBRARY_SEARCH, instrumentIds },
+      }),
     ])
-    const repertoire = await getRepertoireLibraryPage({
-      data: { ...EMPTY_REPERTOIRE_LIBRARY_SEARCH, instrumentIds },
-    })
     return { repertoire, exercises, instruments, instrumentIds }
   },
   component: Library,
@@ -47,6 +50,9 @@ function Library() {
   const [repertoireQuery, setRepertoireQuery] = createSignal('')
   const [composer, setComposer] = createSignal('')
   const [instrumentIds, setInstrumentIds] = createSignal<string[]>(data().instrumentIds)
+  const [exerciseInstrumentIds, setExerciseInstrumentIds] = createSignal<string[]>(
+    data().instrumentIds,
+  )
   const [repertoireVisibility, setRepertoireVisibility] =
     createSignal<RepertoireLibrarySearchInput['visibility']>('ALL')
   const [exerciseQuery, setExerciseQuery] = createSignal('')
@@ -74,6 +80,7 @@ function Library() {
       query: exerciseQuery(),
       visibility: exerciseVisibility(),
       notationFormat: notationFormat(),
+      instrumentIds: exerciseInstrumentIds(),
       page,
     }
   }
@@ -364,6 +371,14 @@ function Library() {
                 <option value="abc">ABC notation</option>
               </select>
             </label>
+            <InstrumentFilter
+              instruments={data().instruments}
+              selectedIds={exerciseInstrumentIds()}
+              onChange={(ids) => {
+                setExerciseInstrumentIds(ids)
+                queueExerciseSearch()
+              }}
+            />
             <label>
               <span>Visibility</span>
               <select
@@ -388,6 +403,7 @@ function Library() {
                 setExerciseQuery('')
                 setNotationFormat('ALL')
                 setExerciseVisibility('ALL')
+                setExerciseInstrumentIds([])
                 queueExerciseSearch()
               }}
             >
@@ -465,6 +481,9 @@ function ExerciseLibraryCard(props: {
         <div class="card-topline">
           <span class="tag">{props.exercise.visibility.toLowerCase()}</span>
           <span>{props.exercise.notationFormat}</span>
+          <Show when={props.exercise.instrumentName}>
+            <span>{props.exercise.instrumentName}</span>
+          </Show>
         </div>
         <h2>
           <Link to="/exercises/$exerciseId" params={{ exerciseId: props.exercise.id }}>
