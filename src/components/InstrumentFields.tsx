@@ -1,6 +1,6 @@
 import { For, Show, createMemo, createSignal, createUniqueId } from 'solid-js'
 import type { InstrumentOption } from '@/data/repertoire'
-import { groupInstrumentOptions } from '@/domain/instrument'
+import { groupExpandedInstrumentOptions, groupInstrumentOptions } from '@/domain/instrument'
 
 export function InstrumentSelect(props: {
   id: string
@@ -48,6 +48,11 @@ export function InstrumentFilter(props: {
   const visibleInstruments = createMemo(() =>
     showAll() ? props.instruments : preferredInstruments(),
   )
+  const visibleGroups = createMemo(() =>
+    showAll()
+      ? groupExpandedInstrumentOptions(visibleInstruments())
+      : groupInstrumentOptions(visibleInstruments()),
+  )
 
   return (
     <fieldset class="library-instrument-filter">
@@ -73,7 +78,7 @@ export function InstrumentFilter(props: {
             </p>
           }
         >
-          <For each={groupInstrumentOptions(visibleInstruments())}>
+          <For each={visibleGroups()}>
             {(group) => (
               <div class="instrument-option-group">
                 <p>{group.label}</p>

@@ -153,6 +153,12 @@ describe('RepertoireCatalogSearch', () => {
     expect((screen.getByRole('checkbox', { name: /Piano/ }) as HTMLInputElement).checked).toBe(true)
     expect(screen.queryByRole('checkbox', { name: /Violin/ })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Show all instruments' }))
+    expect(screen.getAllByRole('checkbox', { name: /Piano/ })).toHaveLength(2)
+    expect(
+      screen
+        .getAllByRole('checkbox', { name: /Piano/ })
+        .every((checkbox) => (checkbox as HTMLInputElement).checked),
+    ).toBe(true)
     expect((screen.getByRole('checkbox', { name: /Violin/ }) as HTMLInputElement).checked).toBe(
       false,
     )

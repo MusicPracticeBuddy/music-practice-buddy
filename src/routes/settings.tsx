@@ -2,7 +2,7 @@ import { For, Show, createMemo, createSignal } from 'solid-js'
 import { createFileRoute, useRouter } from '@tanstack/solid-router'
 import { getMusicianInstrumentIds, updateMusicianInstrumentIds } from '@/data/preferences'
 import { getInstruments } from '@/data/repertoire'
-import { groupInstrumentOptions } from '@/domain/instrument'
+import { groupExpandedInstrumentOptions, groupInstrumentOptions } from '@/domain/instrument'
 
 export const Route = createFileRoute('/settings')({
   loader: async () => {
@@ -18,8 +18,21 @@ export const Route = createFileRoute('/settings')({
 function Settings() {
   const router = useRouter()
   const data = Route.useLoaderData()
-  const instrumentGroups = createMemo(() => groupInstrumentOptions(data().instruments))
   const [instrumentIds, setInstrumentIds] = createSignal<string[]>(data().instrumentIds)
+  const [showAllInstruments, setShowAllInstruments] = createSignal(false)
+  const instrumentsWithPreferences = createMemo(() =>
+    data().instruments.map((instrument) => ({
+      ...instrument,
+      isPreferred: instrumentIds().includes(instrument.id),
+    })),
+  )
+  const instrumentGroups = createMemo(() =>
+    showAllInstruments()
+      ? groupExpandedInstrumentOptions(instrumentsWithPreferences())
+      : groupInstrumentOptions(
+          instrumentsWithPreferences().filter((instrument) => instrument.isPreferred),
+        ),
+  )
   const [saving, setSaving] = createSignal(false)
   const [error, setError] = createSignal('')
   const [saved, setSaved] = createSignal(false)
@@ -70,10 +83,28 @@ function Settings() {
           <p class="field-help">
             Leave all instruments unchecked if you do not want a default instrument filter.
           </p>
-          <div class="settings-instrument-groups">
+          <button
+            class="instrument-list-toggle settings-instrument-toggle"
+            type="button"
+            aria-expanded={showAllInstruments()}
+            aria-controls="settings-instrument-groups"
+            onClick={() => setShowAllInstruments((expanded) => !expanded)}
+          >
+            {showAllInstruments() ? 'Show only My Instruments' : 'Show all instruments'}
+          </button>
+          <p class="instrument-list-scope">
+            {showAllInstruments() ? 'All instruments' : 'My Instruments'}
+          </p>
+          <div id="settings-instrument-groups" class="settings-instrument-groups">
             <For
               each={instrumentGroups()}
-              fallback={<p class="muted">No instruments are available.</p>}
+              fallback={
+                <p class="muted">
+                  {showAllInstruments()
+                    ? 'No instruments are available.'
+                    : 'No instruments selected in My Instruments.'}
+                </p>
+              }
             >
               {(group) => (
                 <section class="settings-instrument-group">

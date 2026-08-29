@@ -29,6 +29,20 @@ describe('InstrumentFilter', () => {
     fireEvent.click(expand)
 
     expect(screen.getByRole('checkbox', { name: 'Piano' })).toBeTruthy()
+    const trumpetCheckboxes = screen.getAllByRole('checkbox', { name: 'Trumpet' })
+    expect(trumpetCheckboxes).toHaveLength(2)
+    fireEvent.click(trumpetCheckboxes[0]!)
+    expect(
+      screen
+        .getAllByRole('checkbox', { name: 'Trumpet' })
+        .every((checkbox) => (checkbox as HTMLInputElement).checked),
+    ).toBe(true)
+    fireEvent.click(trumpetCheckboxes[1]!)
+    expect(
+      screen
+        .getAllByRole('checkbox', { name: 'Trumpet' })
+        .every((checkbox) => !(checkbox as HTMLInputElement).checked),
+    ).toBe(true)
     const collapse = screen.getByRole('button', { name: 'Show only My Instruments' })
     expect(collapse.getAttribute('aria-expanded')).toBe('true')
     fireEvent.click(collapse)

@@ -32,3 +32,24 @@ export function groupInstrumentOptions(instruments: InstrumentOption[]): Instrum
     })),
   ]
 }
+
+export function groupExpandedInstrumentOptions(
+  instruments: InstrumentOption[],
+): InstrumentOptionGroup[] {
+  const preferred = instruments.filter((instrument) => instrument.isPreferred)
+  const families = new Map<string, InstrumentOption[]>()
+
+  for (const instrument of instruments) {
+    const familyInstruments = families.get(instrument.family) ?? []
+    familyInstruments.push(instrument)
+    families.set(instrument.family, familyInstruments)
+  }
+
+  return [
+    ...(preferred.length > 0 ? [{ label: 'My instruments', instruments: preferred }] : []),
+    ...[...families.entries()].map(([family, familyInstruments]) => ({
+      label: instrumentFamilyLabel(family),
+      instruments: familyInstruments,
+    })),
+  ]
+}

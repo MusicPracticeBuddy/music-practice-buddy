@@ -10,7 +10,7 @@ import {
   type InstrumentOption,
   getPublicRepertoireCatalogPage,
 } from '@/data/repertoire'
-import { groupInstrumentOptions } from '@/domain/instrument'
+import { groupExpandedInstrumentOptions, groupInstrumentOptions } from '@/domain/instrument'
 
 export function RepertoireCatalogSearch(props: {
   initialPage: CatalogSearchPage
@@ -49,7 +49,11 @@ export function RepertoireCatalogSearch(props: {
         )
       : available
   })
-  const visibleInstrumentGroups = createMemo(() => groupInstrumentOptions(visibleInstruments()))
+  const visibleInstrumentGroups = createMemo(() =>
+    showAllInstruments()
+      ? groupExpandedInstrumentOptions(visibleInstruments())
+      : groupInstrumentOptions(visibleInstruments()),
+  )
 
   function searchInput(page: number): CatalogSearchInput {
     return {
