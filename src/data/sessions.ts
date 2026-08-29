@@ -316,7 +316,9 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
             FROM repertoire
             WHERE parent_repertoire_id IS NULL AND deleted_at IS NULL
             UNION ALL
-            SELECT child.id, access.owner_musician_id, access.visibility
+            SELECT child.id,
+              COALESCE(child.owner_musician_id, access.owner_musician_id),
+              COALESCE(child.visibility, access.visibility)
             FROM repertoire child
             JOIN repertoire_access access ON access.id = child.parent_repertoire_id
             WHERE child.deleted_at IS NULL
@@ -1055,7 +1057,9 @@ export const addRunningSessionItem = createServerFn({ method: 'POST' })
                  SELECT id, title, owner_musician_id, visibility
                  FROM repertoire WHERE parent_repertoire_id IS NULL AND deleted_at IS NULL
                  UNION ALL
-                 SELECT child.id, child.title, access.owner_musician_id, access.visibility
+                 SELECT child.id, child.title,
+                   COALESCE(child.owner_musician_id, access.owner_musician_id),
+                   COALESCE(child.visibility, access.visibility)
                  FROM repertoire child JOIN access ON access.id = child.parent_repertoire_id
                  WHERE child.deleted_at IS NULL
                )

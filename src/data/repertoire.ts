@@ -54,7 +54,7 @@ type RepertoireDetail = {
   instruments: RepertoireInstrument[]
   resources: RepertoireResource[]
   libraryEntries: { acquiredOn: string | null; notes: string | null }[]
-  excerpts: { id: string; title: string; startMeasure: number | null; endMeasure: number | null }[]
+  children: { id: string; title: string; startMeasure: number | null; endMeasure: number | null }[]
   sessions: {
     id: string
     templateName: string
@@ -185,7 +185,41 @@ export type RepertoireInput = {
 }
 
 type ValidatedRepertoireInput = Required<RepertoireInput>
-type UpdateRepertoireInput = RepertoireInput & { id: string }
+export type ChildRepertoireInput = RepertoireInput & {
+  parentId: string
+  startMeasure: number | null
+  endMeasure: number | null
+}
+type UpdateRepertoireInput = RepertoireInput & {
+  id: string
+  startMeasure?: number | null
+  endMeasure?: number | null
+}
+
+function validateMeasureRange(startMeasure: number | null, endMeasure: number | null) {
+  if ((startMeasure === null) !== (endMeasure === null)) {
+    throw new Error('Both a starting and ending measure are required for an excerpt')
+  }
+  if (
+    startMeasure !== null &&
+    (!Number.isInteger(startMeasure) ||
+      !Number.isInteger(endMeasure) ||
+      startMeasure < 1 ||
+      endMeasure! < startMeasure)
+  ) {
+    throw new Error('Measure ranges must use positive whole numbers in ascending order')
+  }
+  return { startMeasure, endMeasure }
+}
+
+function validateChildRepertoire(input: ChildRepertoireInput) {
+  if (!/^\d+$/.test(input.parentId)) throw new Error('Invalid parent repertoire')
+  return {
+    parentId: input.parentId,
+    ...validateMeasureRange(input.startMeasure, input.endMeasure),
+    ...validateRepertoire(input),
+  }
+}
 
 const creditRoles = new Set<RepertoireCreditRole>([
   'COMPOSER',
@@ -434,6 +468,11 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
           WHERE candidate.status = 'APPROVED'
             AND candidate.deleted_at IS NULL
             AND (
+              candidate.owner_musician_id = $1
+              OR candidate.visibility = 'PUBLIC'
+              OR (candidate.owner_musician_id IS NULL AND candidate.visibility IS NULL)
+            )
+            AND (
               candidate.title ILIKE ${substring} ESCAPE '\\'
               ${fuzzyTitleMatch('candidate.title')}
             )
@@ -444,6 +483,11 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
           JOIN person search_person ON search_person.id = search_credit.person_id
           WHERE candidate.status = 'APPROVED'
             AND candidate.deleted_at IS NULL
+            AND (
+              candidate.owner_musician_id = $1
+              OR candidate.visibility = 'PUBLIC'
+              OR (candidate.owner_musician_id IS NULL AND candidate.visibility IS NULL)
+            )
             AND search_credit.role = 'COMPOSER'
             AND (
               search_person.name ILIKE ${substring} ESCAPE '\\'
@@ -536,7 +580,12 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
            SELECT child.id, child.parent_repertoire_id, parent.root_id
            FROM repertoire child
            JOIN page_catalog parent ON parent.id = child.parent_repertoire_id
-           WHERE child.status = 'APPROVED' AND child.deleted_at IS NULL
+           WHERE child.status = 'APPROVED'
+             AND child.deleted_at IS NULL
+             AND (
+               child.owner_musician_id = $1
+               OR (child.owner_musician_id IS NULL AND child.visibility IS NULL)
+             )
          )
          SELECT
            repertoire.id::text,
@@ -622,7 +671,12 @@ export const getPublicRepertoireCatalog = createServerFn({ method: 'GET' })
          SELECT child.id
          FROM repertoire child
          JOIN public_catalog parent ON parent.id = child.parent_repertoire_id
-         WHERE child.status = 'APPROVED' AND child.deleted_at IS NULL
+         WHERE child.status = 'APPROVED'
+           AND child.deleted_at IS NULL
+           AND (
+             child.owner_musician_id = $1
+             OR (child.owner_musician_id IS NULL AND child.visibility IS NULL)
+           )
        )
        SELECT
          repertoire.id::text,
@@ -689,7 +743,7 @@ export const addRepertoireToLibrary = createServerFn({ method: 'POST' })
   .handler(async ({ data: repertoireId, context }): Promise<{ id: string }> => {
     const result = await pool.query<{ id: string }>(
       `WITH RECURSIVE accessible_repertoire AS (
-         SELECT id, owner_musician_id
+         SELECT id, owner_musician_id, visibility
          FROM repertoire
          WHERE parent_repertoire_id IS NULL
            AND deleted_at IS NULL
@@ -698,11 +752,20 @@ export const addRepertoireToLibrary = createServerFn({ method: 'POST' })
              OR (visibility = 'PUBLIC' AND status = 'APPROVED')
            )
          UNION ALL
-         SELECT child.id, parent.owner_musician_id
+         SELECT child.id,
+           COALESCE(child.owner_musician_id, parent.owner_musician_id),
+           COALESCE(child.visibility, parent.visibility)
          FROM repertoire child
          JOIN accessible_repertoire parent ON parent.id = child.parent_repertoire_id
          WHERE child.deleted_at IS NULL
-           AND (parent.owner_musician_id = $1 OR child.status = 'APPROVED')
+           AND (
+             COALESCE(child.owner_musician_id, parent.owner_musician_id) = $1
+             OR COALESCE(child.visibility, parent.visibility) = 'PUBLIC'
+           )
+           AND (
+             COALESCE(child.owner_musician_id, parent.owner_musician_id) = $1
+             OR child.status = 'APPROVED'
+           )
        )
        INSERT INTO musician_repertoire_library (musician_id, repertoire_id)
        SELECT $1, repertoire.id
@@ -797,7 +860,9 @@ const ACCESS_CTE = `
     FROM repertoire
     WHERE parent_repertoire_id IS NULL AND deleted_at IS NULL
     UNION ALL
-    SELECT child.id, access.owner_musician_id, access.visibility
+    SELECT child.id,
+      COALESCE(child.owner_musician_id, access.owner_musician_id),
+      COALESCE(child.visibility, access.visibility)
     FROM repertoire child
     JOIN repertoire_access access ON access.id = child.parent_repertoire_id
     WHERE child.deleted_at IS NULL
@@ -1097,7 +1162,7 @@ export const getRepertoireDetail = createServerFn({ method: 'GET' })
       instrumentsResult,
       resourcesResult,
       libraryResult,
-      excerptsResult,
+      childrenResult,
       sessionsResult,
     ] = await Promise.all([
       pool.query<RepertoireCredit>(
@@ -1139,9 +1204,15 @@ export const getRepertoireDetail = createServerFn({ method: 'GET' })
       }>(
         `SELECT id::text, title, start_measure AS "startMeasure",
            end_measure AS "endMeasure"
-         FROM repertoire WHERE parent_repertoire_id = $1 AND deleted_at IS NULL
+         FROM repertoire
+         WHERE parent_repertoire_id = $1
+           AND deleted_at IS NULL
+           AND (
+             owner_musician_id = $2
+             OR (owner_musician_id IS NULL AND visibility IS NULL)
+           )
          ORDER BY start_measure NULLS LAST, title`,
-        [repertoireId],
+        [repertoireId, context.user.musicianId],
       ),
       pool.query<{ id: string; templateName: string; status: string; startedAt: Date | null }>(
         `SELECT DISTINCT session.id::text,
@@ -1181,7 +1252,7 @@ export const getRepertoireDetail = createServerFn({ method: 'GET' })
         notes: entry.notes,
         acquiredOn: entry.acquiredOn?.toISOString().slice(0, 10) ?? null,
       })),
-      excerpts: excerptsResult.rows,
+      children: childrenResult.rows,
       sessions: sessionsResult.rows.map((session) => ({
         ...session,
         startedAt: toIsoString(session.startedAt),
@@ -1224,24 +1295,107 @@ export const createRepertoire = createServerFn({ method: 'POST' })
     }
   })
 
+export const createChildRepertoire = createServerFn({ method: 'POST' })
+  .middleware([authMiddleware])
+  .validator(validateChildRepertoire)
+  .handler(async ({ data, context }): Promise<{ id: string }> => {
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      const result = await client.query<{ id: string }>(
+        `INSERT INTO repertoire
+           (title, composition_year, parent_repertoire_id, start_measure, end_measure,
+            owner_musician_id, visibility, status)
+         SELECT $1, $2, parent.id, $3, $4, $5, 'PRIVATE', 'APPROVED'
+         FROM repertoire parent
+         WHERE parent.id = $6
+           AND parent.parent_repertoire_id IS NULL
+           AND parent.deleted_at IS NULL
+           AND (
+             parent.owner_musician_id = $5
+             OR (parent.visibility = 'PUBLIC' AND parent.status = 'APPROVED')
+           )
+         RETURNING id::text`,
+        [
+          data.title,
+          data.compositionYear,
+          data.startMeasure,
+          data.endMeasure,
+          context.user.musicianId,
+          data.parentId,
+        ],
+      )
+      const repertoire = result.rows[0]
+      if (!repertoire) throw new Error('Parent repertoire not found')
+      await client.query(
+        `INSERT INTO musician_repertoire_library (musician_id, repertoire_id)
+         VALUES ($1, $2)`,
+        [context.user.musicianId, repertoire.id],
+      )
+      await replaceRepertoireDetails(client, repertoire.id, data, context.user.musicianId)
+      await client.query('COMMIT')
+      return repertoire
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
+  })
+
 export const updateRepertoire = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .validator((input: UpdateRepertoireInput) => {
     if (!/^\d+$/.test(input.id)) throw new Error('Invalid repertoire')
-    return { id: input.id, ...validateRepertoire(input) }
+    return {
+      id: input.id,
+      ...validateMeasureRange(input.startMeasure ?? null, input.endMeasure ?? null),
+      ...validateRepertoire(input),
+    }
   })
   .handler(async ({ data, context }): Promise<{ id: string }> => {
     const client = await pool.connect()
     try {
       await client.query('BEGIN')
       const result = await client.query<{ id: string }>(
-        `UPDATE repertoire
-         SET title = $1, composition_year = $2, visibility = $3
-         WHERE id = $4 AND owner_musician_id = $5
-           AND parent_repertoire_id IS NULL AND deleted_at IS NULL
-           AND external_id IS NULL
-         RETURNING id::text`,
-        [data.title, data.compositionYear, data.visibility, data.id, context.user.musicianId],
+        `UPDATE repertoire target
+         SET title = $1,
+             composition_year = $2,
+             visibility = CASE
+               WHEN target.parent_repertoire_id IS NULL THEN $3::visibility_type
+               ELSE 'PRIVATE'::visibility_type
+             END,
+             start_measure = CASE
+               WHEN target.parent_repertoire_id IS NULL THEN NULL
+               ELSE $4::integer
+             END,
+             end_measure = CASE
+               WHEN target.parent_repertoire_id IS NULL THEN NULL
+               ELSE $5::integer
+             END
+         WHERE target.id = $6
+           AND target.deleted_at IS NULL
+           AND target.external_id IS NULL
+           AND EXISTS (
+             SELECT 1
+             FROM repertoire root
+             WHERE root.id = COALESCE(target.parent_repertoire_id, target.id)
+               AND (
+                 target.owner_musician_id = $7
+                 OR root.owner_musician_id = $7
+               )
+               AND root.deleted_at IS NULL
+           )
+         RETURNING target.id::text`,
+        [
+          data.title,
+          data.compositionYear,
+          data.visibility,
+          data.startMeasure,
+          data.endMeasure,
+          data.id,
+          context.user.musicianId,
+        ],
       )
       const repertoire = result.rows[0]
       if (!repertoire) throw new Error('Repertoire not found')
@@ -1264,11 +1418,21 @@ export const deleteRepertoire = createServerFn({ method: 'POST' })
   })
   .handler(async ({ data: repertoireId, context }): Promise<{ id: string }> => {
     const result = await pool.query<{ id: string }>(
-      `UPDATE repertoire SET deleted_at = CURRENT_TIMESTAMP
-       WHERE id = $1 AND owner_musician_id = $2
-         AND parent_repertoire_id IS NULL AND deleted_at IS NULL
-         AND external_id IS NULL
-       RETURNING id::text`,
+      `UPDATE repertoire target SET deleted_at = CURRENT_TIMESTAMP
+       WHERE target.id = $1
+         AND target.deleted_at IS NULL
+         AND target.external_id IS NULL
+         AND EXISTS (
+           SELECT 1
+           FROM repertoire root
+           WHERE root.id = COALESCE(target.parent_repertoire_id, target.id)
+             AND (
+               target.owner_musician_id = $2
+               OR root.owner_musician_id = $2
+             )
+             AND root.deleted_at IS NULL
+         )
+       RETURNING target.id::text`,
       [repertoireId, context.user.musicianId],
     )
     const repertoire = result.rows[0]

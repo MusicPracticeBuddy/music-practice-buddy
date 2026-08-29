@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(async () => undefined),
   renderAbc: vi.fn(),
   updateExercise: vi.fn(async () => ({ id: '42' })),
+  createChildRepertoire: vi.fn(async () => ({ id: '84' })),
 }))
 
 vi.mock('abcjs', () => ({
@@ -25,6 +26,7 @@ vi.mock('../../src/data/exercises', () => ({
 }))
 
 vi.mock('../../src/data/repertoire', () => ({
+  createChildRepertoire: mocks.createChildRepertoire,
   createRepertoire: vi.fn(),
   updateRepertoire: vi.fn(),
 }))
@@ -150,5 +152,78 @@ describe('LibraryItemForm', () => {
         responsive: 'resize',
       })
     })
+  })
+
+  it('shows measure fields only for excerpts and pre-fills parent instrumentation', () => {
+    const sharedProps = {
+      kind: 'repertoire' as const,
+      parentId: '12',
+      parentName: 'Orchestral work',
+      visibility: 'PRIVATE' as const,
+      compositionYear: 1913,
+      credits: [{ person: 'Igor Stravinsky', role: 'COMPOSER' as const }],
+      instruments: [{ instrumentId: '7', role: 'OTHER' as const, partName: 'Orchestra' }],
+      instrumentOptions: [{ id: '7', name: 'Orchestra', family: 'OTHER', isPreferred: false }],
+    }
+    const { unmount } = render(() => <LibraryItemForm {...sharedProps} isExcerpt />)
+
+    expect(screen.getByLabelText('Starting measure')).toBeTruthy()
+    expect(screen.getByLabelText('Ending measure')).toBeTruthy()
+    expect(
+      (screen.getByLabelText('Composition or publication year (optional)') as HTMLInputElement)
+        .value,
+    ).toBe('1913')
+    expect((screen.getByLabelText('Credit 1 name') as HTMLInputElement).value).toBe(
+      'Igor Stravinsky',
+    )
+    expect((screen.getByLabelText('Instrument 1') as HTMLSelectElement).value).toBe('7')
+    expect(screen.queryByLabelText('Resource 1 URL')).toBeNull()
+    expect(screen.queryByLabelText('Visibility')).toBeNull()
+
+    unmount()
+    render(() => <LibraryItemForm {...sharedProps} />)
+    expect(screen.queryByLabelText('Starting measure')).toBeNull()
+    expect(screen.queryByLabelText('Ending measure')).toBeNull()
+  })
+
+  it('creates an excerpt with its parent, range, and separately editable instruments', async () => {
+    render(() => (
+      <LibraryItemForm
+        kind="repertoire"
+        parentId="12"
+        parentName="Orchestral work"
+        isExcerpt
+        visibility="PRIVATE"
+        compositionYear={1913}
+        credits={[{ person: 'Igor Stravinsky', role: 'COMPOSER' }]}
+        instruments={[{ instrumentId: '7', role: 'OTHER', partName: 'Orchestra' }]}
+        resources={[]}
+        instrumentOptions={[
+          { id: '7', name: 'Orchestra', family: 'OTHER', isPreferred: false },
+          { id: '8', name: 'Horn', family: 'BRASS', isPreferred: true },
+        ]}
+      />
+    ))
+
+    fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'Horn excerpt' } })
+    fireEvent.input(screen.getByLabelText('Starting measure'), { target: { value: '12' } })
+    fireEvent.input(screen.getByLabelText('Ending measure'), { target: { value: '24' } })
+    fireEvent.change(screen.getByLabelText('Instrument 1'), { target: { value: '8' } })
+    fireEvent.submit(screen.getByRole('button', { name: 'Create repertoire' }).closest('form')!)
+
+    await waitFor(() =>
+      expect(mocks.createChildRepertoire).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          parentId: '12',
+          title: 'Horn excerpt',
+          compositionYear: 1913,
+          credits: [{ person: 'Igor Stravinsky', role: 'COMPOSER' }],
+          startMeasure: 12,
+          endMeasure: 24,
+          instruments: [{ instrumentId: '8', role: 'OTHER', partName: 'Orchestra' }],
+          resources: [],
+        }),
+      }),
+    )
   })
 })

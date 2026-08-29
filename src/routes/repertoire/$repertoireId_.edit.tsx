@@ -8,7 +8,7 @@ export const Route = createFileRoute('/repertoire/$repertoireId_/edit')({
       getRepertoireDetail({ data: params.repertoireId }),
       getInstruments(),
     ])
-    if (!repertoire?.canManage || repertoire.parent) throw notFound()
+    if (!repertoire?.canManage) throw notFound()
     return { repertoire, instruments }
   },
   component: EditRepertoire,
@@ -22,6 +22,14 @@ function EditRepertoire() {
     <LibraryItemForm
       kind="repertoire"
       id={repertoire().id}
+      parentId={repertoire().parent?.id}
+      parentName={repertoire().parent?.title}
+      isExcerpt={
+        repertoire().parent !== null &&
+        (repertoire().startMeasure !== null || repertoire().endMeasure !== null)
+      }
+      startMeasure={repertoire().startMeasure}
+      endMeasure={repertoire().endMeasure}
       name={repertoire().title}
       compositionYear={repertoire().compositionYear}
       visibility={repertoire().visibility}

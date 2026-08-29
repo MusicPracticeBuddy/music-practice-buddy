@@ -6,6 +6,7 @@ import { createExercise, updateExercise, type ExerciseInput } from '@/data/exerc
 import { EXERCISE_NOTATION_FORMAT, type ExerciseNotationFormat } from '@/domain/exercise'
 import { groupInstrumentOptions } from '@/domain/instrument'
 import {
+  createChildRepertoire,
   createRepertoire,
   updateRepertoire,
   type InstrumentOption,
@@ -18,6 +19,11 @@ import {
 type LibraryItemFormProps = {
   kind: 'exercise' | 'repertoire'
   id?: string
+  parentId?: string
+  parentName?: string
+  isExcerpt?: boolean
+  startMeasure?: number | null
+  endMeasure?: number | null
   name?: string
   compositionYear?: number | null
   notation?: string | null
@@ -56,6 +62,8 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
   const [compositionYear, setCompositionYear] = createSignal(
     props.compositionYear?.toString() ?? '',
   )
+  const [startMeasure, setStartMeasure] = createSignal(props.startMeasure?.toString() ?? '')
+  const [endMeasure, setEndMeasure] = createSignal(props.endMeasure?.toString() ?? '')
   const [notation, setNotation] = createSignal(props.notation ?? '')
   const [notationFormat, setNotationFormat] = createSignal<ExerciseNotationFormat>(
     props.notationFormat ?? EXERCISE_NOTATION_FORMAT.TEXT,
@@ -75,6 +83,8 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
   createEffect(() => {
     setName(props.name ?? '')
     setCompositionYear(props.compositionYear?.toString() ?? '')
+    setStartMeasure(props.startMeasure?.toString() ?? '')
+    setEndMeasure(props.endMeasure?.toString() ?? '')
     setNotation(props.notation ?? '')
     setNotationFormat(props.notationFormat ?? EXERCISE_NOTATION_FORMAT.TEXT)
     setVisibility(props.visibility ?? 'PRIVATE')
@@ -121,9 +131,17 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
           instruments: instruments(),
           resources: resources(),
         }
+        const measureRange = {
+          startMeasure: props.isExcerpt ? Number(startMeasure()) : null,
+          endMeasure: props.isExcerpt ? Number(endMeasure()) : null,
+        }
         const result = props.id
-          ? await updateRepertoire({ data: { id: props.id, ...data } })
-          : await createRepertoire({ data })
+          ? await updateRepertoire({ data: { id: props.id, ...data, ...measureRange } })
+          : props.parentId
+            ? await createChildRepertoire({
+                data: { parentId: props.parentId, ...data, ...measureRange },
+              })
+            : await createRepertoire({ data })
         if (props.onSaved) {
           await props.onSaved({
             id: result.id,
@@ -176,6 +194,41 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
           value={compositionYear()}
           onInput={(event) => setCompositionYear(event.currentTarget.value)}
         />
+      </Show>
+
+      <Show when={props.kind === 'repertoire' && props.isExcerpt}>
+        <div class="measure-range-fields">
+          <div>
+            <label class="field-label" for="repertoire-start-measure">
+              Starting measure
+            </label>
+            <input
+              id="repertoire-start-measure"
+              class="text-input"
+              type="number"
+              min="1"
+              step="1"
+              value={startMeasure()}
+              onInput={(event) => setStartMeasure(event.currentTarget.value)}
+              required
+            />
+          </div>
+          <div>
+            <label class="field-label" for="repertoire-end-measure">
+              Ending measure
+            </label>
+            <input
+              id="repertoire-end-measure"
+              class="text-input"
+              type="number"
+              min={startMeasure() || '1'}
+              step="1"
+              value={endMeasure()}
+              onInput={(event) => setEndMeasure(event.currentTarget.value)}
+              required
+            />
+          </div>
+        </div>
       </Show>
 
       <Show when={props.kind === 'exercise'}>
@@ -484,21 +537,30 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
         </section>
       </Show>
 
-      <label class="field-label" for="library-item-visibility">
-        Visibility
-      </label>
-      <select
-        id="library-item-visibility"
-        class="text-input"
-        value={visibility()}
-        onChange={(event) => setVisibility(event.currentTarget.value as 'PRIVATE' | 'PUBLIC')}
+      <Show
+        when={!props.parentId}
+        fallback={
+          <p class="field-help inherited-visibility-help">
+            This child item is private to you, even when its parent repertoire is public.
+          </p>
+        }
       >
-        <option value="PRIVATE">Private</option>
-        <Show when={props.canCreatePublic || (editing() && props.visibility === 'PUBLIC')}>
-          <option value="PUBLIC">Public</option>
-        </Show>
-      </select>
-      <p class="field-help">Public items can be viewed and used by other musicians.</p>
+        <label class="field-label" for="library-item-visibility">
+          Visibility
+        </label>
+        <select
+          id="library-item-visibility"
+          class="text-input"
+          value={visibility()}
+          onChange={(event) => setVisibility(event.currentTarget.value as 'PRIVATE' | 'PUBLIC')}
+        >
+          <option value="PRIVATE">Private</option>
+          <Show when={props.canCreatePublic || (editing() && props.visibility === 'PUBLIC')}>
+            <option value="PUBLIC">Public</option>
+          </Show>
+        </select>
+        <p class="field-help">Public items can be viewed and used by other musicians.</p>
+      </Show>
 
       {props.afterFields}
 
@@ -520,18 +582,40 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
 
   if (props.embedded) return form
 
+  const repertoireChildLabel = () => (props.isExcerpt ? 'excerpt' : 'movement or piece')
+
   return (
     <main class={`page form-page ${props.kind === 'repertoire' ? 'repertoire-form-page' : ''}`}>
       <header class="page-header">
         <div>
           <p class="eyebrow">My Library</p>
           <h1>
-            {editing() ? 'Edit' : 'Create'} {label()}
+            {props.parentId
+              ? `${editing() ? 'Edit' : 'Add'} ${repertoireChildLabel()}`
+              : `${editing() ? 'Edit' : 'Create'} ${label()}`}
           </h1>
+          <Show when={props.parentName}>
+            {(parentName) => <p class="lede">Part of {parentName()}</p>}
+          </Show>
         </div>
-        <Link class="secondary-button" to="/library">
-          Cancel
-        </Link>
+        <Show
+          when={props.parentId}
+          fallback={
+            <Link class="secondary-button" to="/library">
+              Cancel
+            </Link>
+          }
+        >
+          {(parentId) => (
+            <Link
+              class="secondary-button"
+              to="/repertoire/$repertoireId"
+              params={{ repertoireId: parentId() }}
+            >
+              Cancel
+            </Link>
+          )}
+        </Show>
       </header>
       {form}
     </main>

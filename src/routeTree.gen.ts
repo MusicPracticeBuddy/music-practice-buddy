@@ -34,6 +34,8 @@ import { Route as ExercisesExerciseIdEditRouteImport } from './routes/exercises/
 import { Route as RepertoireRepertoireIdEditRouteImport } from './routes/repertoire/$repertoireId_.edit'
 import { Route as SessionsSessionIdEditRouteImport } from './routes/sessions/$sessionId_.edit'
 import { Route as TemplatesTemplateIdEditRouteImport } from './routes/templates/$templateId_.edit'
+import { Route as RepertoireRepertoireIdChildrenNewRouteImport } from './routes/repertoire/$repertoireId_.children.new'
+import { Route as RepertoireRepertoireIdExcerptsNewRouteImport } from './routes/repertoire/$repertoireId_.excerpts.new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -161,6 +163,18 @@ const TemplatesTemplateIdEditRoute = TemplatesTemplateIdEditRouteImport.update({
   path: '/$templateId/edit',
   getParentRoute: () => TemplatesRoute,
 } as any)
+const RepertoireRepertoireIdChildrenNewRoute =
+  RepertoireRepertoireIdChildrenNewRouteImport.update({
+    id: '/$repertoireId_/children/new',
+    path: '/$repertoireId/children/new',
+    getParentRoute: () => RepertoireRoute,
+  } as any)
+const RepertoireRepertoireIdExcerptsNewRoute =
+  RepertoireRepertoireIdExcerptsNewRouteImport.update({
+    id: '/$repertoireId_/excerpts/new',
+    path: '/$repertoireId/excerpts/new',
+    getParentRoute: () => RepertoireRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -188,6 +202,8 @@ export interface FileRoutesByFullPath {
   '/repertoire/$repertoireId/edit': typeof RepertoireRepertoireIdEditRoute
   '/sessions/$sessionId/edit': typeof SessionsSessionIdEditRoute
   '/templates/$templateId/edit': typeof TemplatesTemplateIdEditRoute
+  '/repertoire/$repertoireId/children/new': typeof RepertoireRepertoireIdChildrenNewRoute
+  '/repertoire/$repertoireId/excerpts/new': typeof RepertoireRepertoireIdExcerptsNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -213,6 +229,8 @@ export interface FileRoutesByTo {
   '/repertoire/$repertoireId/edit': typeof RepertoireRepertoireIdEditRoute
   '/sessions/$sessionId/edit': typeof SessionsSessionIdEditRoute
   '/templates/$templateId/edit': typeof TemplatesTemplateIdEditRoute
+  '/repertoire/$repertoireId/children/new': typeof RepertoireRepertoireIdChildrenNewRoute
+  '/repertoire/$repertoireId/excerpts/new': typeof RepertoireRepertoireIdExcerptsNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -241,6 +259,8 @@ export interface FileRoutesById {
   '/repertoire/$repertoireId_/edit': typeof RepertoireRepertoireIdEditRoute
   '/sessions/$sessionId_/edit': typeof SessionsSessionIdEditRoute
   '/templates/$templateId_/edit': typeof TemplatesTemplateIdEditRoute
+  '/repertoire/$repertoireId_/children/new': typeof RepertoireRepertoireIdChildrenNewRoute
+  '/repertoire/$repertoireId_/excerpts/new': typeof RepertoireRepertoireIdExcerptsNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -270,6 +290,8 @@ export interface FileRouteTypes {
     | '/repertoire/$repertoireId/edit'
     | '/sessions/$sessionId/edit'
     | '/templates/$templateId/edit'
+    | '/repertoire/$repertoireId/children/new'
+    | '/repertoire/$repertoireId/excerpts/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -295,6 +317,8 @@ export interface FileRouteTypes {
     | '/repertoire/$repertoireId/edit'
     | '/sessions/$sessionId/edit'
     | '/templates/$templateId/edit'
+    | '/repertoire/$repertoireId/children/new'
+    | '/repertoire/$repertoireId/excerpts/new'
   id:
     | '__root__'
     | '/'
@@ -322,6 +346,8 @@ export interface FileRouteTypes {
     | '/repertoire/$repertoireId_/edit'
     | '/sessions/$sessionId_/edit'
     | '/templates/$templateId_/edit'
+    | '/repertoire/$repertoireId_/children/new'
+    | '/repertoire/$repertoireId_/excerpts/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -512,6 +538,20 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof TemplatesTemplateIdEditRouteImport
       parentRoute: typeof TemplatesRoute
     }
+    '/repertoire/$repertoireId_/children/new': {
+      id: '/repertoire/$repertoireId_/children/new'
+      path: '/$repertoireId/children/new'
+      fullPath: '/repertoire/$repertoireId/children/new'
+      preLoaderRoute: typeof RepertoireRepertoireIdChildrenNewRouteImport
+      parentRoute: typeof RepertoireRoute
+    }
+    '/repertoire/$repertoireId_/excerpts/new': {
+      id: '/repertoire/$repertoireId_/excerpts/new'
+      path: '/$repertoireId/excerpts/new'
+      fullPath: '/repertoire/$repertoireId/excerpts/new'
+      preLoaderRoute: typeof RepertoireRepertoireIdExcerptsNewRouteImport
+      parentRoute: typeof RepertoireRoute
+    }
   }
 }
 
@@ -540,6 +580,8 @@ interface RepertoireRouteChildren {
   RepertoireOwnedRoute: typeof RepertoireOwnedRoute
   RepertoireSearchRoute: typeof RepertoireSearchRoute
   RepertoireRepertoireIdEditRoute: typeof RepertoireRepertoireIdEditRoute
+  RepertoireRepertoireIdChildrenNewRoute: typeof RepertoireRepertoireIdChildrenNewRoute
+  RepertoireRepertoireIdExcerptsNewRoute: typeof RepertoireRepertoireIdExcerptsNewRoute
 }
 
 const RepertoireRouteChildren: RepertoireRouteChildren = {
@@ -547,6 +589,10 @@ const RepertoireRouteChildren: RepertoireRouteChildren = {
   RepertoireOwnedRoute: RepertoireOwnedRoute,
   RepertoireSearchRoute: RepertoireSearchRoute,
   RepertoireRepertoireIdEditRoute: RepertoireRepertoireIdEditRoute,
+  RepertoireRepertoireIdChildrenNewRoute:
+    RepertoireRepertoireIdChildrenNewRoute,
+  RepertoireRepertoireIdExcerptsNewRoute:
+    RepertoireRepertoireIdExcerptsNewRoute,
 }
 
 const RepertoireRouteWithChildren = RepertoireRoute._addFileChildren(

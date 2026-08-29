@@ -1126,6 +1126,16 @@ textarea.text-input {
   font-size: 12px;
 }
 
+.inherited-visibility-help {
+  margin-top: 24px;
+}
+
+.measure-range-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .form-actions {
   justify-content: flex-end;
   margin-top: 24px;
@@ -2608,6 +2618,25 @@ textarea.text-input {
   margin-bottom: 0;
 }
 
+.child-repertoire-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.child-repertoire-header p {
+  margin-bottom: 4px;
+}
+
+.child-repertoire-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .detail-list {
   display: grid;
   gap: 8px;
@@ -2763,6 +2792,19 @@ textarea.text-input {
     grid-template-columns: 1fr;
     padding-bottom: 14px;
     border-bottom: 1px solid var(--line);
+  }
+
+  .measure-range-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .child-repertoire-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .child-repertoire-actions {
+    justify-content: flex-start;
   }
 
   .row-remove-button {

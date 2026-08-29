@@ -20,6 +20,7 @@ import {
   EMPTY_CATALOG_SEARCH,
   EMPTY_REPERTOIRE_LIBRARY_SEARCH,
   addRepertoireToLibrary,
+  createChildRepertoire,
   createRepertoire,
   deleteRepertoire,
   getInstruments,
@@ -488,6 +489,148 @@ describe('library item persistence', () => {
     })
     expect(reference.rows[0]?.count).toBe(1)
     expect((await getRepertoire()).some((repertoire) => repertoire.id === created.id)).toBe(false)
+  })
+
+  it('creates, edits, and deletes excerpt and measure-less child repertoire', async () => {
+    const instruments = await pool.query<{ id: string }>(
+      `INSERT INTO instrument (name, family)
+       VALUES ('Parent orchestra', 'OTHER'), ('Excerpt horn', 'BRASS')
+       RETURNING id::text`,
+    )
+    const parentInstrumentId = instruments.rows[0]!.id
+    const excerptInstrumentId = instruments.rows[1]!.id
+    const parent = await createRepertoire({
+      data: {
+        title: 'Multi-part work',
+        visibility: 'PRIVATE',
+        instruments: [{ instrumentId: parentInstrumentId, role: 'OTHER', partName: null }],
+      },
+    })
+    const excerpt = await createChildRepertoire({
+      data: {
+        parentId: parent.id,
+        title: 'Horn excerpt',
+        visibility: 'PRIVATE',
+        startMeasure: 12,
+        endMeasure: 24,
+        instruments: [{ instrumentId: excerptInstrumentId, role: 'SOLO', partName: 'Horn 1' }],
+      },
+    })
+    const movement = await createChildRepertoire({
+      data: {
+        parentId: parent.id,
+        title: 'Second movement',
+        visibility: 'PRIVATE',
+        startMeasure: null,
+        endMeasure: null,
+        instruments: [{ instrumentId: parentInstrumentId, role: 'OTHER', partName: null }],
+      },
+    })
+
+    expect(await getRepertoireDetail({ data: parent.id })).toMatchObject({
+      children: [
+        { id: excerpt.id, title: 'Horn excerpt', startMeasure: 12, endMeasure: 24 },
+        { id: movement.id, title: 'Second movement', startMeasure: null, endMeasure: null },
+      ],
+    })
+    expect(await getRepertoireDetail({ data: excerpt.id })).toMatchObject({
+      parent: { id: parent.id, title: 'Multi-part work' },
+      instruments: [{ instrumentId: excerptInstrumentId, name: 'Excerpt horn' }],
+    })
+
+    await updateRepertoire({
+      data: {
+        id: excerpt.id,
+        title: 'Edited horn excerpt',
+        visibility: 'PRIVATE',
+        startMeasure: 14,
+        endMeasure: 30,
+        instruments: [],
+      },
+    })
+    expect(await getRepertoireDetail({ data: excerpt.id })).toMatchObject({
+      title: 'Edited horn excerpt',
+      startMeasure: 14,
+      endMeasure: 30,
+      instruments: [],
+    })
+
+    expect(() =>
+      createChildRepertoire({
+        data: {
+          parentId: parent.id,
+          title: 'Invalid excerpt',
+          visibility: 'PRIVATE',
+          startMeasure: 8,
+          endMeasure: 4,
+        },
+      }),
+    ).toThrow('ascending order')
+
+    await deleteRepertoire({ data: movement.id })
+    expect(await getRepertoireDetail({ data: movement.id })).toBeNull()
+    expect(await getRepertoireDetail({ data: parent.id })).toMatchObject({
+      children: [{ id: excerpt.id }],
+    })
+  })
+
+  it('creates user-private children under public repertoire without exposing them to others', async () => {
+    const publicParent = await pool.query<{ id: string }>(
+      `INSERT INTO repertoire (external_id, title, visibility, status)
+       VALUES ('SHARED-ORCHESTRAL-WORK', 'Shared orchestral work', 'PUBLIC', 'APPROVED')
+       RETURNING id::text`,
+    )
+    const parentId = publicParent.rows[0]!.id
+    const child = await createChildRepertoire({
+      data: {
+        parentId,
+        title: 'My audition excerpt',
+        visibility: 'PRIVATE',
+        startMeasure: 40,
+        endMeasure: 52,
+      },
+    })
+
+    expect(await getRepertoireDetail({ data: parentId })).toMatchObject({
+      children: [{ id: child.id, title: 'My audition excerpt' }],
+    })
+    const storedChild = await pool.query<{ ownerId: string; visibility: string }>(
+      `SELECT owner_musician_id::text AS "ownerId", visibility::text
+       FROM repertoire WHERE id = $1`,
+      [child.id],
+    )
+    expect(storedChild.rows[0]).toEqual({ ownerId: '1', visibility: 'PRIVATE' })
+    await updateRepertoire({
+      data: {
+        id: child.id,
+        title: 'My edited audition excerpt',
+        visibility: 'PRIVATE',
+        startMeasure: 41,
+        endMeasure: 53,
+      },
+    })
+    expect(await getRepertoireDetail({ data: child.id })).toMatchObject({
+      title: 'My edited audition excerpt',
+      startMeasure: 41,
+      endMeasure: 53,
+    })
+
+    const otherMusician = await pool.query<{ id: string }>(
+      `INSERT INTO musician (display_name) VALUES ('Other musician') RETURNING id::text`,
+    )
+    process.env.TEST_AUTH_MUSICIAN_ID = otherMusician.rows[0]!.id
+    try {
+      expect(await getRepertoireDetail({ data: parentId })).toMatchObject({ children: [] })
+      expect(await getRepertoireDetail({ data: child.id })).toBeNull()
+      const catalogParent = (await getPublicRepertoireCatalog()).find(
+        (item) => item.id === parentId,
+      )
+      expect(catalogParent).toMatchObject({ children: [] })
+    } finally {
+      process.env.TEST_AUTH_MUSICIAN_ID = '1'
+    }
+    await deleteRepertoire({ data: child.id })
+    expect(await getRepertoireDetail({ data: child.id })).toBeNull()
   })
 
   it('paginates and filters the public repertoire catalog in the database', async () => {

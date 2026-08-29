@@ -54,24 +54,32 @@ function RepertoireDetail() {
           </Show>
           <span class="tag">{repertoire().visibility.toLowerCase()}</span>
           <span class="tag">{repertoire().status.toLowerCase()}</span>
-          <Show when={repertoire().canManage && !repertoire().parent}>
+          <Show when={repertoire().canManage}>
             <Link
               class="secondary-button"
               to="/repertoire/$repertoireId/edit"
               params={{ repertoireId: repertoire().id }}
             >
-              Edit repertoire
+              {repertoire().parent ? 'Edit child item' : 'Edit repertoire'}
             </Link>
             <DeleteConfirmationDialog
-              triggerLabel="Delete repertoire"
-              title="Delete this repertoire?"
+              triggerLabel={repertoire().parent ? 'Delete child item' : 'Delete repertoire'}
+              title={repertoire().parent ? 'Delete this child item?' : 'Delete this repertoire?'}
               itemName={repertoire().title}
               description="This removes the repertoire from your library. Historical session entries will remain."
-              confirmLabel="Delete repertoire"
+              confirmLabel={repertoire().parent ? 'Delete child item' : 'Delete repertoire'}
               onConfirm={async () => {
                 await deleteRepertoire({ data: repertoire().id })
                 await router.invalidate({ sync: true })
-                await navigate({ to: '/library' })
+                const parent = repertoire().parent
+                if (parent) {
+                  await navigate({
+                    to: '/repertoire/$repertoireId',
+                    params: { repertoireId: parent.id },
+                  })
+                } else {
+                  await navigate({ to: '/library' })
+                }
               }}
             />
           </Show>
@@ -81,7 +89,7 @@ function RepertoireDetail() {
       <Show when={repertoire().parent}>
         {(parent) => (
           <p class="parent-record">
-            Excerpt from{' '}
+            Part of{' '}
             <Link to="/repertoire/$repertoireId" params={{ repertoireId: parent().id }}>
               {parent().title}
             </Link>
@@ -162,25 +170,53 @@ function RepertoireDetail() {
           </article>
         </Show>
 
-        <Show when={repertoire().excerpts.length > 0}>
-          <article class="detail-card">
-            <p class="eyebrow">Excerpts</p>
+        <article class="detail-card detail-card-wide">
+          <div class="child-repertoire-header">
+            <div>
+              <p class="eyebrow">Excerpts</p>
+              <p class="muted">Excerpts, movements, and individual pieces in this work.</p>
+            </div>
+            <Show when={repertoire().canUse && !repertoire().parent}>
+              <div class="child-repertoire-actions">
+                <Link
+                  class="secondary-button"
+                  to="/repertoire/$repertoireId/excerpts/new"
+                  params={{ repertoireId: repertoire().id }}
+                >
+                  Add excerpt
+                </Link>
+                <Link
+                  class="secondary-button"
+                  to="/repertoire/$repertoireId/children/new"
+                  params={{ repertoireId: repertoire().id }}
+                >
+                  Add movement or piece
+                </Link>
+              </div>
+            </Show>
+          </div>
+          <Show
+            when={repertoire().children.length > 0}
+            fallback={<p class="muted">No excerpts or other child items yet.</p>}
+          >
             <ul class="detail-list">
-              <For each={repertoire().excerpts}>
-                {(excerpt) => (
+              <For each={repertoire().children}>
+                {(child) => (
                   <li>
-                    <Link to="/repertoire/$repertoireId" params={{ repertoireId: excerpt.id }}>
-                      <strong>{excerpt.title}</strong>
-                      <span>
-                        Measures {excerpt.startMeasure ?? '?'}–{excerpt.endMeasure ?? '?'}
-                      </span>
+                    <Link to="/repertoire/$repertoireId" params={{ repertoireId: child.id }}>
+                      <strong>{child.title}</strong>
+                      <Show when={child.startMeasure !== null && child.endMeasure !== null}>
+                        <span>
+                          Measures {child.startMeasure}–{child.endMeasure}
+                        </span>
+                      </Show>
                     </Link>
                   </li>
                 )}
               </For>
             </ul>
-          </article>
-        </Show>
+          </Show>
+        </article>
 
         <article class="detail-card">
           <p class="eyebrow">Resources</p>
