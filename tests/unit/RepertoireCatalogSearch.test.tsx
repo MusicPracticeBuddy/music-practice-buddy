@@ -151,6 +151,8 @@ describe('RepertoireCatalogSearch', () => {
     renderSearch(matchingPage(initialInput), initialInput.instrumentIds)
 
     expect((screen.getByRole('checkbox', { name: /Piano/ }) as HTMLInputElement).checked).toBe(true)
+    expect(screen.queryByRole('checkbox', { name: /Violin/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Show all instruments' }))
     expect((screen.getByRole('checkbox', { name: /Violin/ }) as HTMLInputElement).checked).toBe(
       false,
     )
@@ -162,6 +164,7 @@ describe('RepertoireCatalogSearch', () => {
     renderSearch()
 
     fireEvent.click(screen.getByRole('checkbox', { name: /Piano/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show all instruments' }))
     fireEvent.click(screen.getByRole('checkbox', { name: /Violin/ }))
     await waitFor(() => expect(screen.getByText('3 matching works')).toBeTruthy())
 

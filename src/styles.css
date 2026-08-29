@@ -483,6 +483,38 @@ h1 {
   text-transform: uppercase;
 }
 
+.instrument-list-toggle {
+  display: block;
+  margin: 0 0 9px;
+  border: 0;
+  padding: 0;
+  color: var(--green);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.instrument-list-toggle:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.instrument-list-scope {
+  margin: 0 0 2px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.instrument-list-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .library-instrument-options {
   display: grid;
   max-height: 116px;
@@ -608,6 +640,10 @@ h1 {
   margin-top: 12px;
   padding: 2px 4px 2px 0;
   overflow-y: auto;
+}
+
+.instrument-list-search {
+  margin-top: 2px;
 }
 
 .catalog-instrument-options input {
