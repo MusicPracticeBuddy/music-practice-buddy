@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createSignal, type JSX } from 'solid-js'
+import { For, Index, Show, createEffect, createSignal, onCleanup, type JSX } from 'solid-js'
 import { Link, useNavigate, useRouter } from '@tanstack/solid-router'
 import { ExerciseNotation } from '@/components/ExerciseNotation'
 import { InstrumentSelect } from '@/components/InstrumentFields'
@@ -8,7 +8,9 @@ import { groupInstrumentOptions } from '@/domain/instrument'
 import {
   createChildRepertoire,
   createRepertoire,
+  searchComposerNames,
   updateRepertoire,
+  type ComposerNameSuggestion,
   type InstrumentOption,
   type RepertoireCreditInput,
   type RepertoireInput,
@@ -77,8 +79,54 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
     props.instruments ?? [],
   )
   const [resources, setResources] = createSignal<RepertoireResourceInput[]>(props.resources ?? [])
+  const [composerSuggestions, setComposerSuggestions] = createSignal<ComposerNameSuggestion[]>([])
+  const [activeComposerIndex, setActiveComposerIndex] = createSignal<number | null>(null)
+  const [acceptedComposerNames, setAcceptedComposerNames] = createSignal<Record<number, string>>({})
   const [saving, setSaving] = createSignal(false)
   const [error, setError] = createSignal('')
+  let composerSearchTimer: ReturnType<typeof setTimeout> | undefined
+  let composerSearchRequest = 0
+
+  onCleanup(() => clearTimeout(composerSearchTimer))
+
+  function queueComposerSearch(index: number, query: string) {
+    clearTimeout(composerSearchTimer)
+    const request = ++composerSearchRequest
+    setActiveComposerIndex(index)
+    const normalizedQuery = query.trim().toLocaleLowerCase()
+    if (acceptedComposerNames()[index]?.toLocaleLowerCase() === normalizedQuery) {
+      setComposerSuggestions([])
+      return
+    }
+    if (
+      normalizedQuery &&
+      composerSuggestions().some(
+        (suggestion) => suggestion.name.toLocaleLowerCase() === normalizedQuery,
+      )
+    ) {
+      setAcceptedComposerNames((names) => ({ ...names, [index]: query.trim() }))
+      setComposerSuggestions([])
+      return
+    }
+    setAcceptedComposerNames((names) => {
+      if (!(index in names)) return names
+      const nextNames = { ...names }
+      delete nextNames[index]
+      return nextNames
+    })
+    if (query.trim().length < 2) {
+      setComposerSuggestions([])
+      return
+    }
+    composerSearchTimer = setTimeout(async () => {
+      try {
+        const suggestions = await searchComposerNames({ data: query })
+        if (request === composerSearchRequest) setComposerSuggestions(suggestions)
+      } catch {
+        if (request === composerSearchRequest) setComposerSuggestions([])
+      }
+    }, 200)
+  }
 
   createEffect(() => {
     setName(props.name ?? '')
@@ -285,7 +333,10 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
           <div class="repertoire-editor-section-header">
             <div>
               <h2>Credits</h2>
-              <p>Composers, arrangers, editors, and other contributors.</p>
+              <p>
+                Composers, arrangers, editors, and other contributors. Start typing a composer’s
+                name and choose their full name when it appears.
+              </p>
             </div>
             <button
               class="secondary-button"
@@ -296,34 +347,52 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
             </button>
           </div>
           <div class="repertoire-editor-rows">
-            <For each={credits()}>
+            <Index each={credits()}>
               {(credit, index) => (
                 <div class="repertoire-editor-row credit-row">
                   <input
                     class="text-input"
-                    value={credit.person}
-                    aria-label={`Credit ${index() + 1} name`}
+                    value={credit().person}
+                    list={
+                      credit().role === 'COMPOSER' ? `composer-name-options-${index}` : undefined
+                    }
+                    aria-label={`Credit ${index + 1} name`}
                     placeholder="Person name"
                     maxlength="200"
                     required
-                    onInput={(event) =>
+                    onFocus={() => {
+                      if (credit().role === 'COMPOSER') {
+                        queueComposerSearch(index, credit().person)
+                      }
+                    }}
+                    onInput={(event) => {
                       setCredits((items) =>
                         items.map((item, itemIndex) =>
-                          itemIndex === index()
+                          itemIndex === index
                             ? { ...item, person: event.currentTarget.value }
                             : item,
                         ),
                       )
-                    }
+                      if (credit().role === 'COMPOSER') {
+                        queueComposerSearch(index, event.currentTarget.value)
+                      }
+                    }}
                   />
+                  <Show when={credit().role === 'COMPOSER'}>
+                    <datalist id={`composer-name-options-${index}`}>
+                      <For each={activeComposerIndex() === index ? composerSuggestions() : []}>
+                        {(composer) => <option value={composer.name} />}
+                      </For>
+                    </datalist>
+                  </Show>
                   <select
                     class="text-input"
-                    value={credit.role}
-                    aria-label={`Credit ${index() + 1} role`}
-                    onChange={(event) =>
+                    value={credit().role}
+                    aria-label={`Credit ${index + 1} role`}
+                    onChange={(event) => {
                       setCredits((items) =>
                         items.map((item, itemIndex) =>
-                          itemIndex === index()
+                          itemIndex === index
                             ? {
                                 ...item,
                                 role: event.currentTarget.value as RepertoireCreditInput['role'],
@@ -331,7 +400,10 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
                             : item,
                         ),
                       )
-                    }
+                      if (event.currentTarget.value === 'COMPOSER') {
+                        queueComposerSearch(index, credit().person)
+                      }
+                    }}
                   >
                     <option value="COMPOSER">Composer</option>
                     <option value="ARRANGER">Arranger</option>
@@ -342,16 +414,16 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
                   <button
                     class="row-remove-button"
                     type="button"
-                    aria-label={`Remove credit ${index() + 1}`}
+                    aria-label={`Remove credit ${index + 1}`}
                     onClick={() =>
-                      setCredits((items) => items.filter((_, itemIndex) => itemIndex !== index()))
+                      setCredits((items) => items.filter((_, itemIndex) => itemIndex !== index))
                     }
                   >
                     Remove
                   </button>
                 </div>
               )}
-            </For>
+            </Index>
           </div>
         </section>
 

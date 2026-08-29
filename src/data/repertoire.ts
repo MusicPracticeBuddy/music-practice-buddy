@@ -99,6 +99,11 @@ export type CatalogComposerOption = {
   name: string
 }
 
+export type ComposerNameSuggestion = {
+  id: string
+  name: string
+}
+
 export type CatalogRepertoireRow = {
   id: string
   title: string
@@ -396,6 +401,51 @@ export const getCatalogComposers = createServerFn({ method: 'GET' })
          )
        ORDER BY person.name`,
       [context.user.musicianId],
+    )
+    return result.rows
+  })
+
+export const searchComposerNames = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .validator((query: string) => {
+    const value = query.trim()
+    if (value.length > 200) throw new Error('Composer search is too long')
+    return value
+  })
+  .handler(async ({ data: query, context }): Promise<ComposerNameSuggestion[]> => {
+    if (query.length < 2) return []
+    const substring = catalogSubstringPattern(query)
+    const prefix = `${query.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`
+    const result = await pool.query<ComposerNameSuggestion>(
+      `SELECT person.id::text, person.name
+       FROM person
+       WHERE (
+           person.owner_musician_id IS NULL
+           OR person.owner_musician_id = $1
+           OR EXISTS (
+             SELECT 1
+             FROM repertoire_credit credit
+             JOIN repertoire ON repertoire.id = credit.repertoire_id
+             WHERE credit.person_id = person.id
+               AND credit.role = 'COMPOSER'
+               AND repertoire.visibility = 'PUBLIC'
+               AND repertoire.status = 'APPROVED'
+               AND repertoire.deleted_at IS NULL
+           )
+         )
+         AND (
+           person.name ILIKE $2 ESCAPE '\\'
+           OR CAST($3 AS text) <<% CAST(person.name AS text)
+         )
+       ORDER BY
+         CASE
+           WHEN lower(person.name) = lower($3) THEN 0
+           WHEN person.name ILIKE $4 ESCAPE '\\' THEN 1
+           ELSE 2
+         END,
+         lower(person.name), person.id
+       LIMIT 12`,
+      [context.user.musicianId, substring, query, prefix],
     )
     return result.rows
   })

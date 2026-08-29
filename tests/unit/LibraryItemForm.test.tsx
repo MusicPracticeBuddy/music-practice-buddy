@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   renderAbc: vi.fn(),
   updateExercise: vi.fn(async () => ({ id: '42' })),
   createChildRepertoire: vi.fn(async () => ({ id: '84' })),
+  searchComposerNames: vi.fn(async () => [{ id: '9', name: 'Ludwig van Beethoven' }]),
 }))
 
 vi.mock('abcjs', () => ({
@@ -28,6 +29,7 @@ vi.mock('../../src/data/exercises', () => ({
 vi.mock('../../src/data/repertoire', () => ({
   createChildRepertoire: mocks.createChildRepertoire,
   createRepertoire: vi.fn(),
+  searchComposerNames: mocks.searchComposerNames,
   updateRepertoire: vi.fn(),
 }))
 
@@ -225,5 +227,49 @@ describe('LibraryItemForm', () => {
         }),
       }),
     )
+  })
+
+  it('searches and suggests existing full composer names while typing', async () => {
+    render(() => <LibraryItemForm kind="repertoire" credits={[{ person: '', role: 'COMPOSER' }]} />)
+
+    fireEvent.input(screen.getByLabelText('Credit 1 name'), {
+      target: { value: 'Beethven' },
+    })
+
+    await waitFor(() =>
+      expect(mocks.searchComposerNames).toHaveBeenCalledWith({ data: 'Beethven' }),
+    )
+    await waitFor(() =>
+      expect(document.querySelector('option[value="Ludwig van Beethoven"]')).not.toBeNull(),
+    )
+
+    mocks.searchComposerNames.mockClear()
+    fireEvent.input(screen.getByLabelText('Credit 1 name'), {
+      target: { value: 'Ludwig van Beethoven' },
+    })
+
+    expect(document.querySelector('option[value="Ludwig van Beethoven"]')).toBeNull()
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    expect(mocks.searchComposerNames).not.toHaveBeenCalled()
+
+    const acceptedInput = screen.getByLabelText('Credit 1 name') as HTMLInputElement
+    acceptedInput.blur()
+    acceptedInput.focus()
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    expect(mocks.searchComposerNames).not.toHaveBeenCalled()
+  })
+
+  it('keeps focus in a composer field as its value changes', async () => {
+    render(() => <LibraryItemForm kind="repertoire" credits={[{ person: '', role: 'COMPOSER' }]} />)
+    const input = screen.getByLabelText('Credit 1 name') as HTMLInputElement
+    input.focus()
+
+    fireEvent.input(input, { target: { value: 'B' } })
+    await waitFor(() => expect(screen.getByLabelText('Credit 1 name')).toBe(input))
+    expect(document.activeElement).toBe(input)
+
+    fireEvent.input(input, { target: { value: 'Be' } })
+    await waitFor(() => expect(screen.getByLabelText('Credit 1 name')).toBe(input))
+    expect(document.activeElement).toBe(input)
   })
 })

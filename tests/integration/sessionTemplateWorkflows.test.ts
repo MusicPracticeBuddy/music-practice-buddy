@@ -31,6 +31,7 @@ import {
   getRepertoireDetail,
   getRepertoireLibraryPage,
   removeRepertoireFromLibrary,
+  searchComposerNames,
   updateRepertoireLibraryNote,
   updateRepertoire,
 } from '@/data/repertoire'
@@ -168,6 +169,28 @@ describe('musician instrument preferences', () => {
 })
 
 describe('library item persistence', () => {
+  it('suggests full composer names from accessible people with fuzzy matching', async () => {
+    const otherMusician = await pool.query<{ id: string }>(
+      `INSERT INTO musician (display_name) VALUES ('Composer owner') RETURNING id::text`,
+    )
+    await pool.query(
+      `INSERT INTO person (name, owner_musician_id)
+       VALUES
+         ('Ludwig van Beethoven', NULL),
+         ('Private Current Composer', 1),
+         ('Private Other Composer', $1)`,
+      [otherMusician.rows[0]!.id],
+    )
+
+    expect(await searchComposerNames({ data: 'Beethven' })).toEqual([
+      expect.objectContaining({ name: 'Ludwig van Beethoven' }),
+    ])
+    expect((await searchComposerNames({ data: 'Private' })).map((person) => person.name)).toEqual([
+      'Private Current Composer',
+    ])
+    expect(await searchComposerNames({ data: 'L' })).toEqual([])
+  })
+
   it('searches and paginates public exercises and adds them to My Library', async () => {
     const publisher = await pool.query<{ id: string }>(
       `INSERT INTO musician (display_name) VALUES ('Exercise publisher') RETURNING id::text`,
