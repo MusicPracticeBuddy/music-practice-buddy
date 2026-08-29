@@ -221,6 +221,7 @@ export function PracticePlanEditor(props: {
   instruments?: InstrumentOption[]
   template?: SessionTemplateDetail
   session?: PlannedSessionEdit
+  canCreatePublic?: boolean
 }) {
   const navigate = useNavigate()
   const initialRecord = props.session ?? props.template
@@ -636,7 +637,14 @@ export function PracticePlanEditor(props: {
             onChange={(event) => setVisibility(event.currentTarget.value as 'PRIVATE' | 'PUBLIC')}
           >
             <option value="PRIVATE">Private</option>
-            <option value="PUBLIC">Public</option>
+            <Show
+              when={
+                props.canCreatePublic ||
+                (props.template !== undefined && props.template.visibility === 'PUBLIC')
+              }
+            >
+              <option value="PUBLIC">Public</option>
+            </Show>
           </select>
         </Show>
       </Show>
@@ -748,6 +756,7 @@ export function PracticePlanEditor(props: {
                     embedded
                     kind={newItemType() === LIBRARY_ITEM_TYPE.EXERCISE ? 'exercise' : 'repertoire'}
                     instrumentOptions={instrumentOptions()}
+                    canCreatePublic={props.canCreatePublic}
                     afterFields={
                       <>
                         <label class="field-label" for="new-item-instruction">

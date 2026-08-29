@@ -16,6 +16,7 @@ export const Route = createFileRoute('/repertoire/$repertoireId_/edit')({
 
 function EditRepertoire() {
   const data = Route.useLoaderData()
+  const context = Route.useRouteContext()
   const repertoire = () => data().repertoire
   return (
     <LibraryItemForm
@@ -38,6 +39,7 @@ function EditRepertoire() {
         url: resource.url,
       }))}
       instrumentOptions={data().instruments}
+      canCreatePublic={context().user?.isAdmin}
     />
   )
 }

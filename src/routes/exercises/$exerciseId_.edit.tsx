@@ -17,6 +17,7 @@ export const Route = createFileRoute('/exercises/$exerciseId_/edit')({
 
 function EditExercise() {
   const exercise = Route.useLoaderData()
+  const context = Route.useRouteContext()
   return (
     <LibraryItemForm
       kind="exercise"
@@ -27,6 +28,7 @@ function EditExercise() {
       visibility={exercise().exercise.visibility as 'PRIVATE' | 'PUBLIC'}
       instrumentId={exercise().exercise.instrumentId}
       instrumentOptions={exercise().instruments}
+      canCreatePublic={context().user?.isAdmin}
     />
   )
 }

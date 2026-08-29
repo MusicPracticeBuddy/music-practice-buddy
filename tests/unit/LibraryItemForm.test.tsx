@@ -37,6 +37,38 @@ afterEach(() => {
 })
 
 describe('LibraryItemForm', () => {
+  it('only offers public visibility to admins creating resources', () => {
+    const { unmount } = render(() => <LibraryItemForm kind="exercise" />)
+
+    expect(
+      Array.from(
+        (screen.getByLabelText('Visibility') as HTMLSelectElement).options,
+        (option) => option.value,
+      ),
+    ).toEqual(['PRIVATE'])
+
+    unmount()
+    render(() => <LibraryItemForm kind="exercise" canCreatePublic />)
+
+    expect(
+      Array.from(
+        (screen.getByLabelText('Visibility') as HTMLSelectElement).options,
+        (option) => option.value,
+      ),
+    ).toEqual(['PRIVATE', 'PUBLIC'])
+  })
+
+  it('preserves public visibility while editing an existing public resource', () => {
+    render(() => <LibraryItemForm kind="exercise" id="42" name="Scales" visibility="PUBLIC" />)
+
+    expect(
+      Array.from(
+        (screen.getByLabelText('Visibility') as HTMLSelectElement).options,
+        (option) => option.value,
+      ),
+    ).toEqual(['PRIVATE', 'PUBLIC'])
+  })
+
   it('invalidates cached route data after updating an exercise', async () => {
     render(() => (
       <LibraryItemForm

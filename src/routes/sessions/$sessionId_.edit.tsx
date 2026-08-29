@@ -24,11 +24,13 @@ export const Route = createFileRoute('/sessions/$sessionId_/edit')({
 
 function EditPlannedSession() {
   const data = Route.useLoaderData()
+  const context = Route.useRouteContext()
   return (
     <PracticePlanEditor
       session={data().session}
       library={data().library}
       instruments={data().instruments}
+      canCreatePublic={context().user?.isAdmin}
     />
   )
 }

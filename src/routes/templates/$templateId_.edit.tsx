@@ -24,11 +24,13 @@ export const Route = createFileRoute('/templates/$templateId_/edit')({
 
 function EditTemplate() {
   const data = Route.useLoaderData()
+  const context = Route.useRouteContext()
   return (
     <PracticePlanEditor
       template={data().template}
       library={data().library}
       instruments={data().instruments}
+      canCreatePublic={context().user?.isAdmin}
     />
   )
 }

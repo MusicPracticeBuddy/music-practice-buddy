@@ -28,6 +28,7 @@ type LibraryItemFormProps = {
   instruments?: RepertoireInstrumentInput[]
   resources?: RepertoireResourceInput[]
   instrumentOptions?: InstrumentOption[]
+  canCreatePublic?: boolean
   embedded?: boolean
   beforeFields?: JSX.Element
   afterFields?: JSX.Element
@@ -490,7 +491,9 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
         onChange={(event) => setVisibility(event.currentTarget.value as 'PRIVATE' | 'PUBLIC')}
       >
         <option value="PRIVATE">Private</option>
-        <option value="PUBLIC">Public</option>
+        <Show when={props.canCreatePublic || (editing() && props.visibility === 'PUBLIC')}>
+          <option value="PUBLIC">Public</option>
+        </Show>
       </select>
       <p class="field-help">Public items can be viewed and used by other musicians.</p>
 

@@ -187,6 +187,27 @@ beforeEach(() => {
 })
 
 describe('PracticePlanEditor', () => {
+  it('only offers public template visibility to admins', () => {
+    const { unmount } = render(() => <PracticePlanEditor library={library} />)
+
+    expect(
+      Array.from(
+        (screen.getByLabelText('Visibility') as HTMLSelectElement).options,
+        (option) => option.value,
+      ),
+    ).toEqual(['PRIVATE'])
+
+    unmount()
+    render(() => <PracticePlanEditor library={library} canCreatePublic />)
+
+    expect(
+      Array.from(
+        (screen.getByLabelText('Visibility') as HTMLSelectElement).options,
+        (option) => option.value,
+      ),
+    ).toEqual(['PRIVATE', 'PUBLIC'])
+  })
+
   it('searches My Library first and only offers repertoire creation from public search', async () => {
     render(() => <PracticePlanEditor library={library} template={template([])} />)
 

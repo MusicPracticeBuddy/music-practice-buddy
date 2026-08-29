@@ -27,6 +27,7 @@ export const Route = createFileRoute('/repertoire/search')({
 
 function SearchRepertoire() {
   const data = Route.useLoaderData()
+  const context = Route.useRouteContext()
   const [creating, setCreating] = createSignal(false)
 
   return (
@@ -61,6 +62,7 @@ function SearchRepertoire() {
           <LibraryItemForm
             kind="repertoire"
             instrumentOptions={data().instruments}
+            canCreatePublic={context().user?.isAdmin}
             embedded
             cancelAction={
               <button class="secondary-button" type="button" onClick={() => setCreating(false)}>

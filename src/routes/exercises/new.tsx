@@ -9,5 +9,12 @@ export const Route = createFileRoute('/exercises/new')({
 
 function NewExercise() {
   const instruments = Route.useLoaderData()
-  return <LibraryItemForm kind="exercise" instrumentOptions={instruments()} />
+  const context = Route.useRouteContext()
+  return (
+    <LibraryItemForm
+      kind="exercise"
+      instrumentOptions={instruments()}
+      canCreatePublic={context().user?.isAdmin}
+    />
+  )
 }
