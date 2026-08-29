@@ -186,7 +186,7 @@ function Library() {
                 Owned repertoire
               </Link>
               <Link class="primary-button" to="/repertoire/search">
-                + Add repertoire
+                Find repertoire
               </Link>
             </div>
           </header>
