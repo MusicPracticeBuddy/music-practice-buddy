@@ -3,6 +3,10 @@ services:
     build:
       context: .devcontainer
       dockerfile: Dockerfile
+
+    ports:
+      - '3000:3000'
+
     init: true
     command: sleep infinity
 
