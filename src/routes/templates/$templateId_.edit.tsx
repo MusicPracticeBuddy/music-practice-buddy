@@ -5,12 +5,18 @@ import { getInstruments } from '@/data/repertoire'
 
 export const Route = createFileRoute('/templates/$templateId_/edit')({
   loader: async ({ params }) => {
-    const [template, library, instruments] = await Promise.all([
+    const [template, instruments] = await Promise.all([
       getSessionTemplate({ data: params.templateId }),
-      getTemplateLibrary(),
       getInstruments(),
     ])
     if (!template?.canEdit) throw notFound()
+    const library = await getTemplateLibrary({
+      data: {
+        instrumentId: template.instrumentId ?? null,
+        exerciseAnyInstrument: false,
+        repertoireAnyInstrument: false,
+      },
+    })
     return { template, library, instruments }
   },
   component: EditTemplate,

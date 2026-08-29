@@ -131,6 +131,10 @@ export function PracticeLibraryPanel(props: {
   searchPublicRepertoire?: boolean
   publicRepertoireLoading?: boolean
   onSearchPublicRepertoireChange?: (enabled: boolean, query: string) => void
+  anyInstrument?: boolean
+  instrumentFilterDisabled?: boolean
+  onAnyInstrumentChange?: (enabled: boolean) => void
+  onSearchChange?: (query: string) => void
   publicRepertoirePagination?: {
     page: number
     total: number
@@ -154,6 +158,7 @@ export function PracticeLibraryPanel(props: {
     props.type === LIBRARY_ITEM_TYPE.REPERTOIRE &&
     props.searchPublicRepertoire &&
     props.publicRepertoirePagination !== undefined
+  const serverSearched = () => props.onSearchChange !== undefined && !serverPaginated()
   const selectedItems = createMemo(() =>
     props.type === LIBRARY_ITEM_TYPE.REPERTOIRE && props.searchPublicRepertoire
       ? (props.publicRepertoireItems ?? [])
@@ -161,7 +166,7 @@ export function PracticeLibraryPanel(props: {
   )
   const matchingItems = createMemo(() => {
     const query = search().trim().toLowerCase()
-    if (serverPaginated() || !query) return selectedItems()
+    if (serverPaginated() || serverSearched() || !query) return selectedItems()
     return selectedItems().filter((item) => subtreeMatches(item, query))
   })
   const totalPages = () =>
@@ -185,7 +190,10 @@ export function PracticeLibraryPanel(props: {
         visible.push({ item, depth })
         const children = item.children ?? []
         const matchingChild =
-          !serverPaginated() && query && children.some((child) => subtreeMatches(child, query))
+          !serverPaginated() &&
+          !serverSearched() &&
+          query &&
+          children.some((child) => subtreeMatches(child, query))
         if (expanded.has(item.id) || matchingChild) visit(children, depth + 1)
       }
     }
@@ -204,9 +212,12 @@ export function PracticeLibraryPanel(props: {
   function updateSearch(value: string) {
     setSearch(value)
     setLocalPage(1)
-    if (!serverPaginated()) return
     clearTimeout(searchTimer)
-    searchTimer = setTimeout(() => props.publicRepertoirePagination?.onSearchChange(value), 300)
+    if (serverPaginated()) {
+      searchTimer = setTimeout(() => props.publicRepertoirePagination?.onSearchChange(value), 300)
+    } else if (props.onSearchChange) {
+      searchTimer = setTimeout(() => props.onSearchChange?.(value), 300)
+    }
   }
 
   onCleanup(() => clearTimeout(searchTimer))
@@ -233,6 +244,7 @@ export function PracticeLibraryPanel(props: {
             clearTimeout(searchTimer)
             setLocalPage(1)
             props.onTypeChange(LIBRARY_ITEM_TYPE.EXERCISE)
+            props.onSearchChange?.(search().trim())
           }}
         >
           Exercises ({props.items.filter((item) => item.type === LIBRARY_ITEM_TYPE.EXERCISE).length}
@@ -247,6 +259,7 @@ export function PracticeLibraryPanel(props: {
             clearTimeout(searchTimer)
             setLocalPage(1)
             props.onTypeChange(LIBRARY_ITEM_TYPE.REPERTOIRE)
+            if (!props.searchPublicRepertoire) props.onSearchChange?.(search().trim())
           }}
         >
           Repertoire (
@@ -261,6 +274,20 @@ export function PracticeLibraryPanel(props: {
         placeholder={`Search ${typeLabel()}…`}
         aria-label={`Search ${typeLabel()}`}
       />
+      <Show when={props.onAnyInstrumentChange}>
+        <label class="library-public-search-toggle">
+          <input
+            type="checkbox"
+            checked={props.anyInstrument}
+            disabled={props.instrumentFilterDisabled}
+            onChange={(event) => {
+              setLocalPage(1)
+              props.onAnyInstrumentChange?.(event.currentTarget.checked)
+            }}
+          />
+          Any instrument
+        </label>
+      </Show>
       <Show
         when={props.type === LIBRARY_ITEM_TYPE.REPERTOIRE && props.onSearchPublicRepertoireChange}
       >

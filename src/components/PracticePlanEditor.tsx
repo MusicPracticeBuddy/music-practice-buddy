@@ -15,6 +15,7 @@ import {
 } from '@/data/repertoire'
 import {
   createSessionTemplate,
+  getTemplateLibrary,
   updatePlannedSession,
   updateSessionTemplate,
   type PlannedSessionEdit,
@@ -49,6 +50,7 @@ function catalogLibraryItem(item: CatalogRepertoireRow): TemplateLibraryItem {
     type: LIBRARY_ITEM_TYPE.REPERTOIRE,
     name: item.title,
     detail: item.composers.map((composer) => composer.name).join(', ') || 'Unknown composer',
+    instrumentIds: item.instruments.map((instrument) => instrument.id),
     children: item.children.map(catalogLibraryItem),
   }
 }
@@ -231,6 +233,8 @@ export function PracticePlanEditor(props: {
   const [visibility, setVisibility] = createSignal(props.template?.visibility ?? 'PRIVATE')
   const [assignedDate, setAssignedDate] = createSignal(props.session?.assignedDate ?? '')
   const [instrumentId, setInstrumentId] = createSignal(initialRecord?.instrumentId ?? '')
+  const [exerciseAnyInstrument, setExerciseAnyInstrument] = createSignal(false)
+  const [repertoireAnyInstrument, setRepertoireAnyInstrument] = createSignal(false)
   const [libraryType, setLibraryType] = createSignal<LibraryItemType>(LIBRARY_ITEM_TYPE.EXERCISE)
   const [selectedParentId, setSelectedParentId] = createSignal<string | null>(null)
   const [savingAction, setSavingAction] = createSignal<'save' | 'save-and-use' | null>(null)
@@ -249,8 +253,11 @@ export function PracticePlanEditor(props: {
     totalPages: 0,
   })
   const [publicRepertoireQuery, setPublicRepertoireQuery] = createSignal('')
+  const [libraryQuery, setLibraryQuery] = createSignal('')
   const [loadingPublicRepertoire, setLoadingPublicRepertoire] = createSignal(false)
+  const [loadingLibrary, setLoadingLibrary] = createSignal(false)
   let publicRepertoireRequest = 0
+  let libraryRequest = 0
 
   const searchableRepertoire = createMemo(() => {
     const libraryRepertoire = library.filter((item) => item.type === LIBRARY_ITEM_TYPE.REPERTOIRE)
@@ -476,7 +483,12 @@ export function PracticePlanEditor(props: {
     setError('')
     try {
       const catalog = await getPublicRepertoireCatalogPage({
-        data: { ...EMPTY_CATALOG_SEARCH, query, page },
+        data: {
+          ...EMPTY_CATALOG_SEARCH,
+          query,
+          instrumentIds: instrumentId() && !repertoireAnyInstrument() ? [instrumentId()] : [],
+          page,
+        },
       })
       if (request !== publicRepertoireRequest) return
       setPublicRepertoire(catalog.items.map(catalogLibraryItem))
@@ -499,9 +511,63 @@ export function PracticePlanEditor(props: {
     if (!enabled) {
       publicRepertoireRequest += 1
       setLoadingPublicRepertoire(false)
+      setLibraryQuery(query)
+      void loadLibrary(instrumentId(), exerciseAnyInstrument(), repertoireAnyInstrument(), query)
       return
     }
     await searchPublicCatalog(query, 1)
+  }
+
+  async function loadLibrary(
+    nextInstrumentId: string,
+    nextExerciseAnyInstrument: boolean,
+    nextRepertoireAnyInstrument: boolean,
+    query = libraryQuery(),
+  ) {
+    const request = ++libraryRequest
+    setLoadingLibrary(true)
+    setError('')
+    try {
+      const items = await getTemplateLibrary({
+        data: {
+          instrumentId: nextInstrumentId || null,
+          exerciseAnyInstrument: nextExerciseAnyInstrument,
+          repertoireAnyInstrument: nextRepertoireAnyInstrument,
+          query,
+        },
+      })
+      if (request === libraryRequest) setLibrary(items)
+    } catch (caught) {
+      if (request === libraryRequest) setError(errorMessage(caught))
+    } finally {
+      if (request === libraryRequest) setLoadingLibrary(false)
+    }
+  }
+
+  function changeInstrument(nextInstrumentId: string) {
+    setInstrumentId(nextInstrumentId)
+    void loadLibrary(nextInstrumentId, exerciseAnyInstrument(), repertoireAnyInstrument())
+    if (searchPublicRepertoire()) {
+      void searchPublicCatalog(publicRepertoireQuery(), 1)
+    }
+  }
+
+  function changeAnyInstrument(type: LibraryItemType, enabled: boolean) {
+    if (type === LIBRARY_ITEM_TYPE.EXERCISE) {
+      setExerciseAnyInstrument(enabled)
+      void loadLibrary(instrumentId(), enabled, repertoireAnyInstrument())
+      return
+    }
+    setRepertoireAnyInstrument(enabled)
+    void loadLibrary(instrumentId(), exerciseAnyInstrument(), enabled)
+    if (searchPublicRepertoire()) {
+      void searchPublicCatalog(publicRepertoireQuery(), 1)
+    }
+  }
+
+  function searchLibrary(query: string) {
+    setLibraryQuery(query)
+    void loadLibrary(instrumentId(), exerciseAnyInstrument(), repertoireAnyInstrument(), query)
   }
 
   return (
@@ -652,7 +718,7 @@ export function PracticePlanEditor(props: {
         id={props.session ? 'session-instrument' : 'template-instrument'}
         instruments={props.instruments ?? []}
         value={instrumentId()}
-        onChange={setInstrumentId}
+        onChange={changeInstrument}
       />
       <Show when={error()}>
         <p class="form-error" role="alert">
@@ -722,9 +788,19 @@ export function PracticePlanEditor(props: {
           publicRepertoireItems={searchableRepertoire()}
           searchPublicRepertoire={searchPublicRepertoire()}
           publicRepertoireLoading={loadingPublicRepertoire()}
+          loading={loadingLibrary()}
           onSearchPublicRepertoireChange={(enabled, query) =>
             void togglePublicRepertoireSearch(enabled, query)
           }
+          anyInstrument={
+            !instrumentId() ||
+            (libraryType() === LIBRARY_ITEM_TYPE.EXERCISE
+              ? exerciseAnyInstrument()
+              : repertoireAnyInstrument())
+          }
+          instrumentFilterDisabled={!instrumentId()}
+          onAnyInstrumentChange={(enabled) => changeAnyInstrument(libraryType(), enabled)}
+          onSearchChange={searchLibrary}
           publicRepertoirePagination={{
             ...publicRepertoirePage(),
             onPageChange: (page) => void searchPublicCatalog(publicRepertoireQuery(), page),

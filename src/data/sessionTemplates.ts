@@ -27,7 +27,22 @@ export type TemplateLibraryItem = {
   type: LibraryItemType
   name: string
   detail: string
+  instrumentIds?: string[]
   children?: TemplateLibraryItem[]
+}
+
+export type TemplateLibrarySearchInput = {
+  instrumentId: string | null
+  exerciseAnyInstrument: boolean
+  repertoireAnyInstrument: boolean
+  query?: string
+}
+
+export const EMPTY_TEMPLATE_LIBRARY_SEARCH: TemplateLibrarySearchInput = {
+  instrumentId: null,
+  exerciseAnyInstrument: false,
+  repertoireAnyInstrument: false,
+  query: '',
 }
 
 export type SessionTemplateSummary = {
@@ -409,24 +424,81 @@ export const getSessionTemplatesPage = createServerFn({ method: 'GET' })
 
 export const getTemplateLibrary = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
-  .handler(async ({ context }): Promise<TemplateLibraryItem[]> => {
+  .validator((input: TemplateLibrarySearchInput = EMPTY_TEMPLATE_LIBRARY_SEARCH) => {
+    const query = input.query?.trim() ?? ''
+    if (query.length > 200) throw new Error('Search text is too long')
+    return {
+      instrumentId: validateInstrumentId(input.instrumentId),
+      exerciseAnyInstrument: Boolean(input.exerciseAnyInstrument),
+      repertoireAnyInstrument: Boolean(input.repertoireAnyInstrument),
+      query,
+    }
+  })
+  .handler(async ({ data, context }): Promise<TemplateLibraryItem[]> => {
+    const filterExercises = data.instrumentId !== null && !data.exerciseAnyInstrument
+    const filterRepertoire = data.instrumentId !== null && !data.repertoireAnyInstrument
+    const searchPattern = `%${data.query.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`
+    const exerciseParameters: unknown[] = [context.user.musicianId]
+    const exerciseConditions: string[] = []
+    if (filterExercises) {
+      exerciseParameters.push(data.instrumentId)
+      exerciseConditions.push(
+        `(exercise.instrument_id IS NULL OR exercise.instrument_id = $${exerciseParameters.length})`,
+      )
+    }
+    if (data.query) {
+      exerciseParameters.push(searchPattern)
+      exerciseConditions.push(
+        `COALESCE(exercise.name, 'Untitled exercise') ILIKE $${exerciseParameters.length} ESCAPE '\\'`,
+      )
+    }
+
+    const repertoireParameters: unknown[] = [context.user.musicianId]
+    const repertoireMatchConditions: string[] = []
+    if (filterRepertoire) {
+      repertoireParameters.push(data.instrumentId)
+      repertoireMatchConditions.push(`EXISTS (
+        SELECT 1
+        FROM repertoire_instrument part
+        WHERE part.repertoire_id = repertoire.id
+          AND part.instrument_id = $${repertoireParameters.length}
+      )`)
+    }
+    if (data.query) {
+      repertoireParameters.push(searchPattern)
+      repertoireMatchConditions.push(
+        `repertoire.title ILIKE $${repertoireParameters.length} ESCAPE '\\'`,
+      )
+    }
+    const filterRepertoireRows = repertoireMatchConditions.length > 0
     const [exercises, repertoire] = await Promise.all([
-      pool.query<{ id: string; name: string; detail: string }>(
+      pool.query<{ id: string; name: string; detail: string; instrumentIds: string[] }>(
         `
         SELECT
           exercise.id::text,
           COALESCE(exercise.name, 'Untitled exercise') AS name,
-          CASE WHEN exercise.notation IS NULL THEN 'Exercise' ELSE 'Exercise · with notation' END AS detail
+          CASE WHEN exercise.notation IS NULL THEN 'Exercise' ELSE 'Exercise · with notation' END AS detail,
+          CASE
+            WHEN exercise.instrument_id IS NULL THEN ARRAY[]::text[]
+            ELSE ARRAY[exercise.instrument_id::text]
+          END AS "instrumentIds"
         FROM exercise
         JOIN musician_exercise_library library
           ON library.exercise_id = exercise.id AND library.musician_id = $1
         WHERE exercise.deleted_at IS NULL
           AND (exercise.musician_id = $1 OR exercise.visibility = 'PUBLIC')
+          ${exerciseConditions.map((condition) => `AND ${condition}`).join('\n          ')}
         ORDER BY exercise.name NULLS LAST, exercise.id
       `,
-        [context.user.musicianId],
+        exerciseParameters,
       ),
-      pool.query<{ id: string; parentId: string | null; name: string; detail: string }>(
+      pool.query<{
+        id: string
+        parentId: string | null
+        name: string
+        detail: string
+        instrumentIds: string[]
+      }>(
         `
         WITH RECURSIVE access AS (
           SELECT id, owner_musician_id, visibility
@@ -451,18 +523,40 @@ export const getTemplateLibrary = createServerFn({ method: 'GET' })
           WHERE child.deleted_at IS NULL
             AND (access.owner_musician_id = $1 OR access.visibility = 'PUBLIC')
         )
+        ${
+          filterRepertoireRows
+            ? `, matching_repertoire AS (
+          SELECT repertoire.id, repertoire.parent_repertoire_id
+          FROM repertoire
+          JOIN library_repertoire library ON library.id = repertoire.id
+          WHERE ${repertoireMatchConditions.join('\n            AND ')}
+          UNION
+          SELECT parent.id, parent.parent_repertoire_id
+          FROM repertoire parent
+          JOIN matching_repertoire child ON child.parent_repertoire_id = parent.id
+          JOIN library_repertoire library ON library.id = parent.id
+        )`
+            : ''
+        }
         SELECT
           repertoire.id::text,
           repertoire.parent_repertoire_id::text AS "parentId",
           repertoire.title AS name,
-          COALESCE(parent.title, 'Repertoire') AS detail
+          COALESCE(parent.title, 'Repertoire') AS detail,
+          ARRAY(
+            SELECT part.instrument_id::text
+            FROM repertoire_instrument part
+            WHERE part.repertoire_id = repertoire.id
+            ORDER BY part.position, part.id
+          ) AS "instrumentIds"
         FROM repertoire
         JOIN access ON access.id = repertoire.id
         JOIN library_repertoire library ON library.id = repertoire.id
+        ${filterRepertoireRows ? 'JOIN matching_repertoire matching ON matching.id = repertoire.id' : ''}
         LEFT JOIN repertoire parent ON parent.id = repertoire.parent_repertoire_id
         ORDER BY repertoire.title, repertoire.id
       `,
-        [context.user.musicianId],
+        repertoireParameters,
       ),
     ])
 
@@ -474,6 +568,7 @@ export const getTemplateLibrary = createServerFn({ method: 'GET' })
           type: LIBRARY_ITEM_TYPE.REPERTOIRE,
           name: item.name,
           detail: item.detail,
+          instrumentIds: item.instrumentIds,
           children: [] as TemplateLibraryItem[],
         },
       ]),

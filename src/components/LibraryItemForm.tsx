@@ -39,6 +39,7 @@ type LibraryItemFormProps = {
     type: 'EXERCISE' | 'REPERTOIRE'
     name: string
     detail: string
+    instrumentIds?: string[]
   }) => void | Promise<void>
 }
 
@@ -105,6 +106,7 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
             type: 'EXERCISE',
             name: data.name.trim(),
             detail: data.notation.trim() ? 'Exercise · with notation' : 'Exercise',
+            instrumentIds: data.instrumentId ? [data.instrumentId] : [],
           })
           return
         }
@@ -128,6 +130,7 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
             type: 'REPERTOIRE',
             name: data.title.trim(),
             detail: 'Repertoire',
+            instrumentIds: (data.instruments ?? []).map((instrument) => instrument.instrumentId),
           })
           return
         }

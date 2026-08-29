@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@solidjs/te
 import type { JSX } from 'solid-js'
 import type { SortableEvent } from 'sortablejs'
 import {
+  getTemplateLibrary,
   updateSessionTemplate,
   type SessionTemplateDetail,
   type TemplateLibraryItem,
@@ -37,6 +38,7 @@ vi.mock('@tanstack/solid-router', () => ({
 
 vi.mock('../../src/data/sessionTemplates', () => ({
   createSessionTemplate: vi.fn(),
+  getTemplateLibrary: vi.fn(),
   updatePlannedSession: vi.fn(),
   updateSessionTemplate: vi.fn(),
 }))
@@ -187,6 +189,76 @@ beforeEach(() => {
 })
 
 describe('PracticePlanEditor', () => {
+  it('filters picker items by the plan instrument and supports independent any-instrument overrides', async () => {
+    const instrumentLibrary: TemplateLibraryItem[] = [
+      {
+        id: 'exercise-trumpet',
+        type: 'EXERCISE',
+        name: 'Trumpet exercise',
+        detail: 'Exercise',
+        instrumentIds: ['1'],
+      },
+      {
+        id: 'exercise-flute',
+        type: 'EXERCISE',
+        name: 'Flute exercise',
+        detail: 'Exercise',
+        instrumentIds: ['2'],
+      },
+      {
+        id: 'exercise-untagged',
+        type: 'EXERCISE',
+        name: 'Untagged exercise',
+        detail: 'Exercise',
+        instrumentIds: [],
+      },
+      {
+        id: 'repertoire-trumpet',
+        type: 'REPERTOIRE',
+        name: 'Trumpet piece',
+        detail: 'Repertoire',
+        instrumentIds: ['1'],
+      },
+      {
+        id: 'repertoire-flute',
+        type: 'REPERTOIRE',
+        name: 'Flute piece',
+        detail: 'Repertoire',
+        instrumentIds: ['2'],
+      },
+    ]
+    const initiallyFilteredLibrary = instrumentLibrary.filter(
+      (item) => item.name !== 'Flute exercise' && item.name !== 'Flute piece',
+    )
+    vi.mocked(getTemplateLibrary)
+      .mockResolvedValueOnce(instrumentLibrary.filter((item) => item.name !== 'Flute piece'))
+      .mockResolvedValueOnce(instrumentLibrary)
+    render(() => (
+      <PracticePlanEditor
+        library={initiallyFilteredLibrary}
+        instruments={[
+          { id: '1', name: 'Trumpet', family: 'BRASS', isPreferred: true },
+          { id: '2', name: 'Flute', family: 'WOODWIND', isPreferred: false },
+        ]}
+        template={{ ...template([]), instrumentId: '1', instrumentName: 'Trumpet' }}
+      />
+    ))
+
+    expect(screen.getByText('Trumpet exercise')).toBeTruthy()
+    expect(screen.getByText('Untagged exercise')).toBeTruthy()
+    expect(screen.queryByText('Flute exercise')).toBeNull()
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Any instrument' }))
+    await waitFor(() => expect(screen.getByText('Flute exercise')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('tab', { name: /Repertoire/ }))
+    expect(screen.getByText('Trumpet piece')).toBeTruthy()
+    expect(screen.queryByText('Flute piece')).toBeNull()
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Any instrument' }))
+    await waitFor(() => expect(screen.getByText('Flute piece')).toBeTruthy())
+  })
+
   it('only offers public template visibility to admins', () => {
     const { unmount } = render(() => <PracticePlanEditor library={library} />)
 

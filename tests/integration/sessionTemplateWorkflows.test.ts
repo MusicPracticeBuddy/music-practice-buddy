@@ -729,6 +729,10 @@ describe('template persistence', () => {
       `INSERT INTO instrument (name, family) VALUES ('Filter trumpet', 'BRASS') RETURNING id::text`,
     )
     const instrumentId = instrument.rows[0]!.id
+    const otherInstrument = await pool.query<{ id: string }>(
+      `INSERT INTO instrument (name, family) VALUES ('Filter flute', 'WOODWIND') RETURNING id::text`,
+    )
+    const otherInstrumentId = otherInstrument.rows[0]!.id
     const exercise = await createExercise({
       data: {
         name: 'Tagged exercise',
@@ -736,6 +740,37 @@ describe('template persistence', () => {
         notationFormat: 'text',
         visibility: 'PRIVATE',
         instrumentId,
+      },
+    })
+    await createExercise({
+      data: {
+        name: 'Untagged exercise',
+        notation: '',
+        notationFormat: 'text',
+        visibility: 'PRIVATE',
+      },
+    })
+    await createExercise({
+      data: {
+        name: 'Other instrument exercise',
+        notation: '',
+        notationFormat: 'text',
+        visibility: 'PRIVATE',
+        instrumentId: otherInstrumentId,
+      },
+    })
+    await createRepertoire({
+      data: {
+        title: 'Tagged repertoire',
+        visibility: 'PRIVATE',
+        instruments: [{ instrumentId, role: 'SOLO', partName: null }],
+      },
+    })
+    await createRepertoire({
+      data: {
+        title: 'Other instrument repertoire',
+        visibility: 'PRIVATE',
+        instruments: [{ instrumentId: otherInstrumentId, role: 'SOLO', partName: null }],
       },
     })
     const template = await createSessionTemplate({
@@ -764,6 +799,47 @@ describe('template persistence', () => {
     expect(sessions.items).toEqual([
       expect.objectContaining({ id: session.id, instrumentId, instrumentName: 'Filter trumpet' }),
     ])
+
+    const filteredPicker = await getTemplateLibrary({
+      data: {
+        instrumentId,
+        exerciseAnyInstrument: false,
+        repertoireAnyInstrument: false,
+      },
+    })
+    expect(
+      filteredPicker.filter((item) => item.type === 'EXERCISE').map((item) => item.name),
+    ).toEqual(['Tagged exercise', 'Untagged exercise'])
+    expect(
+      filteredPicker.filter((item) => item.type === 'REPERTOIRE').map((item) => item.name),
+    ).toEqual(['Tagged repertoire'])
+
+    const anyInstrumentPicker = await getTemplateLibrary({
+      data: {
+        instrumentId,
+        exerciseAnyInstrument: true,
+        repertoireAnyInstrument: true,
+      },
+    })
+    expect(anyInstrumentPicker.map((item) => item.name)).toEqual(
+      expect.arrayContaining([
+        'Other instrument exercise',
+        'Other instrument repertoire',
+        'Tagged exercise',
+        'Tagged repertoire',
+        'Untagged exercise',
+      ]),
+    )
+
+    const searchedPicker = await getTemplateLibrary({
+      data: {
+        instrumentId,
+        exerciseAnyInstrument: true,
+        repertoireAnyInstrument: true,
+        query: 'Other instrument repertoire',
+      },
+    })
+    expect(searchedPicker.map((item) => item.name)).toEqual(['Other instrument repertoire'])
   })
 
   it('creates, edits, and deletes a template with cascading item cleanup', async () => {
