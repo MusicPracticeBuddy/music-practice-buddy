@@ -372,7 +372,7 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
                   >
                     <option value="SOLO">Solo</option>
                     <option value="ACCOMPANIMENT">Accompaniment</option>
-                    <option value="OTHER">Other</option>
+                    <option value="ENSEMBLE">Ensemble</option>
                   </select>
                   <input
                     class="text-input"
