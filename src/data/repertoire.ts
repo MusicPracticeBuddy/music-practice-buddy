@@ -32,7 +32,7 @@ export type RepertoireLibraryPage = {
 export type RepertoireLibrarySearchInput = {
   query: string
   composer: string
-  instrumentId: string
+  instrumentIds: string[]
   visibility: 'ALL' | Visibility
   page: number
 }
@@ -152,7 +152,7 @@ export const REPERTOIRE_LIBRARY_PAGE_SIZE = 20
 export const EMPTY_REPERTOIRE_LIBRARY_SEARCH: RepertoireLibrarySearchInput = {
   query: '',
   composer: '',
-  instrumentId: '',
+  instrumentIds: [],
   visibility: 'ALL',
   page: 1,
 }
@@ -865,7 +865,8 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
     const query = input.query.trim()
     const composer = input.composer.trim()
     if (query.length > 300 || composer.length > 300) throw new Error('Search text is too long')
-    if (input.instrumentId && !/^\d+$/.test(input.instrumentId)) {
+    const instrumentIds = [...new Set(input.instrumentIds)]
+    if (instrumentIds.length > 50 || instrumentIds.some((id) => !/^\d+$/.test(id))) {
       throw new Error('Invalid instrument filter')
     }
     if (
@@ -876,7 +877,7 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
       throw new Error('Invalid visibility filter')
     }
     if (!Number.isInteger(input.page) || input.page < 1) throw new Error('Invalid page')
-    return { ...input, query, composer }
+    return { ...input, query, composer, instrumentIds }
   })
   .handler(async ({ data, context }): Promise<RepertoireLibraryPage> => {
     const parameters: unknown[] = [context.user.musicianId]
@@ -921,11 +922,11 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
           )
       )`)
     }
-    if (data.instrumentId) {
+    if (data.instrumentIds.length > 0) {
       conditions.push(`EXISTS (
         SELECT 1 FROM repertoire_instrument filter_part
         WHERE filter_part.repertoire_id = r.id
-          AND filter_part.instrument_id = ${parameter(data.instrumentId)}::bigint
+          AND filter_part.instrument_id = ANY(${parameter(data.instrumentIds)}::bigint[])
       )`)
     }
     if (data.visibility !== 'ALL') {

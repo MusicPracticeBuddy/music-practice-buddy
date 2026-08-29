@@ -18,15 +18,19 @@ import {
   type RepertoireLibrarySearchInput,
   type RepertoireRow,
 } from '@/data/repertoire'
+import { getMusicianInstrumentIds } from '@/data/preferences'
 
 export const Route = createFileRoute('/library')({
   loader: async () => {
-    const [repertoire, exercises, instruments] = await Promise.all([
-      getRepertoireLibraryPage({ data: EMPTY_REPERTOIRE_LIBRARY_SEARCH }),
+    const [exercises, instruments, instrumentIds] = await Promise.all([
       getExerciseLibraryPage({ data: EMPTY_EXERCISE_LIBRARY_SEARCH }),
       getInstruments(),
+      getMusicianInstrumentIds(),
     ])
-    return { repertoire, exercises, instruments }
+    const repertoire = await getRepertoireLibraryPage({
+      data: { ...EMPTY_REPERTOIRE_LIBRARY_SEARCH, instrumentIds },
+    })
+    return { repertoire, exercises, instruments, instrumentIds }
   },
   component: Library,
 })
@@ -41,7 +45,7 @@ function Library() {
   const [exerciseError, setExerciseError] = createSignal('')
   const [repertoireQuery, setRepertoireQuery] = createSignal('')
   const [composer, setComposer] = createSignal('')
-  const [instrumentId, setInstrumentId] = createSignal('')
+  const [instrumentIds, setInstrumentIds] = createSignal<string[]>(data().instrumentIds)
   const [repertoireVisibility, setRepertoireVisibility] =
     createSignal<RepertoireLibrarySearchInput['visibility']>('ALL')
   const [exerciseQuery, setExerciseQuery] = createSignal('')
@@ -58,7 +62,7 @@ function Library() {
     return {
       query: repertoireQuery(),
       composer: composer(),
-      instrumentId: instrumentId(),
+      instrumentIds: instrumentIds(),
       visibility: repertoireVisibility(),
       page,
     }
@@ -191,22 +195,30 @@ function Library() {
                 }}
               />
             </label>
-            <label>
-              <span>Instrument</span>
-              <select
-                class="text-input"
-                value={instrumentId()}
-                onChange={(event) => {
-                  setInstrumentId(event.currentTarget.value)
-                  queueRepertoireSearch()
-                }}
-              >
-                <option value="">Any instrument</option>
+            <fieldset class="library-instrument-filter">
+              <legend>Instruments</legend>
+              <div class="library-instrument-options">
                 <For each={data().instruments}>
-                  {(instrument) => <option value={instrument.id}>{instrument.name}</option>}
+                  {(instrument) => (
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={instrumentIds().includes(instrument.id)}
+                        onChange={(event) => {
+                          setInstrumentIds((ids) =>
+                            event.currentTarget.checked
+                              ? [...ids, instrument.id]
+                              : ids.filter((id) => id !== instrument.id),
+                          )
+                          queueRepertoireSearch()
+                        }}
+                      />
+                      <span>{instrument.name}</span>
+                    </label>
+                  )}
                 </For>
-              </select>
-            </label>
+              </div>
+            </fieldset>
             <label>
               <span>Visibility</span>
               <select
@@ -230,7 +242,7 @@ function Library() {
               onClick={() => {
                 setRepertoireQuery('')
                 setComposer('')
-                setInstrumentId('')
+                setInstrumentIds([])
                 setRepertoireVisibility('ALL')
                 queueRepertoireSearch()
               }}

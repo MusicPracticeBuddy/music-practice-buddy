@@ -8,15 +8,19 @@ import {
   getInstruments,
   getPublicRepertoireCatalogPage,
 } from '@/data/repertoire'
+import { getMusicianInstrumentIds } from '@/data/preferences'
 
 export const Route = createFileRoute('/repertoire/search')({
   loader: async () => {
-    const [catalog, composers, instruments] = await Promise.all([
-      getPublicRepertoireCatalogPage({ data: EMPTY_CATALOG_SEARCH }),
+    const [composers, instruments, instrumentIds] = await Promise.all([
       getCatalogComposers(),
       getInstruments(),
+      getMusicianInstrumentIds(),
     ])
-    return { catalog, composers, instruments }
+    const catalog = await getPublicRepertoireCatalogPage({
+      data: { ...EMPTY_CATALOG_SEARCH, instrumentIds },
+    })
+    return { catalog, composers, instruments, instrumentIds }
   },
   component: SearchRepertoire,
 })
@@ -70,6 +74,7 @@ function SearchRepertoire() {
           initialPage={data().catalog}
           composers={data().composers}
           instruments={data().instruments}
+          initialInstrumentIds={data().instrumentIds}
         />
         <div class="catalog-create-fallback">
           <div>

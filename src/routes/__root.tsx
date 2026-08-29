@@ -109,6 +109,9 @@ function AuthenticatedShell({ user }: Readonly<{ user: AuthenticatedUser }>) {
         </nav>
         <div class="user-menu">
           <span>{user.displayName}</span>
+          <Link to="/settings" activeProps={{ class: 'active' }}>
+            Settings
+          </Link>
           <button type="button" onClick={switchUser}>
             Switch user
           </button>

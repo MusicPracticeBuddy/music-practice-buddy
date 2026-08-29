@@ -28,6 +28,12 @@ VALUES
     ('Flute', 'WOODWIND'),
     ('Trombone', 'BRASS');
 
+INSERT INTO musician_instrument (musician_id, instrument_id)
+SELECT musician.id, instrument.id
+FROM musician
+JOIN instrument ON instrument.name IN ('Trumpet in B-flat', 'Piano')
+WHERE musician.is_admin;
+
 INSERT INTO person (name, birth_date, death_date, biography_link)
 VALUES
     ('Johann Sebastian Bach', '1685-03-31', '1750-07-28', 'https://en.wikipedia.org/wiki/Johann_Sebastian_Bach'),

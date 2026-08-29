@@ -61,13 +61,21 @@ a {
   font-weight: 600;
 }
 
-.user-menu button {
+.user-menu button,
+.user-menu a {
   padding: 7px 9px;
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--green);
   background: var(--paper);
   cursor: pointer;
+}
+.user-menu a {
+  text-decoration: none;
+}
+
+.user-menu a.active {
+  border-color: var(--green);
 }
 
 .login-page {
@@ -458,6 +466,36 @@ h1 {
 
 .library-filter-bar .text-input {
   width: 100%;
+}
+.library-instrument-filter {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.library-instrument-filter legend {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.library-instrument-options {
+  display: grid;
+  max-height: 116px;
+  gap: 5px;
+  overflow-y: auto;
+}
+
+.library-instrument-options label {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  font-size: 13px;
+  cursor: pointer;
 }
 
 .library-filter-clear {
@@ -1078,6 +1116,56 @@ textarea.text-input {
 .form-error {
   margin: 12px 0;
   color: #9a382d;
+  font-size: 13px;
+}
+.settings-instrument-fieldset {
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.settings-instrument-fieldset legend {
+  font-family: 'Fraunces', serif;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.settings-instrument-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.settings-instrument-options label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  cursor: pointer;
+}
+
+.settings-instrument-options input {
+  margin-top: 4px;
+}
+
+.settings-instrument-options span,
+.settings-instrument-options small {
+  display: block;
+}
+
+.settings-instrument-options small {
+  margin-top: 2px;
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+.form-success {
+  margin: 12px 0;
+  color: var(--green);
   font-size: 13px;
 }
 
@@ -2650,6 +2738,10 @@ textarea.text-input {
   }
 
   .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-instrument-options {
     grid-template-columns: 1fr;
   }
 

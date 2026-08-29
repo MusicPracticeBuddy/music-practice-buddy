@@ -15,6 +15,7 @@ import {
   removeExerciseFromLibrary,
   updateExercise,
 } from '@/data/exercises'
+import { getMusicianInstrumentIds, updateMusicianInstrumentIds } from '@/data/preferences'
 import {
   EMPTY_CATALOG_SEARCH,
   EMPTY_REPERTOIRE_LIBRARY_SEARCH,
@@ -127,6 +128,30 @@ beforeEach(async () => {
   await resetDatabase()
 })
 afterAll(() => pool.end())
+
+describe('musician instrument preferences', () => {
+  it('replaces the saved list atomically', async () => {
+    const instruments = await pool.query<{ id: string }>(
+      `INSERT INTO instrument (name, family)
+       VALUES ('Preference flute', 'WOODWIND'), ('Preference piano', 'KEYBOARD')
+       RETURNING id::text`,
+    )
+    const ids = instruments.rows.map((instrument) => instrument.id)
+
+    await expect(
+      updateMusicianInstrumentIds({ data: [ids[0]!, ids[1]!, ids[0]!] }),
+    ).resolves.toEqual(ids)
+    await expect(getMusicianInstrumentIds()).resolves.toEqual(ids)
+
+    await updateMusicianInstrumentIds({ data: [ids[0]!] })
+    await expect(getMusicianInstrumentIds()).resolves.toEqual([ids[0]])
+
+    await expect(updateMusicianInstrumentIds({ data: ['999999'] })).rejects.toThrow(
+      'Instrument not found',
+    )
+    await expect(getMusicianInstrumentIds()).resolves.toEqual([ids[0]])
+  })
+})
 
 describe('library item persistence', () => {
   it('searches and paginates public exercises and adds them to My Library', async () => {
@@ -284,7 +309,7 @@ describe('library item persistence', () => {
         data: {
           ...EMPTY_REPERTOIRE_LIBRARY_SEARCH,
           composer: 'chopn',
-          instrumentId: libraryInstrument.rows[0]!.id,
+          instrumentIds: [libraryInstrument.rows[0]!.id],
           visibility: 'PUBLIC',
         },
       }),

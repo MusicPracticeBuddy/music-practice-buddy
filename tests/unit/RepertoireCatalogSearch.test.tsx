@@ -63,12 +63,14 @@ const items: CatalogRepertoireRow[] = [
 
 function renderSearch(
   initialPage = { items, page: 1, pageSize: 25, total: items.length, totalPages: 1 },
+  initialInstrumentIds: string[] = [],
 ) {
   return render(() => (
     <RepertoireCatalogSearch
       initialPage={initialPage}
       composers={composers}
       instruments={instruments}
+      initialInstrumentIds={initialInstrumentIds}
     />
   ))
 }
@@ -134,6 +136,26 @@ describe('RepertoireCatalogSearch', () => {
     expect(mocks.searchCatalog).toHaveBeenLastCalledWith({
       data: expect.objectContaining({ yearFrom: 1800, yearTo: 1900, page: 1 }),
     })
+  })
+
+  it('starts with the musician instruments selected and can clear them', async () => {
+    const initialInput = {
+      query: '',
+      composer: '',
+      instrumentIds: ['20'],
+      instrumentMatch: 'ANY' as const,
+      yearFrom: null,
+      yearTo: null,
+      page: 1,
+    }
+    renderSearch(matchingPage(initialInput), initialInput.instrumentIds)
+
+    expect((screen.getByRole('checkbox', { name: /Piano/ }) as HTMLInputElement).checked).toBe(true)
+    expect((screen.getByRole('checkbox', { name: /Violin/ }) as HTMLInputElement).checked).toBe(
+      false,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all filters' }))
+    await waitFor(() => expect(screen.getByText('3 matching works')).toBeTruthy())
   })
 
   it('supports matching any or all selected instruments', async () => {

@@ -15,12 +15,15 @@ export function RepertoireCatalogSearch(props: {
   initialPage: CatalogSearchPage
   composers: CatalogComposerOption[]
   instruments: InstrumentOption[]
+  initialInstrumentIds?: string[]
 }) {
   const router = useRouter()
   const [query, setQuery] = createSignal('')
   const [composerQuery, setComposerQuery] = createSignal('')
   const [instrumentQuery, setInstrumentQuery] = createSignal('')
-  const [selectedInstrumentIds, setSelectedInstrumentIds] = createSignal<string[]>([])
+  const [selectedInstrumentIds, setSelectedInstrumentIds] = createSignal<string[]>(
+    props.initialInstrumentIds ?? [],
+  )
   const [instrumentMatch, setInstrumentMatch] = createSignal<CatalogInstrumentMatch>('ANY')
   const [yearFrom, setYearFrom] = createSignal('')
   const [yearTo, setYearTo] = createSignal('')
