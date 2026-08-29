@@ -7,6 +7,7 @@ import { pool } from '@/data/db'
 import {
   LIBRARY_ITEM_TYPE,
   PRACTICE_ITEM_TYPE,
+  isLibraryItemType,
   isPracticeItemType,
   type LibraryItemType,
   type PracticeItemType,
@@ -36,6 +37,7 @@ export type TemplateLibrarySearchInput = {
   exerciseAnyInstrument: boolean
   repertoireAnyInstrument: boolean
   query?: string
+  type?: LibraryItemType | null
 }
 
 export const EMPTY_TEMPLATE_LIBRARY_SEARCH: TemplateLibrarySearchInput = {
@@ -43,6 +45,7 @@ export const EMPTY_TEMPLATE_LIBRARY_SEARCH: TemplateLibrarySearchInput = {
   exerciseAnyInstrument: false,
   repertoireAnyInstrument: false,
   query: '',
+  type: null,
 }
 
 export type SessionTemplateSummary = {
@@ -427,11 +430,15 @@ export const getTemplateLibrary = createServerFn({ method: 'GET' })
   .validator((input: TemplateLibrarySearchInput = EMPTY_TEMPLATE_LIBRARY_SEARCH) => {
     const query = input.query?.trim() ?? ''
     if (query.length > 200) throw new Error('Search text is too long')
+    if (input.type != null && !isLibraryItemType(input.type)) {
+      throw new Error('Invalid library type')
+    }
     return {
       instrumentId: validateInstrumentId(input.instrumentId),
       exerciseAnyInstrument: Boolean(input.exerciseAnyInstrument),
       repertoireAnyInstrument: Boolean(input.repertoireAnyInstrument),
       query,
+      type: input.type ?? null,
     }
   })
   .handler(async ({ data, context }): Promise<TemplateLibraryItem[]> => {
@@ -472,8 +479,10 @@ export const getTemplateLibrary = createServerFn({ method: 'GET' })
     }
     const filterRepertoireRows = repertoireMatchConditions.length > 0
     const [exercises, repertoire] = await Promise.all([
-      pool.query<{ id: string; name: string; detail: string; instrumentIds: string[] }>(
-        `
+      data.type === LIBRARY_ITEM_TYPE.REPERTOIRE
+        ? Promise.resolve({ rows: [] })
+        : pool.query<{ id: string; name: string; detail: string; instrumentIds: string[] }>(
+            `
         SELECT
           exercise.id::text,
           COALESCE(exercise.name, 'Untitled exercise') AS name,
@@ -489,17 +498,19 @@ export const getTemplateLibrary = createServerFn({ method: 'GET' })
           AND (exercise.musician_id = $1 OR exercise.visibility = 'PUBLIC')
           ${exerciseConditions.map((condition) => `AND ${condition}`).join('\n          ')}
         ORDER BY exercise.name NULLS LAST, exercise.id
-      `,
-        exerciseParameters,
-      ),
-      pool.query<{
-        id: string
-        parentId: string | null
-        name: string
-        detail: string
-        instrumentIds: string[]
-      }>(
-        `
+            `,
+            exerciseParameters,
+          ),
+      data.type === LIBRARY_ITEM_TYPE.EXERCISE
+        ? Promise.resolve({ rows: [] })
+        : pool.query<{
+            id: string
+            parentId: string | null
+            name: string
+            detail: string
+            instrumentIds: string[]
+          }>(
+            `
         WITH RECURSIVE access AS (
           SELECT id, owner_musician_id, visibility
           FROM repertoire WHERE parent_repertoire_id IS NULL AND deleted_at IS NULL
@@ -555,9 +566,9 @@ export const getTemplateLibrary = createServerFn({ method: 'GET' })
         ${filterRepertoireRows ? 'JOIN matching_repertoire matching ON matching.id = repertoire.id' : ''}
         LEFT JOIN repertoire parent ON parent.id = repertoire.parent_repertoire_id
         ORDER BY repertoire.title, repertoire.id
-      `,
-        repertoireParameters,
-      ),
+            `,
+            repertoireParameters,
+          ),
     ])
 
     const repertoireItems = new Map(

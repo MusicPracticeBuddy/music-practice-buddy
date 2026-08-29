@@ -218,6 +218,27 @@ function PlanSortableList(props: {
   )
 }
 
+function libraryCacheKey(
+  type: LibraryItemType,
+  selectedInstrumentId: string,
+  anyExerciseInstrument: boolean,
+  anyRepertoireInstrument: boolean,
+  query: string,
+) {
+  return [
+    type,
+    selectedInstrumentId,
+    type === LIBRARY_ITEM_TYPE.EXERCISE
+      ? anyExerciseInstrument
+        ? 'any-instrument'
+        : 'filtered-instrument'
+      : anyRepertoireInstrument
+        ? 'any-instrument'
+        : 'filtered-instrument',
+    query.trim().toLocaleLowerCase(),
+  ].join('|')
+}
+
 export function PracticePlanEditor(props: {
   library: TemplateLibraryItem[]
   instruments?: InstrumentOption[]
@@ -258,6 +279,14 @@ export function PracticePlanEditor(props: {
   const [loadingLibrary, setLoadingLibrary] = createSignal(false)
   let publicRepertoireRequest = 0
   let libraryRequest = 0
+  const libraryCache = new Map<string, TemplateLibraryItem[]>()
+
+  for (const type of [LIBRARY_ITEM_TYPE.EXERCISE, LIBRARY_ITEM_TYPE.REPERTOIRE]) {
+    libraryCache.set(
+      libraryCacheKey(type, instrumentId(), false, false, ''),
+      props.library.filter((item) => item.type === type),
+    )
+  }
 
   const searchableRepertoire = createMemo(() => {
     const libraryRepertoire = library.filter((item) => item.type === LIBRARY_ITEM_TYPE.REPERTOIRE)
@@ -454,6 +483,7 @@ export function PracticePlanEditor(props: {
   }
 
   function addCreatedItem(item: TemplateLibraryItem) {
+    libraryCache.clear()
     setLibrary((items) => [...items, item])
     setLibraryType(item.type)
     addLibraryEntry(item, newItemInstruction())
@@ -512,7 +542,13 @@ export function PracticePlanEditor(props: {
       publicRepertoireRequest += 1
       setLoadingPublicRepertoire(false)
       setLibraryQuery(query)
-      void loadLibrary(instrumentId(), exerciseAnyInstrument(), repertoireAnyInstrument(), query)
+      void loadLibrary(
+        instrumentId(),
+        exerciseAnyInstrument(),
+        repertoireAnyInstrument(),
+        query,
+        LIBRARY_ITEM_TYPE.REPERTOIRE,
+      )
       return
     }
     await searchPublicCatalog(query, 1)
@@ -523,7 +559,37 @@ export function PracticePlanEditor(props: {
     nextExerciseAnyInstrument: boolean,
     nextRepertoireAnyInstrument: boolean,
     query = libraryQuery(),
+    type: LibraryItemType | null = null,
   ) {
+    const cachedItems = (resultType: LibraryItemType) =>
+      libraryCache.get(
+        libraryCacheKey(
+          resultType,
+          nextInstrumentId,
+          nextExerciseAnyInstrument,
+          nextRepertoireAnyInstrument,
+          query,
+        ),
+      )
+    if (type !== null) {
+      const cached = cachedItems(type)
+      if (cached) {
+        libraryRequest += 1
+        setLibrary((current) => [...current.filter((item) => item.type !== type), ...cached])
+        setLoadingLibrary(false)
+        return
+      }
+    } else {
+      const cachedExercises = cachedItems(LIBRARY_ITEM_TYPE.EXERCISE)
+      const cachedRepertoire = cachedItems(LIBRARY_ITEM_TYPE.REPERTOIRE)
+      if (cachedExercises && cachedRepertoire) {
+        libraryRequest += 1
+        setLibrary([...cachedExercises, ...cachedRepertoire])
+        setLoadingLibrary(false)
+        return
+      }
+    }
+
     const request = ++libraryRequest
     setLoadingLibrary(true)
     setError('')
@@ -534,9 +600,39 @@ export function PracticePlanEditor(props: {
           exerciseAnyInstrument: nextExerciseAnyInstrument,
           repertoireAnyInstrument: nextRepertoireAnyInstrument,
           query,
+          type,
         },
       })
-      if (request === libraryRequest) setLibrary(items)
+      if (request === libraryRequest) {
+        if (type === null) {
+          for (const resultType of [LIBRARY_ITEM_TYPE.EXERCISE, LIBRARY_ITEM_TYPE.REPERTOIRE]) {
+            libraryCache.set(
+              libraryCacheKey(
+                resultType,
+                nextInstrumentId,
+                nextExerciseAnyInstrument,
+                nextRepertoireAnyInstrument,
+                query,
+              ),
+              items.filter((item) => item.type === resultType),
+            )
+          }
+        } else {
+          libraryCache.set(
+            libraryCacheKey(
+              type,
+              nextInstrumentId,
+              nextExerciseAnyInstrument,
+              nextRepertoireAnyInstrument,
+              query,
+            ),
+            items,
+          )
+        }
+        setLibrary((current) =>
+          type === null ? items : [...current.filter((item) => item.type !== type), ...items],
+        )
+      }
     } catch (caught) {
       if (request === libraryRequest) setError(errorMessage(caught))
     } finally {
@@ -546,28 +642,66 @@ export function PracticePlanEditor(props: {
 
   function changeInstrument(nextInstrumentId: string) {
     setInstrumentId(nextInstrumentId)
-    void loadLibrary(nextInstrumentId, exerciseAnyInstrument(), repertoireAnyInstrument())
-    if (searchPublicRepertoire()) {
+    if (libraryType() === LIBRARY_ITEM_TYPE.REPERTOIRE && searchPublicRepertoire()) {
       void searchPublicCatalog(publicRepertoireQuery(), 1)
+      return
     }
+    void loadLibrary(
+      nextInstrumentId,
+      exerciseAnyInstrument(),
+      repertoireAnyInstrument(),
+      libraryQuery(),
+      libraryType(),
+    )
   }
 
   function changeAnyInstrument(type: LibraryItemType, enabled: boolean) {
     if (type === LIBRARY_ITEM_TYPE.EXERCISE) {
       setExerciseAnyInstrument(enabled)
-      void loadLibrary(instrumentId(), enabled, repertoireAnyInstrument())
+      void loadLibrary(
+        instrumentId(),
+        enabled,
+        repertoireAnyInstrument(),
+        libraryQuery(),
+        LIBRARY_ITEM_TYPE.EXERCISE,
+      )
       return
     }
     setRepertoireAnyInstrument(enabled)
-    void loadLibrary(instrumentId(), exerciseAnyInstrument(), enabled)
     if (searchPublicRepertoire()) {
       void searchPublicCatalog(publicRepertoireQuery(), 1)
+      return
     }
+    void loadLibrary(
+      instrumentId(),
+      exerciseAnyInstrument(),
+      enabled,
+      libraryQuery(),
+      LIBRARY_ITEM_TYPE.REPERTOIRE,
+    )
   }
 
   function searchLibrary(query: string) {
     setLibraryQuery(query)
-    void loadLibrary(instrumentId(), exerciseAnyInstrument(), repertoireAnyInstrument(), query)
+    void loadLibrary(
+      instrumentId(),
+      exerciseAnyInstrument(),
+      repertoireAnyInstrument(),
+      query,
+      libraryType(),
+    )
+  }
+
+  function changeLibraryType(type: LibraryItemType) {
+    setLibraryType(type)
+    if (type === LIBRARY_ITEM_TYPE.REPERTOIRE && searchPublicRepertoire()) return
+    void loadLibrary(
+      instrumentId(),
+      exerciseAnyInstrument(),
+      repertoireAnyInstrument(),
+      libraryQuery(),
+      type,
+    )
   }
 
   return (
@@ -782,7 +916,7 @@ export function PracticePlanEditor(props: {
           subtitle="Adds to the selected section"
           items={library}
           type={libraryType()}
-          onTypeChange={setLibraryType}
+          onTypeChange={changeLibraryType}
           onSelect={addLibraryEntry}
           dragMode="sortable"
           publicRepertoireItems={searchableRepertoire()}

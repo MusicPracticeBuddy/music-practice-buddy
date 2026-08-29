@@ -244,7 +244,7 @@ export function PracticeLibraryPanel(props: {
             clearTimeout(searchTimer)
             setLocalPage(1)
             props.onTypeChange(LIBRARY_ITEM_TYPE.EXERCISE)
-            props.onSearchChange?.(search().trim())
+            if (search().trim()) props.onSearchChange?.(search().trim())
           }}
         >
           Exercises ({props.items.filter((item) => item.type === LIBRARY_ITEM_TYPE.EXERCISE).length}
@@ -259,7 +259,9 @@ export function PracticeLibraryPanel(props: {
             clearTimeout(searchTimer)
             setLocalPage(1)
             props.onTypeChange(LIBRARY_ITEM_TYPE.REPERTOIRE)
-            if (!props.searchPublicRepertoire) props.onSearchChange?.(search().trim())
+            if (!props.searchPublicRepertoire && search().trim()) {
+              props.onSearchChange?.(search().trim())
+            }
           }}
         >
           Repertoire (

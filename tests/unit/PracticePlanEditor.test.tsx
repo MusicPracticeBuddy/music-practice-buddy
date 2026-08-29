@@ -231,8 +231,8 @@ describe('PracticePlanEditor', () => {
       (item) => item.name !== 'Flute exercise' && item.name !== 'Flute piece',
     )
     vi.mocked(getTemplateLibrary)
-      .mockResolvedValueOnce(instrumentLibrary.filter((item) => item.name !== 'Flute piece'))
-      .mockResolvedValueOnce(instrumentLibrary)
+      .mockResolvedValueOnce(instrumentLibrary.filter((item) => item.type === 'EXERCISE'))
+      .mockResolvedValueOnce(instrumentLibrary.filter((item) => item.type === 'REPERTOIRE'))
     render(() => (
       <PracticePlanEditor
         library={initiallyFilteredLibrary}

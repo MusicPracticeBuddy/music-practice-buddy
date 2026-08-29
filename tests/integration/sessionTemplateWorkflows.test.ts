@@ -837,6 +837,7 @@ describe('template persistence', () => {
         exerciseAnyInstrument: true,
         repertoireAnyInstrument: true,
         query: 'Other instrument repertoire',
+        type: 'REPERTOIRE',
       },
     })
     expect(searchedPicker.map((item) => item.name)).toEqual(['Other instrument repertoire'])
