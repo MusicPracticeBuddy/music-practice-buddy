@@ -2,7 +2,7 @@
   "name": "Music Practice Buddy",
   "dockerComposeFile": ["../compose.yml", "compose.yml"],
   "service": "app",
-  "workspaceFolder": "/workspaces/music_practice",
+  "workspaceFolder": "/workspaces/music-practice-buddy",
   "runServices": ["app"],
   "shutdownAction": "stopCompose",
   "remoteUser": "node",

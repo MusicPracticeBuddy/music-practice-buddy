@@ -25,8 +25,8 @@ services:
 
     volumes:
       # Compose resolves paths relative to the first file (the repository's compose.yml).
-      - .:/workspaces/music_practice:cached
-      - node_modules:/workspaces/music_practice/node_modules
+      - .:/workspaces/music-practice-buddy:cached
+      - node_modules:/workspaces/music-practice-buddy/node_modules
 
     depends_on:
       seed:
