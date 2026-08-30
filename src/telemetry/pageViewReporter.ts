@@ -1,8 +1,9 @@
 import { createServerFn } from '@tanstack/solid-start'
 import { recordPageView } from '@/telemetry/provider.server'
-import type { PageView } from '@/telemetry/telemetry'
+import type { PageViewData } from '@/telemetry/telemetry'
+import { isTraceId } from '@/telemetry/trace'
 
-function validatePageView(input: PageView): PageView {
+function validatePageView(input: PageViewData): PageViewData {
   if (
     typeof input !== 'object' ||
     input === null ||
@@ -11,7 +12,8 @@ function validatePageView(input: PageView): PageView {
     input.path.length > 2048 ||
     typeof input.routeId !== 'string' ||
     input.routeId.length === 0 ||
-    input.routeId.length > 256
+    input.routeId.length > 256 ||
+    !isTraceId(input.traceId)
   ) {
     throw new Error('Invalid page view')
   }

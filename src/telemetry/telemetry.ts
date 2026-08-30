@@ -1,19 +1,32 @@
 export type OperationOutcome = 'success' | 'error'
 
-export type PageView = {
+export type PageViewData = {
   path: string
   routeId: string
+  traceId: string
 }
 
-export type ServerFunctionCall = {
+export type ServerFunctionCallData = {
   functionName: string
   method: string
+  traceId: string
 }
 
-export type SqlQuery = {
+export type SqlQueryData = {
+  queryName: string
   operation: string
   statement: string
+  traceId: string
 }
+
+export type TelemetryMetadata = {
+  serverVersion: string
+  timestamp: string
+}
+
+export type PageView = PageViewData & TelemetryMetadata
+export type ServerFunctionCall = ServerFunctionCallData & TelemetryMetadata
+export type SqlQuery = SqlQueryData & TelemetryMetadata
 
 /**
  * A provider can use run() to make a span current while the operation executes,

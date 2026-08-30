@@ -1,5 +1,6 @@
 import type { Pool, PoolClient, QueryConfig } from 'pg'
 import { startSqlQuery } from '@/telemetry/provider.server'
+import { getOrCreateTraceId } from '@/telemetry/traceContext.server'
 
 const instrumentedClients = new WeakSet<PoolClient>()
 
@@ -15,8 +16,10 @@ function instrumentPostgresClient(client: PoolClient): void {
   client.query = ((...args: Parameters<PoolClient['query']>) => {
     const statement = getStatement(args[0])
     const operation = startSqlQuery({
+      queryName: getQueryName(args[0], statement),
       operation: getSqlOperation(statement),
       statement,
+      traceId: getOrCreateTraceId(),
     })
 
     const queryArguments = args as unknown[]
@@ -53,8 +56,57 @@ function getStatement(query: string | QueryConfig): string {
 }
 
 function getSqlOperation(statement: string): string {
-  const withoutComments = statement.replace(/^\s*(?:(?:--[^\n]*\n)|(?:\/\*[\s\S]*?\*\/\s*))*/, '')
-  return withoutComments.match(/^[A-Za-z]+/)?.[0]?.toUpperCase() ?? 'UNKNOWN'
+  const normalized = normalizeStatement(statement)
+  if (/^(?:BEGIN|START\s+TRANSACTION)\b/i.test(normalized)) return 'BEGIN'
+  if (/^COMMIT\b/i.test(normalized)) return 'COMMIT'
+  if (/^ROLLBACK\b/i.test(normalized)) return 'ROLLBACK'
+  if (/\bINSERT\s+INTO\b/i.test(normalized)) return 'INSERT'
+  if (/\bUPDATE\s+[A-Za-z_"]/i.test(normalized)) return 'UPDATE'
+  if (/\bDELETE\s+FROM\b/i.test(normalized)) return 'DELETE'
+  if (/\bSELECT\b/i.test(normalized)) return 'SELECT'
+  return normalized.match(/^[A-Za-z]+/)?.[0]?.toUpperCase() ?? 'UNKNOWN'
+}
+
+function getQueryName(query: string | QueryConfig, statement: string): string {
+  if (typeof query !== 'string' && query.name) return query.name
+
+  const normalized = normalizeStatement(statement)
+  const operation = getSqlOperation(normalized)
+  if (operation === 'BEGIN' || operation === 'COMMIT' || operation === 'ROLLBACK') {
+    return `transaction-${operation.toLowerCase()}`
+  }
+
+  const action = getQueryAction(operation, normalized)
+  const relation = getPrimaryRelation(operation, normalized)
+  return relation ? `${action}-${relation}` : action
+}
+
+function getQueryAction(operation: string, statement: string): string {
+  if (operation !== 'SELECT') return operation.toLowerCase()
+  if (/\bSELECT\s+(?:DISTINCT\s+)?count\s*\(/i.test(statement)) return 'count'
+  if (/\bSELECT\s+1\b/i.test(statement)) return 'check'
+  if (/\bLIMIT\s+1\b/i.test(statement)) return 'get'
+  return 'list'
+}
+
+function getPrimaryRelation(operation: string, statement: string): string | null {
+  const pattern =
+    operation === 'INSERT'
+      ? /\bINSERT\s+INTO\s+([A-Za-z_"][\w."]*)/i
+      : operation === 'UPDATE'
+        ? /\bUPDATE\s+([A-Za-z_"][\w."]*)/i
+        : operation === 'DELETE'
+          ? /\bDELETE\s+FROM\s+([A-Za-z_"][\w."]*)/i
+          : /\bFROM\s+([A-Za-z_"][\w."]*)/i
+  const relation = statement.match(pattern)?.[1]
+  return relation ? relation.replaceAll('"', '').replaceAll('.', '-').replaceAll('_', '-') : null
+}
+
+function normalizeStatement(statement: string): string {
+  return statement
+    .replace(/^\s*(?:(?:--[^\n]*(?:\n|$))|(?:\/\*[\s\S]*?\*\/\s*))*/, '')
+    .replaceAll(/\s+/g, ' ')
+    .trim()
 }
 
 function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
