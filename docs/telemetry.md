@@ -27,6 +27,8 @@ Each browser API call receives a W3C-style 32-character trace ID. Navigations es
 trace before route loading begins, so the page-view report, route-loader server functions, and their
 SQL queries share one ID. Other API calls receive one trace ID per call. Server-side async context
 propagates the ID to nested SQL queries without adding it to application function arguments.
+Client server-function calls also send a W3C `traceparent` header, allowing OpenTelemetry's inbound
+HTTP spans, TanStack spans, SQL spans, and metric exemplars to use that same trace ID.
 The async context and provider registry use process-global symbols because TanStack can include the
 same telemetry modules in multiple server-function chunks; all chunks therefore share one active
 trace and provider instance.
@@ -71,5 +73,19 @@ background. Exceptions thrown while starting or ending telemetry operations are 
 swallowed so monitoring outages cannot break application requests. The `run` method must preserve
 the callback's return value and errors. Call `resetTelemetry()` in tests that replace the provider.
 
-Prometheus, Grafana, Tempo, an OpenTelemetry SDK, and an OpenTelemetry Collector belong in the
-downstream deployment project rather than this repository.
+Prometheus, Grafana, Tempo, exporters, and an OpenTelemetry Collector belong in the downstream
+deployment project rather than this repository.
+
+## Experimental OpenTelemetry integration
+
+The project includes TanStack Start's experimental, manual OpenTelemetry setup for Node. It is
+disabled by default. Set `OTEL_ENABLED=true` to initialize the OpenTelemetry Node SDK before the
+application server is imported. The integration enables the official Node auto-instrumentations and
+uses this project's provider hooks for page-view, server-function, and named SQL spans and metrics.
+Automatic PostgreSQL instrumentation is disabled to prevent duplicate SQL spans.
+
+The SDK uses standard OpenTelemetry environment variables for exporters and collector endpoints. A
+typical OTLP deployment sets `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_PROTOCOL`, and
+optionally `OTEL_SERVICE_NAME`. `SERVER_VERSION` is attached as the `service.version` resource
+attribute. If OpenTelemetry is disabled, the existing no-op/optional-console provider behavior is
+unchanged.

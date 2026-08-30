@@ -6,6 +6,12 @@ export function createTraceId(): string {
   return crypto.randomUUID().replaceAll('-', '')
 }
 
+export function createTraceParent(traceId: string): string {
+  const spanIdBytes = crypto.getRandomValues(new Uint8Array(8))
+  const spanId = Array.from(spanIdBytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+  return `00-${traceId}-${spanId}-01`
+}
+
 export function isTraceId(value: unknown): value is string {
   return typeof value === 'string' && TRACE_ID_PATTERN.test(value)
 }

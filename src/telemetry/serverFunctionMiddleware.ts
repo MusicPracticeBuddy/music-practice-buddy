@@ -1,13 +1,16 @@
 import { createMiddleware } from '@tanstack/solid-start'
 import { startServerFunction } from '@/telemetry/provider.server'
-import { createTraceId, getClientTraceId, isTraceId } from '@/telemetry/trace'
+import { createTraceId, createTraceParent, getClientTraceId, isTraceId } from '@/telemetry/trace'
 import { runWithTraceId } from '@/telemetry/traceContext.server'
 
 export const telemetryServerFunctionMiddleware = createMiddleware({ type: 'function' })
   .client(async ({ data, next }) => {
     const dataTraceId = getDataTraceId(data)
     const traceId = dataTraceId ?? getClientTraceId() ?? createTraceId()
-    return next({ sendContext: { telemetryTraceId: traceId } })
+    return next({
+      headers: { traceparent: createTraceParent(traceId) },
+      sendContext: { telemetryTraceId: traceId },
+    })
   })
   .server(async ({ context, method, next, serverFnMeta }) => {
     const traceId = isTraceId(context.telemetryTraceId) ? context.telemetryTraceId : createTraceId()

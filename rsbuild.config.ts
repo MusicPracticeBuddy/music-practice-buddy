@@ -5,6 +5,13 @@ import { tanstackStart } from '@tanstack/solid-start/plugin/rsbuild'
 import { fileURLToPath } from 'node:url'
 
 export default defineConfig({
+  environments: {
+    ssr: {
+      output: {
+        externals: [/^@opentelemetry\//],
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
