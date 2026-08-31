@@ -80,10 +80,11 @@ deployment project rather than this repository.
 
 The project includes TanStack Start's experimental, manual OpenTelemetry setup for Node. It is
 disabled by default. Set `OTEL_ENABLED=true` to initialize the OpenTelemetry Node SDK before the
-application server is imported. The integration enables the official Node auto-instrumentations and
-uses this project's provider hooks for page-view and server-function spans and metrics. PostgreSQL
-spans and standard database metrics come from `@opentelemetry/instrumentation-pg`. Its request hook
-adds the stable application query name to each span, while a metrics-only pool wrapper retains
+application server is imported. To keep the production dependency graph small, the integration
+registers only the instrumentations the application uses: `@opentelemetry/instrumentation-http` for
+inbound and outbound Node HTTP traffic and `@opentelemetry/instrumentation-pg` for PostgreSQL. The
+project's provider hooks add page-view and server-function spans and metrics. The PostgreSQL request
+hook adds the stable application query name to each span, while a metrics-only pool wrapper retains
 bounded per-query call, duration, and outcome series for dashboards without creating duplicate SQL
 spans.
 

@@ -1,4 +1,4 @@
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { PgInstrumentation } from '@opentelemetry/instrumentation-pg';
 import { defaultResource, resourceFromAttributes } from '@opentelemetry/resources';
 import { NodeSDK } from '@opentelemetry/sdk-node';
@@ -22,9 +22,7 @@ export async function initializeOpenTelemetry(): Promise<void> {
   const sdk = new NodeSDK({
     resource,
     instrumentations: [
-      getNodeAutoInstrumentations({
-        '@opentelemetry/instrumentation-pg': { enabled: false },
-      }),
+      new HttpInstrumentation(),
       new PgInstrumentation({
         requestHook: setPostgresQueryName,
       }),
