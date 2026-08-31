@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { groupInstrumentOptions, instrumentFamilyLabel } from '@/domain/instrument'
+import { describe, expect, it } from 'vitest';
+import { groupInstrumentOptions, instrumentFamilyLabel } from '@/domain/instrument';
 
 describe('instrument option grouping', () => {
   it('puts preferred instruments first and groups the rest by family', () => {
@@ -8,7 +8,7 @@ describe('instrument option grouping', () => {
       { id: '2', name: 'Flute', family: 'WOODWIND', isPreferred: false },
       { id: '3', name: 'Trumpet', family: 'BRASS', isPreferred: true },
       { id: '4', name: 'Clarinet', family: 'WOODWIND', isPreferred: false },
-    ])
+    ]);
 
     expect(groups).toEqual([
       {
@@ -25,10 +25,10 @@ describe('instrument option grouping', () => {
           { id: '4', name: 'Clarinet', family: 'WOODWIND', isPreferred: false },
         ],
       },
-    ])
-  })
+    ]);
+  });
 
   it('formats multi-word family names', () => {
-    expect(instrumentFamilyLabel('FRETTED_STRING')).toBe('Fretted String')
-  })
-})
+    expect(instrumentFamilyLabel('FRETTED_STRING')).toBe('Fretted String');
+  });
+});

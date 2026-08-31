@@ -1,16 +1,16 @@
-import { defineConfig, type RsbuildConfig } from '@rsbuild/core'
-import { pluginBabel } from '@rsbuild/plugin-babel'
-import { pluginSolid } from '@rsbuild/plugin-solid'
-import { tanstackStart } from '@tanstack/solid-start/plugin/rsbuild'
-import { fileURLToPath } from 'node:url'
+import { defineConfig, type RsbuildConfig } from '@rsbuild/core';
+import { pluginBabel } from '@rsbuild/plugin-babel';
+import { pluginSolid } from '@rsbuild/plugin-solid';
+import { tanstackStart } from '@tanstack/solid-start/plugin/rsbuild';
+import { fileURLToPath } from 'node:url';
 
-type EditionBuild = 'community' | 'pro-proof'
+type EditionBuild = 'community' | 'pro-proof';
 
 export function createRsbuildConfig(edition: EditionBuild): RsbuildConfig {
-  const appSource = `apps/${edition}/src`
+  const appSource = `apps/${edition}/src`;
   const coreSource = fileURLToPath(
     new URL('../node_modules/@music-practice-buddy/core/src', import.meta.url),
-  )
+  );
 
   return defineConfig({
     ...(edition === 'pro-proof'
@@ -52,5 +52,5 @@ export function createRsbuildConfig(edition: EditionBuild): RsbuildConfig {
         },
       }),
     ],
-  })
+  });
 }

@@ -1,3 +1,3 @@
-import { createRsbuildConfig } from './config/createRsbuildConfig'
+import { createRsbuildConfig } from './config/createRsbuildConfig';
 
-export default createRsbuildConfig('pro-proof')
+export default createRsbuildConfig('pro-proof');

@@ -1,20 +1,20 @@
-import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js'
-import Sortable from 'sortablejs'
-import type { TemplateLibraryItem } from '@/data/sessionTemplates'
+import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
+import Sortable from 'sortablejs';
+import type { TemplateLibraryItem } from '@/data/sessionTemplates';
 import {
   LIBRARY_ITEM_TYPE,
   type LibraryItemType as PracticeLibraryItemType,
-} from '@/domain/session'
+} from '@/domain/session';
 
-export type { PracticeLibraryItemType }
+export type { PracticeLibraryItemType };
 
-const LIBRARY_PAGE_SIZE = 20
+const LIBRARY_PAGE_SIZE = 20;
 
 function PracticeLibraryList(props: { sortable: boolean; children: JSX.Element }) {
-  let element: HTMLDivElement | undefined
+  let element: HTMLDivElement | undefined;
 
   onMount(() => {
-    if (!element || !props.sortable) return
+    if (!element || !props.sortable) return;
     const sortable = new Sortable(element, {
       group: { name: 'practice-library', pull: 'clone', put: false },
       sort: false,
@@ -22,43 +22,43 @@ function PracticeLibraryList(props: { sortable: boolean; children: JSX.Element }
       draggable: '.editor-library-item',
       ghostClass: 'sortable-ghost',
       chosenClass: 'sortable-chosen',
-    })
-    onCleanup(() => sortable.destroy())
-  })
+    });
+    onCleanup(() => sortable.destroy());
+  });
 
   return (
     <div
       ref={(node) => {
-        element = node
+        element = node;
       }}
       class="editor-library-list"
       data-sortable-kind={props.sortable ? 'library' : undefined}
     >
       {props.children}
     </div>
-  )
+  );
 }
 
 function subtreeMatches(item: TemplateLibraryItem, query: string): boolean {
   return (
     `${item.name} ${item.detail}`.toLowerCase().includes(query) ||
     (item.children ?? []).some((child) => subtreeMatches(child, query))
-  )
+  );
 }
 
 function LibraryPickerRow(props: {
-  item: TemplateLibraryItem
-  depth: number
-  expanded: boolean
-  disabled?: boolean
-  dragMode?: 'sortable' | 'native'
-  actionLabel: string
-  onSelect: () => void
-  onToggle: () => void
-  onDragStart?: (event: DragEvent) => void
+  item: TemplateLibraryItem;
+  depth: number;
+  expanded: boolean;
+  disabled?: boolean;
+  dragMode?: 'sortable' | 'native';
+  actionLabel: string;
+  onSelect: () => void;
+  onToggle: () => void;
+  onDragStart?: (event: DragEvent) => void;
 }) {
-  const children = () => props.item.children ?? []
-  const padding = () => `${10 + props.depth * 18}px`
+  const children = () => props.item.children ?? [];
+  const padding = () => `${10 + props.depth * 18}px`;
 
   return (
     <Show
@@ -115,112 +115,112 @@ function LibraryPickerRow(props: {
         </button>
       </div>
     </Show>
-  )
+  );
 }
 
 export function PracticeLibraryPanel(props: {
-  items: TemplateLibraryItem[]
-  type: PracticeLibraryItemType
-  onTypeChange: (type: PracticeLibraryItemType) => void
-  onSelect: (item: TemplateLibraryItem) => void
-  title?: string
-  subtitle?: string
-  class?: string
-  loading?: boolean
-  publicRepertoireItems?: TemplateLibraryItem[]
-  searchPublicRepertoire?: boolean
-  publicRepertoireLoading?: boolean
-  onSearchPublicRepertoireChange?: (enabled: boolean, query: string) => void
-  anyInstrument?: boolean
-  instrumentFilterDisabled?: boolean
-  onAnyInstrumentChange?: (enabled: boolean) => void
-  onSearchChange?: (query: string) => void
+  items: TemplateLibraryItem[];
+  type: PracticeLibraryItemType;
+  onTypeChange: (type: PracticeLibraryItemType) => void;
+  onSelect: (item: TemplateLibraryItem) => void;
+  title?: string;
+  subtitle?: string;
+  class?: string;
+  loading?: boolean;
+  publicRepertoireItems?: TemplateLibraryItem[];
+  searchPublicRepertoire?: boolean;
+  publicRepertoireLoading?: boolean;
+  onSearchPublicRepertoireChange?: (enabled: boolean, query: string) => void;
+  anyInstrument?: boolean;
+  instrumentFilterDisabled?: boolean;
+  onAnyInstrumentChange?: (enabled: boolean) => void;
+  onSearchChange?: (query: string) => void;
   publicRepertoirePagination?: {
-    page: number
-    total: number
-    totalPages: number
-    onPageChange: (page: number) => void
-    onSearchChange: (query: string) => void
-  }
-  disabled?: boolean
-  dragMode?: 'sortable' | 'native'
-  itemActionLabel?: string
-  headerAction?: JSX.Element
-  footer?: JSX.Element
-  helpText?: string
-  onItemDragStart?: (event: DragEvent, item: TemplateLibraryItem) => void
+    page: number;
+    total: number;
+    totalPages: number;
+    onPageChange: (page: number) => void;
+    onSearchChange: (query: string) => void;
+  };
+  disabled?: boolean;
+  dragMode?: 'sortable' | 'native';
+  itemActionLabel?: string;
+  headerAction?: JSX.Element;
+  footer?: JSX.Element;
+  helpText?: string;
+  onItemDragStart?: (event: DragEvent, item: TemplateLibraryItem) => void;
 }) {
-  const [search, setSearch] = createSignal('')
-  const [expandedIds, setExpandedIds] = createSignal<string[]>([])
-  const [localPage, setLocalPage] = createSignal(1)
-  let searchTimer: ReturnType<typeof setTimeout> | undefined
+  const [search, setSearch] = createSignal('');
+  const [expandedIds, setExpandedIds] = createSignal<string[]>([]);
+  const [localPage, setLocalPage] = createSignal(1);
+  let searchTimer: ReturnType<typeof setTimeout> | undefined;
   const serverPaginated = () =>
     props.type === LIBRARY_ITEM_TYPE.REPERTOIRE &&
     props.searchPublicRepertoire &&
-    props.publicRepertoirePagination !== undefined
-  const serverSearched = () => props.onSearchChange !== undefined && !serverPaginated()
+    props.publicRepertoirePagination !== undefined;
+  const serverSearched = () => props.onSearchChange !== undefined && !serverPaginated();
   const selectedItems = createMemo(() =>
     props.type === LIBRARY_ITEM_TYPE.REPERTOIRE && props.searchPublicRepertoire
       ? (props.publicRepertoireItems ?? [])
       : props.items.filter((item) => item.type === props.type),
-  )
+  );
   const matchingItems = createMemo(() => {
-    const query = search().trim().toLowerCase()
-    if (serverPaginated() || serverSearched() || !query) return selectedItems()
-    return selectedItems().filter((item) => subtreeMatches(item, query))
-  })
+    const query = search().trim().toLowerCase();
+    if (serverPaginated() || serverSearched() || !query) return selectedItems();
+    return selectedItems().filter((item) => subtreeMatches(item, query));
+  });
   const totalPages = () =>
     serverPaginated()
       ? (props.publicRepertoirePagination?.totalPages ?? 0)
-      : Math.ceil(matchingItems().length / LIBRARY_PAGE_SIZE)
+      : Math.ceil(matchingItems().length / LIBRARY_PAGE_SIZE);
   const currentPage = () =>
-    serverPaginated() ? (props.publicRepertoirePagination?.page ?? 1) : localPage()
+    serverPaginated() ? (props.publicRepertoirePagination?.page ?? 1) : localPage();
   const pageItems = createMemo(() => {
-    if (serverPaginated()) return matchingItems()
-    const start = (localPage() - 1) * LIBRARY_PAGE_SIZE
-    return matchingItems().slice(start, start + LIBRARY_PAGE_SIZE)
-  })
+    if (serverPaginated()) return matchingItems();
+    const start = (localPage() - 1) * LIBRARY_PAGE_SIZE;
+    return matchingItems().slice(start, start + LIBRARY_PAGE_SIZE);
+  });
   const visibleItems = createMemo(() => {
-    const query = search().trim().toLowerCase()
-    const visible: { item: TemplateLibraryItem; depth: number }[] = []
-    const expanded = new Set(expandedIds())
+    const query = search().trim().toLowerCase();
+    const visible: { item: TemplateLibraryItem; depth: number }[] = [];
+    const expanded = new Set(expandedIds());
 
     function visit(items: TemplateLibraryItem[], depth: number) {
       for (const item of items) {
-        visible.push({ item, depth })
-        const children = item.children ?? []
+        visible.push({ item, depth });
+        const children = item.children ?? [];
         const matchingChild =
           !serverPaginated() &&
           !serverSearched() &&
           query &&
-          children.some((child) => subtreeMatches(child, query))
-        if (expanded.has(item.id) || matchingChild) visit(children, depth + 1)
+          children.some((child) => subtreeMatches(child, query));
+        if (expanded.has(item.id) || matchingChild) visit(children, depth + 1);
       }
     }
 
-    visit(pageItems(), 0)
-    return visible
-  })
-  const typeLabel = () => (props.type === LIBRARY_ITEM_TYPE.EXERCISE ? 'exercises' : 'repertoire')
+    visit(pageItems(), 0);
+    return visible;
+  });
+  const typeLabel = () => (props.type === LIBRARY_ITEM_TYPE.EXERCISE ? 'exercises' : 'repertoire');
 
   function changePage(page: number) {
-    setExpandedIds([])
-    if (serverPaginated()) props.publicRepertoirePagination?.onPageChange(page)
-    else setLocalPage(page)
+    setExpandedIds([]);
+    if (serverPaginated()) props.publicRepertoirePagination?.onPageChange(page);
+    else setLocalPage(page);
   }
 
   function updateSearch(value: string) {
-    setSearch(value)
-    setLocalPage(1)
-    clearTimeout(searchTimer)
+    setSearch(value);
+    setLocalPage(1);
+    clearTimeout(searchTimer);
     if (serverPaginated()) {
-      searchTimer = setTimeout(() => props.publicRepertoirePagination?.onSearchChange(value), 300)
+      searchTimer = setTimeout(() => props.publicRepertoirePagination?.onSearchChange(value), 300);
     } else if (props.onSearchChange) {
-      searchTimer = setTimeout(() => props.onSearchChange?.(value), 300)
+      searchTimer = setTimeout(() => props.onSearchChange?.(value), 300);
     }
   }
 
-  onCleanup(() => clearTimeout(searchTimer))
+  onCleanup(() => clearTimeout(searchTimer));
 
   return (
     <aside
@@ -241,10 +241,10 @@ export function PracticeLibraryPanel(props: {
           aria-selected={props.type === LIBRARY_ITEM_TYPE.EXERCISE}
           classList={{ active: props.type === LIBRARY_ITEM_TYPE.EXERCISE }}
           onClick={() => {
-            clearTimeout(searchTimer)
-            setLocalPage(1)
-            props.onTypeChange(LIBRARY_ITEM_TYPE.EXERCISE)
-            if (search().trim()) props.onSearchChange?.(search().trim())
+            clearTimeout(searchTimer);
+            setLocalPage(1);
+            props.onTypeChange(LIBRARY_ITEM_TYPE.EXERCISE);
+            if (search().trim()) props.onSearchChange?.(search().trim());
           }}
         >
           Exercises ({props.items.filter((item) => item.type === LIBRARY_ITEM_TYPE.EXERCISE).length}
@@ -256,11 +256,11 @@ export function PracticeLibraryPanel(props: {
           aria-selected={props.type === LIBRARY_ITEM_TYPE.REPERTOIRE}
           classList={{ active: props.type === LIBRARY_ITEM_TYPE.REPERTOIRE }}
           onClick={() => {
-            clearTimeout(searchTimer)
-            setLocalPage(1)
-            props.onTypeChange(LIBRARY_ITEM_TYPE.REPERTOIRE)
+            clearTimeout(searchTimer);
+            setLocalPage(1);
+            props.onTypeChange(LIBRARY_ITEM_TYPE.REPERTOIRE);
             if (!props.searchPublicRepertoire && search().trim()) {
-              props.onSearchChange?.(search().trim())
+              props.onSearchChange?.(search().trim());
             }
           }}
         >
@@ -283,8 +283,8 @@ export function PracticeLibraryPanel(props: {
             checked={props.anyInstrument}
             disabled={props.instrumentFilterDisabled}
             onChange={(event) => {
-              setLocalPage(1)
-              props.onAnyInstrumentChange?.(event.currentTarget.checked)
+              setLocalPage(1);
+              props.onAnyInstrumentChange?.(event.currentTarget.checked);
             }}
           />
           Any instrument
@@ -298,9 +298,9 @@ export function PracticeLibraryPanel(props: {
             type="checkbox"
             checked={props.searchPublicRepertoire}
             onChange={(event) => {
-              clearTimeout(searchTimer)
-              setLocalPage(1)
-              props.onSearchPublicRepertoireChange?.(event.currentTarget.checked, search().trim())
+              clearTimeout(searchTimer);
+              setLocalPage(1);
+              props.onSearchPublicRepertoireChange?.(event.currentTarget.checked, search().trim());
             }}
           />
           Search public repertoire
@@ -365,5 +365,5 @@ export function PracticeLibraryPanel(props: {
         <p class="field-help">{props.helpText}</p>
       </Show>
     </aside>
-  )
+  );
 }

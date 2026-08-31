@@ -1,5 +1,5 @@
-import { Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js'
-import { createStore } from 'solid-js/store'
+import { Show, createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
+import { createStore } from 'solid-js/store';
 import {
   Link,
   createFileRoute,
@@ -7,10 +7,10 @@ import {
   useBlocker,
   useNavigate,
   useRouter,
-} from '@tanstack/solid-router'
-import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
-import { PracticePlanOutline } from '@/components/PracticePlanOutline'
-import { PracticeLibraryPanel } from '@/components/PracticeLibraryPanel'
+} from '@tanstack/solid-router';
+import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog';
+import { PracticePlanOutline } from '@/components/PracticePlanOutline';
+import { PracticeLibraryPanel } from '@/components/PracticeLibraryPanel';
 import {
   addRunningSessionItem,
   completePracticeSession,
@@ -28,8 +28,8 @@ import {
   type SessionItemAction,
   type SessionProgressUpdate,
   type SessionTimingMode,
-} from '@/data/sessions'
-import { getTemplateLibrary, type TemplateLibraryItem } from '@/data/sessionTemplates'
+} from '@/data/sessions';
+import { getTemplateLibrary, type TemplateLibraryItem } from '@/data/sessionTemplates';
 import {
   LIBRARY_ITEM_TYPE,
   PRACTICE_ITEM_TYPE,
@@ -39,52 +39,52 @@ import {
   SESSION_TIMING_MODE,
   isLibraryItemType,
   type LibraryItemType,
-} from '@/domain/session'
+} from '@/domain/session';
 
-type SessionItemNode = SessionDetailItem & { children: SessionItemNode[] }
+type SessionItemNode = SessionDetailItem & { children: SessionItemNode[] };
 
 const SESSION_MANAGEMENT_ACTION = {
   DUPLICATE: 'DUPLICATE',
   TEMPLATE: 'TEMPLATE',
-} as const
+} as const;
 
 type SessionManagementAction =
-  (typeof SESSION_MANAGEMENT_ACTION)[keyof typeof SESSION_MANAGEMENT_ACTION]
+  (typeof SESSION_MANAGEMENT_ACTION)[keyof typeof SESSION_MANAGEMENT_ACTION];
 
 export const Route = createFileRoute('/sessions/$sessionId')({
   loader: async ({ params }) => {
-    const session = await getSessionDetail({ data: params.sessionId })
-    if (!session) throw notFound()
-    return session
+    const session = await getSessionDetail({ data: params.sessionId });
+    if (!session) throw notFound();
+    return session;
   },
   component: SessionDetailPage,
   notFoundComponent: SessionNotFound,
-})
+});
 
 function buildItemTree(items: SessionDetailItem[]): SessionItemNode[] {
-  const nodes = new Map<string, SessionItemNode>()
-  const roots: SessionItemNode[] = []
-  for (const item of items) nodes.set(item.id, { ...item, children: [] })
+  const nodes = new Map<string, SessionItemNode>();
+  const roots: SessionItemNode[] = [];
+  for (const item of items) nodes.set(item.id, { ...item, children: [] });
   for (const item of items) {
-    const node = nodes.get(item.id)
-    if (!node) continue
-    const parent = item.parentId ? nodes.get(item.parentId) : undefined
-    if (parent) parent.children.push(node)
-    else roots.push(node)
+    const node = nodes.get(item.id);
+    if (!node) continue;
+    const parent = item.parentId ? nodes.get(item.parentId) : undefined;
+    if (parent) parent.children.push(node);
+    else roots.push(node);
   }
-  return roots
+  return roots;
 }
 
 function descendants(item: SessionItemNode): SessionItemNode[] {
-  return item.children.flatMap((child) => [child, ...descendants(child)])
+  return item.children.flatMap((child) => [child, ...descendants(child)]);
 }
 
 function practiceDescendants(item: SessionItemNode) {
-  return descendants(item).filter((child) => child.type !== PRACTICE_ITEM_TYPE.SECTION)
+  return descendants(item).filter((child) => child.type !== PRACTICE_ITEM_TYPE.SECTION);
 }
 
 function formatDate(value: string | null) {
-  if (!value) return 'Not scheduled'
+  if (!value) return 'Not scheduled';
   return new Intl.DateTimeFormat(undefined, {
     weekday: 'long',
     month: 'long',
@@ -92,104 +92,106 @@ function formatDate(value: string | null) {
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  }).format(new Date(value))
+  }).format(new Date(value));
 }
 
 function formatSchedule(startedAt: string | null, assignedDate: string | null) {
-  if (startedAt) return formatDate(startedAt)
-  if (!assignedDate) return 'Not scheduled'
-  const [year, month, day] = assignedDate.split('-').map(Number)
+  if (startedAt) return formatDate(startedAt);
+  if (!assignedDate) return 'Not scheduled';
+  const [year, month, day] = assignedDate.split('-').map(Number);
   return new Intl.DateTimeFormat(undefined, {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
     year: 'numeric',
-  }).format(new Date(year!, month! - 1, day))
+  }).format(new Date(year!, month! - 1, day));
 }
 
 function localDate() {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'The session could not be updated.'
+  return error instanceof Error ? error.message : 'The session could not be updated.';
 }
 
 function dragLibraryItem(event: DragEvent, item: TemplateLibraryItem) {
-  event.dataTransfer?.setData('application/x-practice-library-item', JSON.stringify(item))
-  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy'
+  event.dataTransfer?.setData('application/x-practice-library-item', JSON.stringify(item));
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy';
 }
 
 function SessionDetailPage() {
-  const loadedSession = Route.useLoaderData()
-  const navigate = useNavigate()
-  const router = useRouter()
+  const loadedSession = Route.useLoaderData();
+  const navigate = useNavigate();
+  const router = useRouter();
   const [session, setSession] = createStore<SessionDetail>({
     ...loadedSession(),
     items: loadedSession().items.map((item) => ({ ...item })),
-  })
+  });
   const [timingChoice, setTimingChoice] = createSignal<SessionTimingMode>(
     SESSION_TIMING_MODE.MANUAL,
-  )
-  const [starting, setStarting] = createSignal(false)
-  const [completing, setCompleting] = createSignal(false)
-  const [saving, setSaving] = createSignal(false)
-  const [editingName, setEditingName] = createSignal(false)
-  const [nameDraft, setNameDraft] = createSignal(loadedSession().templateName)
-  const [nameDirty, setNameDirty] = createSignal(false)
-  const [nameSaving, setNameSaving] = createSignal(false)
-  const [structuralSaving, setStructuralSaving] = createSignal(false)
-  const [managementAction, setManagementAction] = createSignal<SessionManagementAction | null>(null)
-  const [addingItem, setAddingItem] = createSignal(false)
-  const [libraryLoading, setLibraryLoading] = createSignal(false)
-  const [library, setLibrary] = createSignal<TemplateLibraryItem[]>([])
-  const [libraryType, setLibraryType] = createSignal<LibraryItemType>(LIBRARY_ITEM_TYPE.EXERCISE)
-  const [queuedChangeCount, setQueuedChangeCount] = createSignal(0)
-  const [routeDataDirty, setRouteDataDirty] = createSignal(false)
-  const [error, setError] = createSignal('')
-  const pendingChanges: Array<{ itemId: string; action: SessionItemAction }> = []
-  let flushTimer: ReturnType<typeof setTimeout> | undefined
-  let activeFlush: Promise<void> | undefined
-  let nameFlushTimer: ReturnType<typeof setTimeout> | undefined
-  let activeNameFlush: Promise<void> | undefined
-  let activeStructuralChange: Promise<boolean> | undefined
+  );
+  const [starting, setStarting] = createSignal(false);
+  const [completing, setCompleting] = createSignal(false);
+  const [saving, setSaving] = createSignal(false);
+  const [editingName, setEditingName] = createSignal(false);
+  const [nameDraft, setNameDraft] = createSignal(loadedSession().templateName);
+  const [nameDirty, setNameDirty] = createSignal(false);
+  const [nameSaving, setNameSaving] = createSignal(false);
+  const [structuralSaving, setStructuralSaving] = createSignal(false);
+  const [managementAction, setManagementAction] = createSignal<SessionManagementAction | null>(
+    null,
+  );
+  const [addingItem, setAddingItem] = createSignal(false);
+  const [libraryLoading, setLibraryLoading] = createSignal(false);
+  const [library, setLibrary] = createSignal<TemplateLibraryItem[]>([]);
+  const [libraryType, setLibraryType] = createSignal<LibraryItemType>(LIBRARY_ITEM_TYPE.EXERCISE);
+  const [queuedChangeCount, setQueuedChangeCount] = createSignal(0);
+  const [routeDataDirty, setRouteDataDirty] = createSignal(false);
+  const [error, setError] = createSignal('');
+  const pendingChanges: Array<{ itemId: string; action: SessionItemAction }> = [];
+  let flushTimer: ReturnType<typeof setTimeout> | undefined;
+  let activeFlush: Promise<void> | undefined;
+  let nameFlushTimer: ReturnType<typeof setTimeout> | undefined;
+  let activeNameFlush: Promise<void> | undefined;
+  let activeStructuralChange: Promise<boolean> | undefined;
 
-  const itemTree = createMemo(() => buildItemTree(session.items))
+  const itemTree = createMemo(() => buildItemTree(session.items));
   const practiceItems = createMemo(() =>
     session.items.filter((item) => item.type !== PRACTICE_ITEM_TYPE.SECTION),
-  )
+  );
   const completeCount = createMemo(
     () => practiceItems().filter((item) => item.status === SESSION_ITEM_STATUS.COMPLETE).length,
-  )
+  );
   const skippedCount = createMemo(
     () => practiceItems().filter((item) => item.status === SESSION_ITEM_STATUS.SKIPPED).length,
-  )
-  const resolvedCount = createMemo(() => completeCount() + skippedCount())
+  );
+  const resolvedCount = createMemo(() => completeCount() + skippedCount());
   const progress = createMemo(() => {
-    const total = practiceItems().length
-    return total === 0 ? 0 : Math.round((resolvedCount() / total) * 100)
-  })
-  const allResolved = createMemo(() => resolvedCount() === practiceItems().length)
+    const total = practiceItems().length;
+    return total === 0 ? 0 : Math.round((resolvedCount() / total) * 100);
+  });
+  const allResolved = createMemo(() => resolvedCount() === practiceItems().length);
   const displayedStatus = createMemo(() =>
     session.status === SESSION_STATUS.IN_PROGRESS && allResolved()
       ? { className: 'ready', label: 'Ready to finalize' }
       : { className: session.status.toLowerCase(), label: session.status.replace('_', ' ') },
-  )
+  );
   const canStart = createMemo(
     () =>
       session.status === SESSION_STATUS.PLANNED &&
       (!session.assignedDate || session.assignedDate === localDate()),
-  )
+  );
   const hasActiveItem = createMemo(() =>
     practiceItems().some((item) => item.status === SESSION_ITEM_STATUS.IN_PROGRESS),
-  )
+  );
 
   createEffect(() => {
-    const loaded = loadedSession()
+    const loaded = loadedSession();
     if (
       queuedChangeCount() > 0 ||
       saving() ||
@@ -198,48 +200,48 @@ function SessionDetailPage() {
       structuralSaving() ||
       routeDataDirty()
     ) {
-      return
+      return;
     }
-    setSession({ ...loaded, items: loaded.items.map((item) => ({ ...item })) })
-    setNameDraft(loaded.templateName)
-  })
+    setSession({ ...loaded, items: loaded.items.map((item) => ({ ...item })) });
+    setNameDraft(loaded.templateName);
+  });
 
   function applyProgress(update: SessionProgressUpdate) {
-    setSession('status', update.status)
-    setSession('timingMode', update.timingMode)
-    setSession('startedAt', update.startedAt)
-    setSession('endedAt', update.endedAt)
-    setSession('durationMinutes', update.durationMinutes)
+    setSession('status', update.status);
+    setSession('timingMode', update.timingMode);
+    setSession('startedAt', update.startedAt);
+    setSession('endedAt', update.endedAt);
+    setSession('durationMinutes', update.durationMinutes);
     for (const changed of update.items) {
-      const index = session.items.findIndex((item) => item.id === changed.id)
-      if (index >= 0) setSession('items', index, changed)
+      const index = session.items.findIndex((item) => item.id === changed.id);
+      if (index >= 0) setSession('items', index, changed);
     }
-    setRouteDataDirty(true)
+    setRouteDataDirty(true);
   }
 
   function sectionNode(itemId: string) {
-    return flattenTree(buildItemTree(session.items)).find((item) => item.id === itemId)
+    return flattenTree(buildItemTree(session.items)).find((item) => item.id === itemId);
   }
 
   function optimisticAction(itemId: string, action: SessionItemAction) {
-    const index = session.items.findIndex((item) => item.id === itemId)
-    const item = session.items[index]
-    if (!item) return
-    const now = new Date().toISOString()
+    const index = session.items.findIndex((item) => item.id === itemId);
+    const item = session.items[index];
+    if (!item) return;
+    const now = new Date().toISOString();
 
     if (item.type === PRACTICE_ITEM_TYPE.SECTION) {
-      const section = sectionNode(itemId)
-      if (!section) return
-      const childIds = new Set(practiceDescendants(section).map((child) => child.id))
+      const section = sectionNode(itemId);
+      if (!section) return;
+      const childIds = new Set(practiceDescendants(section).map((child) => child.id));
       for (let childIndex = 0; childIndex < session.items.length; childIndex += 1) {
-        const child = session.items[childIndex]!
-        if (!childIds.has(child.id)) continue
+        const child = session.items[childIndex]!;
+        if (!childIds.has(child.id)) continue;
         if (action === SESSION_ITEM_ACTION.SKIP) {
           setSession('items', childIndex, {
             status: SESSION_ITEM_STATUS.SKIPPED,
             startedAt: null,
             endedAt: null,
-          })
+          });
         } else if (
           action === SESSION_ITEM_ACTION.RESET &&
           child.status === SESSION_ITEM_STATUS.SKIPPED
@@ -248,10 +250,10 @@ function SessionDetailPage() {
             status: SESSION_ITEM_STATUS.NOT_STARTED,
             startedAt: null,
             endedAt: null,
-          })
+          });
         }
       }
-      return
+      return;
     }
 
     if (action === SESSION_ITEM_ACTION.START) {
@@ -259,24 +261,24 @@ function SessionDetailPage() {
         status: SESSION_ITEM_STATUS.IN_PROGRESS,
         startedAt: now,
         endedAt: null,
-      })
+      });
     } else if (action === SESSION_ITEM_ACTION.COMPLETE) {
       setSession('items', index, {
         status: SESSION_ITEM_STATUS.COMPLETE,
         endedAt: item.startedAt ? now : null,
-      })
+      });
     } else if (action === SESSION_ITEM_ACTION.SKIP) {
       setSession('items', index, {
         status: SESSION_ITEM_STATUS.SKIPPED,
         startedAt: null,
         endedAt: null,
-      })
+      });
     } else {
       setSession('items', index, {
         status: SESSION_ITEM_STATUS.NOT_STARTED,
         startedAt: null,
         endedAt: null,
-      })
+      });
     }
 
     if (session.timingMode === SESSION_TIMING_MODE.AUTO && !hasActiveItem()) {
@@ -284,132 +286,132 @@ function SessionDetailPage() {
         (candidate) =>
           candidate.type !== PRACTICE_ITEM_TYPE.SECTION &&
           candidate.status === SESSION_ITEM_STATUS.NOT_STARTED,
-      )
+      );
       if (next) {
-        const nextIndex = session.items.findIndex((candidate) => candidate.id === next.id)
+        const nextIndex = session.items.findIndex((candidate) => candidate.id === next.id);
         setSession('items', nextIndex, {
           status: SESSION_ITEM_STATUS.IN_PROGRESS,
           startedAt: now,
           endedAt: null,
-        })
+        });
       }
     }
   }
 
   function flushChanges(): Promise<void> {
-    flushTimer = undefined
-    if (activeFlush) return activeFlush
-    if (pendingChanges.length === 0) return Promise.resolve()
-    const changes = pendingChanges.splice(0)
-    setQueuedChangeCount(pendingChanges.length)
+    flushTimer = undefined;
+    if (activeFlush) return activeFlush;
+    if (pendingChanges.length === 0) return Promise.resolve();
+    const changes = pendingChanges.splice(0);
+    setQueuedChangeCount(pendingChanges.length);
     activeFlush = (async () => {
-      setSaving(true)
-      setError('')
+      setSaving(true);
+      setError('');
       try {
-        const update = await updateSessionProgress({ data: { sessionId: session.id, changes } })
-        applyProgress(update)
-        for (const pending of pendingChanges) optimisticAction(pending.itemId, pending.action)
+        const update = await updateSessionProgress({ data: { sessionId: session.id, changes } });
+        applyProgress(update);
+        for (const pending of pendingChanges) optimisticAction(pending.itemId, pending.action);
       } catch (caught) {
-        setError(errorMessage(caught))
-        const fresh = await getSessionDetail({ data: session.id })
-        if (fresh) setSession(fresh)
-        for (const pending of pendingChanges) optimisticAction(pending.itemId, pending.action)
-        await router.invalidate()
-        setRouteDataDirty(false)
+        setError(errorMessage(caught));
+        const fresh = await getSessionDetail({ data: session.id });
+        if (fresh) setSession(fresh);
+        for (const pending of pendingChanges) optimisticAction(pending.itemId, pending.action);
+        await router.invalidate();
+        setRouteDataDirty(false);
       } finally {
-        setSaving(false)
-        activeFlush = undefined
-        if (pendingChanges.length > 0) flushTimer = setTimeout(flushChanges, 0)
+        setSaving(false);
+        activeFlush = undefined;
+        if (pendingChanges.length > 0) flushTimer = setTimeout(flushChanges, 0);
       }
-    })()
-    return activeFlush
+    })();
+    return activeFlush;
   }
 
   function flushNameChange(): Promise<void> {
-    if (nameFlushTimer) clearTimeout(nameFlushTimer)
-    nameFlushTimer = undefined
-    if (activeNameFlush) return activeNameFlush
-    if (!nameDirty()) return Promise.resolve()
+    if (nameFlushTimer) clearTimeout(nameFlushTimer);
+    nameFlushTimer = undefined;
+    if (activeNameFlush) return activeNameFlush;
+    if (!nameDirty()) return Promise.resolve();
 
-    const name = nameDraft().trim()
+    const name = nameDraft().trim();
     if (!name || name.length > 200) {
-      setError(name ? 'Session name must be 200 characters or fewer' : 'Session name is required')
-      setNameDraft(session.templateName)
-      setNameDirty(false)
-      return Promise.resolve()
+      setError(name ? 'Session name must be 200 characters or fewer' : 'Session name is required');
+      setNameDraft(session.templateName);
+      setNameDirty(false);
+      return Promise.resolve();
     }
 
-    setNameDirty(false)
+    setNameDirty(false);
     activeNameFlush = (async () => {
-      setNameSaving(true)
-      setError('')
+      setNameSaving(true);
+      setError('');
       try {
-        const updated = await updateSessionName({ data: { sessionId: session.id, name } })
-        setSession('templateName', updated.name)
-        if (!nameDirty()) setNameDraft(updated.name)
-        setRouteDataDirty(true)
+        const updated = await updateSessionName({ data: { sessionId: session.id, name } });
+        setSession('templateName', updated.name);
+        if (!nameDirty()) setNameDraft(updated.name);
+        setRouteDataDirty(true);
       } catch (caught) {
-        setError(errorMessage(caught))
-        const fresh = await getSessionDetail({ data: session.id })
+        setError(errorMessage(caught));
+        const fresh = await getSessionDetail({ data: session.id });
         if (fresh) {
-          setSession(fresh)
-          if (!nameDirty()) setNameDraft(fresh.templateName)
+          setSession(fresh);
+          if (!nameDirty()) setNameDraft(fresh.templateName);
         }
       } finally {
-        setNameSaving(false)
-        activeNameFlush = undefined
-        if (nameDirty()) nameFlushTimer = setTimeout(flushNameChange, 0)
+        setNameSaving(false);
+        activeNameFlush = undefined;
+        if (nameDirty()) nameFlushTimer = setTimeout(flushNameChange, 0);
       }
-    })()
-    return activeNameFlush
+    })();
+    return activeNameFlush;
   }
 
   function queueNameChange(value: string) {
-    setNameDraft(value)
-    setNameDirty(true)
-    if (nameFlushTimer) clearTimeout(nameFlushTimer)
-    nameFlushTimer = setTimeout(flushNameChange, 400)
+    setNameDraft(value);
+    setNameDirty(true);
+    if (nameFlushTimer) clearTimeout(nameFlushTimer);
+    nameFlushTimer = setTimeout(flushNameChange, 400);
   }
 
   async function refreshSession() {
-    const fresh = await getSessionDetail({ data: session.id })
-    if (!fresh) throw new Error('Session not found')
-    setSession(fresh)
-    setNameDraft(fresh.templateName)
-    setRouteDataDirty(true)
+    const fresh = await getSessionDetail({ data: session.id });
+    if (!fresh) throw new Error('Session not found');
+    setSession(fresh);
+    setNameDraft(fresh.templateName);
+    setRouteDataDirty(true);
   }
 
   function runStructuralChange(change: () => Promise<void>): Promise<boolean> {
-    if (activeStructuralChange) return activeStructuralChange
+    if (activeStructuralChange) return activeStructuralChange;
     activeStructuralChange = (async () => {
-      setStructuralSaving(true)
-      setError('')
+      setStructuralSaving(true);
+      setError('');
       try {
-        await change()
-        await refreshSession()
-        return true
+        await change();
+        await refreshSession();
+        return true;
       } catch (caught) {
-        setError(errorMessage(caught))
-        return false
+        setError(errorMessage(caught));
+        return false;
       } finally {
-        setStructuralSaving(false)
-        activeStructuralChange = undefined
+        setStructuralSaving(false);
+        activeStructuralChange = undefined;
       }
-    })()
-    return activeStructuralChange
+    })();
+    return activeStructuralChange;
   }
 
   async function openItemPicker() {
-    setAddingItem(true)
-    if (library().length > 0 || libraryLoading()) return
-    setLibraryLoading(true)
+    setAddingItem(true);
+    if (library().length > 0 || libraryLoading()) return;
+    setLibraryLoading(true);
     try {
-      const items = await getTemplateLibrary()
-      setLibrary(items)
+      const items = await getTemplateLibrary();
+      setLibrary(items);
     } catch (caught) {
-      setError(errorMessage(caught))
+      setError(errorMessage(caught));
     } finally {
-      setLibraryLoading(false)
+      setLibraryLoading(false);
     }
   }
 
@@ -423,124 +425,124 @@ function SessionDetailPage() {
           sourceId: item.id,
           instruction: '',
         },
-      })
-    })
+      });
+    });
   }
 
   function dropLibraryItem(event: DragEvent, parentId: string | null) {
-    event.preventDefault()
-    const value = event.dataTransfer?.getData('application/x-practice-library-item')
-    if (!value) return
+    event.preventDefault();
+    const value = event.dataTransfer?.getData('application/x-practice-library-item');
+    if (!value) return;
     try {
-      const item = JSON.parse(value) as TemplateLibraryItem
-      if (!isLibraryItemType(item.type)) return
-      void addLibraryItem(item, parentId)
+      const item = JSON.parse(value) as TemplateLibraryItem;
+      if (!isLibraryItemType(item.type)) return;
+      void addLibraryItem(item, parentId);
     } catch {
-      setError('That practice item could not be added')
+      setError('That practice item could not be added');
     }
   }
 
   function removeItem(itemId: string) {
     return runStructuralChange(async () => {
-      await removeRunningSessionItem({ data: { sessionId: session.id, itemId } })
-    })
+      await removeRunningSessionItem({ data: { sessionId: session.id, itemId } });
+    });
   }
 
   async function updateItemSessionNote(itemId: string, sessionNote: string) {
-    if (activeStructuralChange) await activeStructuralChange
+    if (activeStructuralChange) await activeStructuralChange;
     return runStructuralChange(async () => {
       await updateRunningSessionItemSessionNote({
         data: { sessionId: session.id, itemId, sessionNote },
-      })
-    })
+      });
+    });
   }
 
   async function duplicateSession() {
-    setManagementAction(SESSION_MANAGEMENT_ACTION.DUPLICATE)
-    setError('')
+    setManagementAction(SESSION_MANAGEMENT_ACTION.DUPLICATE);
+    setError('');
     try {
-      await drainChanges()
-      const duplicated = await duplicatePracticeSession({ data: session.id })
-      await router.invalidate({ sync: true })
+      await drainChanges();
+      const duplicated = await duplicatePracticeSession({ data: session.id });
+      await router.invalidate({ sync: true });
       await navigate({
         to: '/sessions/$sessionId/edit',
         params: { sessionId: duplicated.id },
-      })
+      });
     } catch (caught) {
-      setError(errorMessage(caught))
-      setManagementAction(null)
+      setError(errorMessage(caught));
+      setManagementAction(null);
     }
   }
 
   async function saveAsTemplate() {
-    setManagementAction(SESSION_MANAGEMENT_ACTION.TEMPLATE)
-    setError('')
+    setManagementAction(SESSION_MANAGEMENT_ACTION.TEMPLATE);
+    setError('');
     try {
-      await drainChanges()
-      const template = await createTemplateFromSession({ data: session.id })
+      await drainChanges();
+      const template = await createTemplateFromSession({ data: session.id });
       await navigate({
         to: '/templates/$templateId',
         params: { templateId: template.id },
-      })
+      });
     } catch (caught) {
-      setError(errorMessage(caught))
-      setManagementAction(null)
+      setError(errorMessage(caught));
+      setManagementAction(null);
     }
   }
 
   async function drainChanges() {
-    if (flushTimer) clearTimeout(flushTimer)
-    flushTimer = undefined
+    if (flushTimer) clearTimeout(flushTimer);
+    flushTimer = undefined;
     while (activeFlush || pendingChanges.length > 0) {
-      if (activeFlush) await activeFlush
-      else await flushChanges()
+      if (activeFlush) await activeFlush;
+      else await flushChanges();
     }
     while (activeNameFlush || nameDirty()) {
-      if (activeNameFlush) await activeNameFlush
-      else await flushNameChange()
+      if (activeNameFlush) await activeNameFlush;
+      else await flushNameChange();
     }
-    if (activeStructuralChange) await activeStructuralChange
+    if (activeStructuralChange) await activeStructuralChange;
     if (routeDataDirty()) {
-      await router.invalidate()
-      setRouteDataDirty(false)
+      await router.invalidate();
+      setRouteDataDirty(false);
     }
   }
 
   function queueAction(itemId: string, action: SessionItemAction) {
-    optimisticAction(itemId, action)
-    pendingChanges.push({ itemId, action })
-    setQueuedChangeCount(pendingChanges.length)
-    if (flushTimer) clearTimeout(flushTimer)
-    flushTimer = setTimeout(flushChanges, 250)
+    optimisticAction(itemId, action);
+    pendingChanges.push({ itemId, action });
+    setQueuedChangeCount(pendingChanges.length);
+    if (flushTimer) clearTimeout(flushTimer);
+    flushTimer = setTimeout(flushChanges, 250);
   }
 
   async function startSession() {
-    setStarting(true)
-    setError('')
+    setStarting(true);
+    setError('');
     try {
       const update = await startPracticeSession({
         data: { sessionId: session.id, timingMode: timingChoice(), localDate: localDate() },
-      })
-      applyProgress(update)
+      });
+      applyProgress(update);
     } catch (caught) {
-      setError(errorMessage(caught))
+      setError(errorMessage(caught));
     } finally {
-      setStarting(false)
+      setStarting(false);
     }
   }
 
   async function completeSession() {
-    await drainChanges()
+    await drainChanges();
 
-    setCompleting(true)
-    setError('')
+    setCompleting(true);
+    setError('');
     try {
-      const update = await completePracticeSession({ data: session.id })
-      applyProgress(update)
+      const update = await completePracticeSession({ data: session.id });
+      applyProgress(update);
     } catch (caught) {
-      setError(errorMessage(caught))
+      setError(errorMessage(caught));
     } finally {
-      setCompleting(false)
+      setCompleting(false);
     }
   }
 
@@ -554,21 +556,21 @@ function SessionDetailPage() {
         !structuralSaving() &&
         !routeDataDirty()
       ) {
-        return false
+        return false;
       }
-      await drainChanges()
-      return false
+      await drainChanges();
+      return false;
     },
     enableBeforeUnload: () =>
       queuedChangeCount() > 0 || saving() || nameDirty() || nameSaving() || structuralSaving(),
-  })
+  });
 
   onCleanup(() => {
-    if (flushTimer) clearTimeout(flushTimer)
-    if (nameFlushTimer) clearTimeout(nameFlushTimer)
-    if (pendingChanges.length > 0) void flushChanges()
-    if (nameDirty()) void flushNameChange()
-  })
+    if (flushTimer) clearTimeout(flushTimer);
+    if (nameFlushTimer) clearTimeout(nameFlushTimer);
+    if (pendingChanges.length > 0) void flushChanges();
+    if (nameDirty()) void flushNameChange();
+  });
 
   return (
     <main class="page session-detail-page">
@@ -603,8 +605,8 @@ function SessionDetailPage() {
                 class="secondary-button"
                 type="button"
                 onClick={async () => {
-                  await drainChanges()
-                  setEditingName(false)
+                  await drainChanges();
+                  setEditingName(false);
                 }}
               >
                 Done
@@ -649,8 +651,8 @@ function SessionDetailPage() {
               description="This permanently deletes the planned session and its practice outline."
               confirmLabel="Delete session"
               onConfirm={async () => {
-                await deletePlannedSession({ data: session.id })
-                await navigate({ to: '/sessions' })
+                await deletePlannedSession({ data: session.id });
+                await navigate({ to: '/sessions' });
               }}
             />
           </Show>
@@ -839,11 +841,11 @@ function SessionDetailPage() {
         </section>
       </Show>
     </main>
-  )
+  );
 }
 
 function flattenTree(items: SessionItemNode[]): SessionItemNode[] {
-  return items.flatMap((item) => [item, ...flattenTree(item.children)])
+  return items.flatMap((item) => [item, ...flattenTree(item.children)]);
 }
 
 function SessionNotFound() {
@@ -855,5 +857,5 @@ function SessionNotFound() {
         Return to sessions
       </Link>
     </main>
-  )
+  );
 }

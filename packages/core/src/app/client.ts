@@ -1,1 +1,1 @@
-export { instrumentPageViews } from '@/telemetry/pageViews'
+export { instrumentPageViews } from '@/telemetry/pageViews';

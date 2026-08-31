@@ -1,38 +1,38 @@
-import { Show, createSignal } from 'solid-js'
-import { updateRepertoireLibraryNote } from '@/data/repertoire'
+import { Show, createSignal } from 'solid-js';
+import { updateRepertoireLibraryNote } from '@/data/repertoire';
 
 export function RepertoireLibraryNote(props: {
-  repertoireId: string
-  repertoireTitle: string
-  initialNote: string | null
+  repertoireId: string;
+  repertoireTitle: string;
+  initialNote: string | null;
 }) {
-  const [note, setNote] = createSignal(props.initialNote)
-  const [draft, setDraft] = createSignal(props.initialNote ?? '')
-  const [editing, setEditing] = createSignal(false)
-  const [saving, setSaving] = createSignal(false)
-  const [error, setError] = createSignal('')
+  const [note, setNote] = createSignal(props.initialNote);
+  const [draft, setDraft] = createSignal(props.initialNote ?? '');
+  const [editing, setEditing] = createSignal(false);
+  const [saving, setSaving] = createSignal(false);
+  const [error, setError] = createSignal('');
 
   function beginEditing() {
-    setDraft(note() ?? '')
-    setError('')
-    setEditing(true)
+    setDraft(note() ?? '');
+    setError('');
+    setEditing(true);
   }
 
   async function save(event: SubmitEvent) {
-    event.preventDefault()
-    setSaving(true)
-    setError('')
+    event.preventDefault();
+    setSaving(true);
+    setError('');
     try {
       const result = await updateRepertoireLibraryNote({
         data: { id: props.repertoireId, note: draft() },
-      })
-      setNote(result.note)
-      setDraft(result.note ?? '')
-      setEditing(false)
+      });
+      setNote(result.note);
+      setDraft(result.note ?? '');
+      setEditing(false);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'The note could not be saved.')
+      setError(caught instanceof Error ? caught.message : 'The note could not be saved.');
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
@@ -86,5 +86,5 @@ export function RepertoireLibraryNote(props: {
         </p>
       </Show>
     </>
-  )
+  );
 }

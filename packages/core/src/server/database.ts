@@ -1,1 +1,1 @@
-export { pool } from '@/data/db'
+export { pool } from '@/data/db';

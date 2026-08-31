@@ -6,83 +6,83 @@ import type {
   SqlQueryData,
   TelemetryOperation,
   TelemetryProvider,
-} from '@/telemetry/telemetry'
-import { getServerVersion } from '@/telemetry/serverVersion.server'
+} from '@/telemetry/telemetry';
+import { getServerVersion } from '@/telemetry/serverVersion.server';
 
 const noopOperation: TelemetryOperation = {
   run: (operation) => operation(),
   end: () => undefined,
-}
+};
 
 const noopTelemetryProvider: TelemetryProvider = {
   recordPageView: () => undefined,
   startServerFunction: () => noopOperation,
   startSqlQuery: () => noopOperation,
-}
+};
 
 const consoleTelemetryProvider: TelemetryProvider = {
   recordPageView: (pageView) => logTelemetry('page_view', pageView),
   startServerFunction: (call) => createConsoleOperation('server_function', call),
   startSqlQuery: (query) => createConsoleOperation('sql_query', query),
-}
+};
 
-const providerKey = Symbol.for('music-practice.telemetry.provider')
-const globalRegistry = globalThis as unknown as Record<PropertyKey, unknown>
+const providerKey = Symbol.for('music-practice.telemetry.provider');
+const globalRegistry = globalThis as unknown as Record<PropertyKey, unknown>;
 
-if (!globalRegistry[providerKey]) globalRegistry[providerKey] = getDefaultProvider()
+if (!globalRegistry[providerKey]) globalRegistry[providerKey] = getDefaultProvider();
 
 export function configureTelemetry(telemetryProvider: TelemetryProvider): void {
-  globalRegistry[providerKey] = telemetryProvider
+  globalRegistry[providerKey] = telemetryProvider;
 }
 
 export function resetTelemetry(): void {
-  globalRegistry[providerKey] = getDefaultProvider()
+  globalRegistry[providerKey] = getDefaultProvider();
 }
 
 export function recordPageView(pageView: PageViewData): void {
-  safelyRun(() => getProvider().recordPageView(withTelemetryMetadata(pageView)))
+  safelyRun(() => getProvider().recordPageView(withTelemetryMetadata(pageView)));
 }
 
 export function startServerFunction(call: ServerFunctionCallData): TelemetryOperation {
-  return startOperation(() => getProvider().startServerFunction(withTelemetryMetadata(call)))
+  return startOperation(() => getProvider().startServerFunction(withTelemetryMetadata(call)));
 }
 
 export function startSqlQuery(query: SqlQueryData): TelemetryOperation {
-  return startOperation(() => getProvider().startSqlQuery(withTelemetryMetadata(query)))
+  return startOperation(() => getProvider().startSqlQuery(withTelemetryMetadata(query)));
 }
 
 function getProvider(): TelemetryProvider {
-  return globalRegistry[providerKey] as TelemetryProvider
+  return globalRegistry[providerKey] as TelemetryProvider;
 }
 
 function getDefaultProvider(): TelemetryProvider {
   return process.env.TELEMETRY_CONSOLE_ENABLED === 'true'
     ? consoleTelemetryProvider
-    : noopTelemetryProvider
+    : noopTelemetryProvider;
 }
 
 function startOperation(start: () => TelemetryOperation): TelemetryOperation {
-  let operation: TelemetryOperation
+  let operation: TelemetryOperation;
   try {
-    operation = start()
+    operation = start();
   } catch {
-    return noopOperation
+    return noopOperation;
   }
 
-  let ended = false
+  let ended = false;
   return {
     run: <T>(callback: () => T): T => operation.run(callback),
     end: (outcome) => {
-      if (ended) return
-      ended = true
-      safelyRun(() => operation.end(outcome))
+      if (ended) return;
+      ended = true;
+      safelyRun(() => operation.end(outcome));
     },
-  }
+  };
 }
 
 function safelyRun(callback: () => void): void {
   try {
-    callback()
+    callback();
   } catch {
     // Observability must never make an application request fail.
   }
@@ -92,7 +92,7 @@ function createConsoleOperation(
   type: 'server_function' | 'sql_query',
   attributes: ServerFunctionCall | SqlQuery,
 ): TelemetryOperation {
-  const startedAt = performance.now()
+  const startedAt = performance.now();
   return {
     run: (operation) => operation(),
     end: (outcome) =>
@@ -101,11 +101,11 @@ function createConsoleOperation(
         durationMs: Number((performance.now() - startedAt).toFixed(2)),
         outcome,
       }),
-  }
+  };
 }
 
 function logTelemetry(type: string, attributes: object): void {
-  console.info('[telemetry]', { type, ...attributes })
+  console.info('[telemetry]', { type, ...attributes });
 }
 
 function withTelemetryMetadata<T extends object>(
@@ -115,5 +115,5 @@ function withTelemetryMetadata<T extends object>(
     ...attributes,
     serverVersion: getServerVersion(),
     timestamp: new Date().toISOString(),
-  }
+  };
 }

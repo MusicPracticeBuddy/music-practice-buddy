@@ -1,1 +1,1 @@
-export { initializeOpenTelemetry } from '@/telemetry/instrumentation.server'
+export { initializeOpenTelemetry } from '@/telemetry/instrumentation.server';

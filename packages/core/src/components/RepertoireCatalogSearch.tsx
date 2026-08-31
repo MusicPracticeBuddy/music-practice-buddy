@@ -1,5 +1,5 @@
-import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js'
-import { useRouter } from '@tanstack/solid-router'
+import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js';
+import { useRouter } from '@tanstack/solid-router';
 import {
   addRepertoireToLibrary,
   searchComposerNames,
@@ -10,54 +10,54 @@ import {
   type CatalogSearchPage,
   type InstrumentOption,
   getPublicRepertoireCatalogPage,
-} from '@/data/repertoire'
-import { groupExpandedInstrumentOptions, groupInstrumentOptions } from '@/domain/instrument'
+} from '@/data/repertoire';
+import { groupExpandedInstrumentOptions, groupInstrumentOptions } from '@/domain/instrument';
 
 export function RepertoireCatalogSearch(props: {
-  initialPage: CatalogSearchPage
-  instruments: InstrumentOption[]
-  initialInstrumentIds?: string[]
+  initialPage: CatalogSearchPage;
+  instruments: InstrumentOption[];
+  initialInstrumentIds?: string[];
 }) {
-  const router = useRouter()
-  const [query, setQuery] = createSignal('')
-  const [composerQuery, setComposerQuery] = createSignal('')
-  const [composerSuggestions, setComposerSuggestions] = createSignal<ComposerNameSuggestion[]>([])
-  const [acceptedComposerName, setAcceptedComposerName] = createSignal('')
-  const [instrumentQuery, setInstrumentQuery] = createSignal('')
-  const [showAllInstruments, setShowAllInstruments] = createSignal(false)
+  const router = useRouter();
+  const [query, setQuery] = createSignal('');
+  const [composerQuery, setComposerQuery] = createSignal('');
+  const [composerSuggestions, setComposerSuggestions] = createSignal<ComposerNameSuggestion[]>([]);
+  const [acceptedComposerName, setAcceptedComposerName] = createSignal('');
+  const [instrumentQuery, setInstrumentQuery] = createSignal('');
+  const [showAllInstruments, setShowAllInstruments] = createSignal(false);
   const [selectedInstrumentIds, setSelectedInstrumentIds] = createSignal<string[]>(
     props.initialInstrumentIds ?? [],
-  )
-  const [instrumentMatch, setInstrumentMatch] = createSignal<CatalogInstrumentMatch>('ANY')
-  const [yearFrom, setYearFrom] = createSignal('')
-  const [yearTo, setYearTo] = createSignal('')
-  const [results, setResults] = createSignal(props.initialPage)
-  const [loading, setLoading] = createSignal(false)
-  const [expandedIds, setExpandedIds] = createSignal<string[]>([])
-  const [addingId, setAddingId] = createSignal<string | null>(null)
-  const [addedIds, setAddedIds] = createSignal<string[]>([])
-  const [error, setError] = createSignal('')
-  let searchTimer: ReturnType<typeof setTimeout> | undefined
-  let composerSearchTimer: ReturnType<typeof setTimeout> | undefined
-  let requestId = 0
-  let composerRequestId = 0
+  );
+  const [instrumentMatch, setInstrumentMatch] = createSignal<CatalogInstrumentMatch>('ANY');
+  const [yearFrom, setYearFrom] = createSignal('');
+  const [yearTo, setYearTo] = createSignal('');
+  const [results, setResults] = createSignal(props.initialPage);
+  const [loading, setLoading] = createSignal(false);
+  const [expandedIds, setExpandedIds] = createSignal<string[]>([]);
+  const [addingId, setAddingId] = createSignal<string | null>(null);
+  const [addedIds, setAddedIds] = createSignal<string[]>([]);
+  const [error, setError] = createSignal('');
+  let searchTimer: ReturnType<typeof setTimeout> | undefined;
+  let composerSearchTimer: ReturnType<typeof setTimeout> | undefined;
+  let requestId = 0;
+  let composerRequestId = 0;
 
   const visibleInstruments = createMemo(() => {
-    const search = instrumentQuery().trim().toLocaleLowerCase()
+    const search = instrumentQuery().trim().toLocaleLowerCase();
     const available = showAllInstruments()
       ? props.instruments
-      : props.instruments.filter((instrument) => instrument.isPreferred)
+      : props.instruments.filter((instrument) => instrument.isPreferred);
     return search
       ? available.filter((instrument) =>
           `${instrument.name} ${instrument.family}`.toLocaleLowerCase().includes(search),
         )
-      : available
-  })
+      : available;
+  });
   const visibleInstrumentGroups = createMemo(() =>
     showAllInstruments()
       ? groupExpandedInstrumentOptions(visibleInstruments())
       : groupInstrumentOptions(visibleInstruments()),
-  )
+  );
 
   function searchInput(page: number): CatalogSearchInput {
     return {
@@ -68,39 +68,39 @@ export function RepertoireCatalogSearch(props: {
       yearFrom: yearFrom() === '' ? null : Number(yearFrom()),
       yearTo: yearTo() === '' ? null : Number(yearTo()),
       page,
-    }
+    };
   }
 
   async function loadPage(page: number) {
-    clearTimeout(searchTimer)
-    const currentRequest = ++requestId
-    setLoading(true)
-    setError('')
+    clearTimeout(searchTimer);
+    const currentRequest = ++requestId;
+    setLoading(true);
+    setError('');
     try {
-      const nextResults = await getPublicRepertoireCatalogPage({ data: searchInput(page) })
-      if (currentRequest === requestId) setResults(nextResults)
+      const nextResults = await getPublicRepertoireCatalogPage({ data: searchInput(page) });
+      if (currentRequest === requestId) setResults(nextResults);
     } catch (caught) {
       if (currentRequest === requestId) {
-        setError(caught instanceof Error ? caught.message : 'The catalog could not be searched.')
+        setError(caught instanceof Error ? caught.message : 'The catalog could not be searched.');
       }
     } finally {
-      if (currentRequest === requestId) setLoading(false)
+      if (currentRequest === requestId) setLoading(false);
     }
   }
 
   function queueSearch(delay = 0) {
-    clearTimeout(searchTimer)
-    requestId += 1
-    searchTimer = setTimeout(() => void loadPage(1), delay)
+    clearTimeout(searchTimer);
+    requestId += 1;
+    searchTimer = setTimeout(() => void loadPage(1), delay);
   }
 
   function queueComposerLookup(composerName: string) {
-    clearTimeout(composerSearchTimer)
-    const request = ++composerRequestId
-    const normalizedQuery = composerName.trim().toLocaleLowerCase()
+    clearTimeout(composerSearchTimer);
+    const request = ++composerRequestId;
+    const normalizedQuery = composerName.trim().toLocaleLowerCase();
     if (acceptedComposerName().toLocaleLowerCase() === normalizedQuery) {
-      setComposerSuggestions([])
-      return
+      setComposerSuggestions([]);
+      return;
     }
     if (
       normalizedQuery &&
@@ -108,62 +108,62 @@ export function RepertoireCatalogSearch(props: {
         (suggestion) => suggestion.name.toLocaleLowerCase() === normalizedQuery,
       )
     ) {
-      setAcceptedComposerName(composerName.trim())
-      setComposerSuggestions([])
-      return
+      setAcceptedComposerName(composerName.trim());
+      setComposerSuggestions([]);
+      return;
     }
-    setAcceptedComposerName('')
+    setAcceptedComposerName('');
     if (normalizedQuery.length < 2) {
-      setComposerSuggestions([])
-      return
+      setComposerSuggestions([]);
+      return;
     }
     composerSearchTimer = setTimeout(async () => {
       try {
-        const suggestions = await searchComposerNames({ data: composerName })
-        if (request === composerRequestId) setComposerSuggestions(suggestions)
+        const suggestions = await searchComposerNames({ data: composerName });
+        if (request === composerRequestId) setComposerSuggestions(suggestions);
       } catch {
-        if (request === composerRequestId) setComposerSuggestions([])
+        if (request === composerRequestId) setComposerSuggestions([]);
       }
-    }, 200)
+    }, 200);
   }
 
   onCleanup(() => {
-    clearTimeout(searchTimer)
-    clearTimeout(composerSearchTimer)
-  })
+    clearTimeout(searchTimer);
+    clearTimeout(composerSearchTimer);
+  });
 
   function toggleInstrument(id: string, checked: boolean) {
     setSelectedInstrumentIds((ids) =>
       checked ? [...ids, id] : ids.filter((candidate) => candidate !== id),
-    )
-    queueSearch()
+    );
+    queueSearch();
   }
 
   function clearFilters() {
-    setQuery('')
-    setComposerQuery('')
-    setComposerSuggestions([])
-    setAcceptedComposerName('')
-    setInstrumentQuery('')
-    setShowAllInstruments(false)
-    setSelectedInstrumentIds([])
-    setInstrumentMatch('ANY')
-    setYearFrom('')
-    setYearTo('')
-    queueSearch()
+    setQuery('');
+    setComposerQuery('');
+    setComposerSuggestions([]);
+    setAcceptedComposerName('');
+    setInstrumentQuery('');
+    setShowAllInstruments(false);
+    setSelectedInstrumentIds([]);
+    setInstrumentMatch('ANY');
+    setYearFrom('');
+    setYearTo('');
+    queueSearch();
   }
 
   async function addToLibrary(item: CatalogRepertoireRow) {
-    setAddingId(item.id)
-    setError('')
+    setAddingId(item.id);
+    setError('');
     try {
-      await addRepertoireToLibrary({ data: item.id })
-      setAddedIds((ids) => [...ids, item.id])
-      await router.invalidate({ sync: true })
+      await addRepertoireToLibrary({ data: item.id });
+      setAddedIds((ids) => [...ids, item.id]);
+      await router.invalidate({ sync: true });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'The repertoire could not be added.')
+      setError(caught instanceof Error ? caught.message : 'The repertoire could not be added.');
     } finally {
-      setAddingId(null)
+      setAddingId(null);
     }
   }
 
@@ -180,8 +180,8 @@ export function RepertoireCatalogSearch(props: {
           value={query()}
           placeholder="Title or composer…"
           onInput={(event) => {
-            setQuery(event.currentTarget.value)
-            queueSearch(300)
+            setQuery(event.currentTarget.value);
+            queueSearch(300);
           }}
         />
 
@@ -197,9 +197,9 @@ export function RepertoireCatalogSearch(props: {
           placeholder="Search composers…"
           onFocus={() => queueComposerLookup(composerQuery())}
           onInput={(event) => {
-            setComposerQuery(event.currentTarget.value)
-            queueComposerLookup(event.currentTarget.value)
-            queueSearch(300)
+            setComposerQuery(event.currentTarget.value);
+            queueComposerLookup(event.currentTarget.value);
+            queueSearch(300);
           }}
         />
         <datalist id="catalog-composer-options">
@@ -216,8 +216,8 @@ export function RepertoireCatalogSearch(props: {
               type="number"
               value={yearFrom()}
               onInput={(event) => {
-                setYearFrom(event.currentTarget.value)
-                queueSearch(300)
+                setYearFrom(event.currentTarget.value);
+                queueSearch(300);
               }}
             />
             <label for="catalog-year-to">To</label>
@@ -227,8 +227,8 @@ export function RepertoireCatalogSearch(props: {
               type="number"
               value={yearTo()}
               onInput={(event) => {
-                setYearTo(event.currentTarget.value)
-                queueSearch(300)
+                setYearTo(event.currentTarget.value);
+                queueSearch(300);
               }}
             />
           </div>
@@ -243,8 +243,8 @@ export function RepertoireCatalogSearch(props: {
                 name="instrument-match"
                 checked={instrumentMatch() === 'ANY'}
                 onChange={() => {
-                  setInstrumentMatch('ANY')
-                  queueSearch()
+                  setInstrumentMatch('ANY');
+                  queueSearch();
                 }}
               />
               Match any
@@ -255,8 +255,8 @@ export function RepertoireCatalogSearch(props: {
                 name="instrument-match"
                 checked={instrumentMatch() === 'ALL'}
                 onChange={() => {
-                  setInstrumentMatch('ALL')
-                  queueSearch()
+                  setInstrumentMatch('ALL');
+                  queueSearch();
                 }}
               />
               Match all
@@ -268,8 +268,8 @@ export function RepertoireCatalogSearch(props: {
             aria-expanded={showAllInstruments()}
             aria-controls="catalog-instrument-options"
             onClick={() => {
-              setShowAllInstruments((expanded) => !expanded)
-              setInstrumentQuery('')
+              setShowAllInstruments((expanded) => !expanded);
+              setInstrumentQuery('');
             }}
           >
             {showAllInstruments() ? 'Show only My Instruments' : 'Show all instruments'}
@@ -352,8 +352,8 @@ export function RepertoireCatalogSearch(props: {
             fallback={<p class="library-empty">No catalog works match.</p>}
           >
             {(item) => {
-              const inLibrary = () => item.inLibrary || addedIds().includes(item.id)
-              const expanded = () => expandedIds().includes(item.id)
+              const inLibrary = () => item.inLibrary || addedIds().includes(item.id);
+              const expanded = () => expandedIds().includes(item.id);
               return (
                 <article class="catalog-result-card">
                   <div class="catalog-result-summary">
@@ -411,7 +411,7 @@ export function RepertoireCatalogSearch(props: {
                     />
                   </Show>
                 </article>
-              )
+              );
             }}
           </For>
         </div>
@@ -440,14 +440,14 @@ export function RepertoireCatalogSearch(props: {
         </Show>
       </section>
     </div>
-  )
+  );
 }
 
 function CatalogChildren(props: {
-  items: CatalogRepertoireRow[]
-  addingId: string | null
-  addedIds: string[]
-  onAdd: (item: CatalogRepertoireRow) => Promise<void>
+  items: CatalogRepertoireRow[];
+  addingId: string | null;
+  addedIds: string[];
+  onAdd: (item: CatalogRepertoireRow) => Promise<void>;
 }) {
   return (
     <ul class="catalog-child-list">
@@ -500,5 +500,5 @@ function CatalogChildren(props: {
         )}
       </For>
     </ul>
-  )
+  );
 }

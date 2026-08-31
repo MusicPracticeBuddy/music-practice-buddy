@@ -1,10 +1,10 @@
-import { For, Index, Show, createEffect, createSignal, onCleanup, type JSX } from 'solid-js'
-import { Link, useNavigate, useRouter } from '@tanstack/solid-router'
-import { ExerciseNotation } from '@/components/ExerciseNotation'
-import { InstrumentSelect } from '@/components/InstrumentFields'
-import { createExercise, updateExercise, type ExerciseInput } from '@/data/exercises'
-import { EXERCISE_NOTATION_FORMAT, type ExerciseNotationFormat } from '@/domain/exercise'
-import { groupInstrumentOptions } from '@/domain/instrument'
+import { For, Index, Show, createEffect, createSignal, onCleanup, type JSX } from 'solid-js';
+import { Link, useNavigate, useRouter } from '@tanstack/solid-router';
+import { ExerciseNotation } from '@/components/ExerciseNotation';
+import { InstrumentSelect } from '@/components/InstrumentFields';
+import { createExercise, updateExercise, type ExerciseInput } from '@/data/exercises';
+import { EXERCISE_NOTATION_FORMAT, type ExerciseNotationFormat } from '@/domain/exercise';
+import { groupInstrumentOptions } from '@/domain/instrument';
 import {
   createChildRepertoire,
   createRepertoire,
@@ -16,87 +16,89 @@ import {
   type RepertoireInput,
   type RepertoireInstrumentInput,
   type RepertoireResourceInput,
-} from '@/data/repertoire'
+} from '@/data/repertoire';
 
 type LibraryItemFormProps = {
-  kind: 'exercise' | 'repertoire'
-  id?: string
-  parentId?: string
-  parentName?: string
-  isExcerpt?: boolean
-  startMeasure?: number | null
-  endMeasure?: number | null
-  name?: string
-  compositionYear?: number | null
-  notation?: string | null
-  notationFormat?: ExerciseNotationFormat
-  instrumentId?: string | null
-  visibility?: 'PRIVATE' | 'PUBLIC'
-  credits?: RepertoireCreditInput[]
-  instruments?: RepertoireInstrumentInput[]
-  resources?: RepertoireResourceInput[]
-  instrumentOptions?: InstrumentOption[]
-  canCreatePublic?: boolean
-  embedded?: boolean
-  beforeFields?: JSX.Element
-  afterFields?: JSX.Element
-  cancelAction?: JSX.Element
-  submitLabel?: string
+  kind: 'exercise' | 'repertoire';
+  id?: string;
+  parentId?: string;
+  parentName?: string;
+  isExcerpt?: boolean;
+  startMeasure?: number | null;
+  endMeasure?: number | null;
+  name?: string;
+  compositionYear?: number | null;
+  notation?: string | null;
+  notationFormat?: ExerciseNotationFormat;
+  instrumentId?: string | null;
+  visibility?: 'PRIVATE' | 'PUBLIC';
+  credits?: RepertoireCreditInput[];
+  instruments?: RepertoireInstrumentInput[];
+  resources?: RepertoireResourceInput[];
+  instrumentOptions?: InstrumentOption[];
+  canCreatePublic?: boolean;
+  embedded?: boolean;
+  beforeFields?: JSX.Element;
+  afterFields?: JSX.Element;
+  cancelAction?: JSX.Element;
+  submitLabel?: string;
   onSaved?: (item: {
-    id: string
-    type: 'EXERCISE' | 'REPERTOIRE'
-    name: string
-    detail: string
-    instrumentIds?: string[]
-  }) => void | Promise<void>
-}
+    id: string;
+    type: 'EXERCISE' | 'REPERTOIRE';
+    name: string;
+    detail: string;
+    instrumentIds?: string[];
+  }) => void | Promise<void>;
+};
 
 function errorMessage(caught: unknown) {
-  return caught instanceof Error ? caught.message : 'The library item could not be saved.'
+  return caught instanceof Error ? caught.message : 'The library item could not be saved.';
 }
 
 export function LibraryItemForm(props: LibraryItemFormProps) {
-  const navigate = useNavigate()
-  const router = useRouter()
-  const editing = () => props.id !== undefined
-  const label = () => (props.kind === 'exercise' ? 'exercise' : 'repertoire')
-  const [name, setName] = createSignal(props.name ?? '')
+  const navigate = useNavigate();
+  const router = useRouter();
+  const editing = () => props.id !== undefined;
+  const label = () => (props.kind === 'exercise' ? 'exercise' : 'repertoire');
+  const [name, setName] = createSignal(props.name ?? '');
   const [compositionYear, setCompositionYear] = createSignal(
     props.compositionYear?.toString() ?? '',
-  )
-  const [startMeasure, setStartMeasure] = createSignal(props.startMeasure?.toString() ?? '')
-  const [endMeasure, setEndMeasure] = createSignal(props.endMeasure?.toString() ?? '')
-  const [notation, setNotation] = createSignal(props.notation ?? '')
+  );
+  const [startMeasure, setStartMeasure] = createSignal(props.startMeasure?.toString() ?? '');
+  const [endMeasure, setEndMeasure] = createSignal(props.endMeasure?.toString() ?? '');
+  const [notation, setNotation] = createSignal(props.notation ?? '');
   const [notationFormat, setNotationFormat] = createSignal<ExerciseNotationFormat>(
     props.notationFormat ?? EXERCISE_NOTATION_FORMAT.TEXT,
-  )
+  );
   const [visibility, setVisibility] = createSignal<'PRIVATE' | 'PUBLIC'>(
     props.visibility ?? 'PRIVATE',
-  )
-  const [instrumentId, setInstrumentId] = createSignal(props.instrumentId ?? '')
-  const [credits, setCredits] = createSignal<RepertoireCreditInput[]>(props.credits ?? [])
+  );
+  const [instrumentId, setInstrumentId] = createSignal(props.instrumentId ?? '');
+  const [credits, setCredits] = createSignal<RepertoireCreditInput[]>(props.credits ?? []);
   const [instruments, setInstruments] = createSignal<RepertoireInstrumentInput[]>(
     props.instruments ?? [],
-  )
-  const [resources, setResources] = createSignal<RepertoireResourceInput[]>(props.resources ?? [])
-  const [composerSuggestions, setComposerSuggestions] = createSignal<ComposerNameSuggestion[]>([])
-  const [activeComposerIndex, setActiveComposerIndex] = createSignal<number | null>(null)
-  const [acceptedComposerNames, setAcceptedComposerNames] = createSignal<Record<number, string>>({})
-  const [saving, setSaving] = createSignal(false)
-  const [error, setError] = createSignal('')
-  let composerSearchTimer: ReturnType<typeof setTimeout> | undefined
-  let composerSearchRequest = 0
+  );
+  const [resources, setResources] = createSignal<RepertoireResourceInput[]>(props.resources ?? []);
+  const [composerSuggestions, setComposerSuggestions] = createSignal<ComposerNameSuggestion[]>([]);
+  const [activeComposerIndex, setActiveComposerIndex] = createSignal<number | null>(null);
+  const [acceptedComposerNames, setAcceptedComposerNames] = createSignal<Record<number, string>>(
+    {},
+  );
+  const [saving, setSaving] = createSignal(false);
+  const [error, setError] = createSignal('');
+  let composerSearchTimer: ReturnType<typeof setTimeout> | undefined;
+  let composerSearchRequest = 0;
 
-  onCleanup(() => clearTimeout(composerSearchTimer))
+  onCleanup(() => clearTimeout(composerSearchTimer));
 
   function queueComposerSearch(index: number, query: string) {
-    clearTimeout(composerSearchTimer)
-    const request = ++composerSearchRequest
-    setActiveComposerIndex(index)
-    const normalizedQuery = query.trim().toLocaleLowerCase()
+    clearTimeout(composerSearchTimer);
+    const request = ++composerSearchRequest;
+    setActiveComposerIndex(index);
+    const normalizedQuery = query.trim().toLocaleLowerCase();
     if (acceptedComposerNames()[index]?.toLocaleLowerCase() === normalizedQuery) {
-      setComposerSuggestions([])
-      return
+      setComposerSuggestions([]);
+      return;
     }
     if (
       normalizedQuery &&
@@ -104,48 +106,48 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
         (suggestion) => suggestion.name.toLocaleLowerCase() === normalizedQuery,
       )
     ) {
-      setAcceptedComposerNames((names) => ({ ...names, [index]: query.trim() }))
-      setComposerSuggestions([])
-      return
+      setAcceptedComposerNames((names) => ({ ...names, [index]: query.trim() }));
+      setComposerSuggestions([]);
+      return;
     }
     setAcceptedComposerNames((names) => {
-      if (!(index in names)) return names
-      const nextNames = { ...names }
-      delete nextNames[index]
-      return nextNames
-    })
+      if (!(index in names)) return names;
+      const nextNames = { ...names };
+      delete nextNames[index];
+      return nextNames;
+    });
     if (query.trim().length < 2) {
-      setComposerSuggestions([])
-      return
+      setComposerSuggestions([]);
+      return;
     }
     composerSearchTimer = setTimeout(async () => {
       try {
-        const suggestions = await searchComposerNames({ data: query })
-        if (request === composerSearchRequest) setComposerSuggestions(suggestions)
+        const suggestions = await searchComposerNames({ data: query });
+        if (request === composerSearchRequest) setComposerSuggestions(suggestions);
       } catch {
-        if (request === composerSearchRequest) setComposerSuggestions([])
+        if (request === composerSearchRequest) setComposerSuggestions([]);
       }
-    }, 200)
+    }, 200);
   }
 
   createEffect(() => {
-    setName(props.name ?? '')
-    setCompositionYear(props.compositionYear?.toString() ?? '')
-    setStartMeasure(props.startMeasure?.toString() ?? '')
-    setEndMeasure(props.endMeasure?.toString() ?? '')
-    setNotation(props.notation ?? '')
-    setNotationFormat(props.notationFormat ?? EXERCISE_NOTATION_FORMAT.TEXT)
-    setVisibility(props.visibility ?? 'PRIVATE')
-    setInstrumentId(props.instrumentId ?? '')
-    setCredits(props.credits ?? [])
-    setInstruments(props.instruments ?? [])
-    setResources(props.resources ?? [])
-  })
+    setName(props.name ?? '');
+    setCompositionYear(props.compositionYear?.toString() ?? '');
+    setStartMeasure(props.startMeasure?.toString() ?? '');
+    setEndMeasure(props.endMeasure?.toString() ?? '');
+    setNotation(props.notation ?? '');
+    setNotationFormat(props.notationFormat ?? EXERCISE_NOTATION_FORMAT.TEXT);
+    setVisibility(props.visibility ?? 'PRIVATE');
+    setInstrumentId(props.instrumentId ?? '');
+    setCredits(props.credits ?? []);
+    setInstruments(props.instruments ?? []);
+    setResources(props.resources ?? []);
+  });
 
   async function submit(event: SubmitEvent) {
-    event.preventDefault()
-    setSaving(true)
-    setError('')
+    event.preventDefault();
+    setSaving(true);
+    setError('');
     try {
       if (props.kind === 'exercise') {
         const data: ExerciseInput = {
@@ -154,10 +156,10 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
           notationFormat: notationFormat(),
           visibility: visibility(),
           instrumentId: instrumentId() || null,
-        }
+        };
         const result = props.id
           ? await updateExercise({ data: { id: props.id, ...data } })
-          : await createExercise({ data })
+          : await createExercise({ data });
         if (props.onSaved) {
           await props.onSaved({
             id: result.id,
@@ -165,11 +167,11 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
             name: data.name.trim(),
             detail: data.notation.trim() ? 'Exercise · with notation' : 'Exercise',
             instrumentIds: data.instrumentId ? [data.instrumentId] : [],
-          })
-          return
+          });
+          return;
         }
-        await router.invalidate({ sync: true })
-        await navigate({ to: '/exercises/$exerciseId', params: { exerciseId: result.id } })
+        await router.invalidate({ sync: true });
+        await navigate({ to: '/exercises/$exerciseId', params: { exerciseId: result.id } });
       } else {
         const data: RepertoireInput = {
           title: name(),
@@ -178,18 +180,18 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
           credits: credits(),
           instruments: instruments(),
           resources: resources(),
-        }
+        };
         const measureRange = {
           startMeasure: props.isExcerpt ? Number(startMeasure()) : null,
           endMeasure: props.isExcerpt ? Number(endMeasure()) : null,
-        }
+        };
         const result = props.id
           ? await updateRepertoire({ data: { id: props.id, ...data, ...measureRange } })
           : props.parentId
             ? await createChildRepertoire({
                 data: { parentId: props.parentId, ...data, ...measureRange },
               })
-            : await createRepertoire({ data })
+            : await createRepertoire({ data });
         if (props.onSaved) {
           await props.onSaved({
             id: result.id,
@@ -197,19 +199,19 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
             name: data.title.trim(),
             detail: 'Repertoire',
             instrumentIds: (data.instruments ?? []).map((instrument) => instrument.instrumentId),
-          })
-          return
+          });
+          return;
         }
-        await router.invalidate({ sync: true })
+        await router.invalidate({ sync: true });
         await navigate({
           to: '/repertoire/$repertoireId',
           params: { repertoireId: result.id },
-        })
+        });
       }
     } catch (caught) {
-      setError(errorMessage(caught))
+      setError(errorMessage(caught));
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
@@ -362,7 +364,7 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
                     required
                     onFocus={() => {
                       if (credit().role === 'COMPOSER') {
-                        queueComposerSearch(index, credit().person)
+                        queueComposerSearch(index, credit().person);
                       }
                     }}
                     onInput={(event) => {
@@ -372,9 +374,9 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
                             ? { ...item, person: event.currentTarget.value }
                             : item,
                         ),
-                      )
+                      );
                       if (credit().role === 'COMPOSER') {
-                        queueComposerSearch(index, event.currentTarget.value)
+                        queueComposerSearch(index, event.currentTarget.value);
                       }
                     }}
                   />
@@ -399,9 +401,9 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
                               }
                             : item,
                         ),
-                      )
+                      );
                       if (event.currentTarget.value === 'COMPOSER') {
-                        queueComposerSearch(index, credit().person)
+                        queueComposerSearch(index, credit().person);
                       }
                     }}
                   >
@@ -438,12 +440,12 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
               type="button"
               disabled={(props.instrumentOptions?.length ?? 0) === 0}
               onClick={() => {
-                const firstInstrument = props.instrumentOptions?.[0]
-                if (!firstInstrument) return
+                const firstInstrument = props.instrumentOptions?.[0];
+                if (!firstInstrument) return;
                 setInstruments((items) => [
                   ...items,
                   { instrumentId: firstInstrument.id, role: 'SOLO', partName: null },
-                ])
+                ]);
               }}
             >
               + Add instrument
@@ -650,11 +652,11 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
         </button>
       </div>
     </form>
-  )
+  );
 
-  if (props.embedded) return form
+  if (props.embedded) return form;
 
-  const repertoireChildLabel = () => (props.isExcerpt ? 'excerpt' : 'movement or piece')
+  const repertoireChildLabel = () => (props.isExcerpt ? 'excerpt' : 'movement or piece');
 
   return (
     <main class={`page form-page ${props.kind === 'repertoire' ? 'repertoire-form-page' : ''}`}>
@@ -691,5 +693,5 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
       </header>
       {form}
     </main>
-  )
+  );
 }

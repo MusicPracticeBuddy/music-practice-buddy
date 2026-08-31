@@ -1,55 +1,57 @@
-import { For, Show, createEffect, createSignal } from 'solid-js'
-import { Link, createFileRoute } from '@tanstack/solid-router'
-import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
-import { SwipeToDelete } from '@/components/SwipeToDelete'
-import { InstrumentFilter } from '@/components/InstrumentFields'
+import { For, Show, createEffect, createSignal } from 'solid-js';
+import { Link, createFileRoute } from '@tanstack/solid-router';
+import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog';
+import { SwipeToDelete } from '@/components/SwipeToDelete';
+import { InstrumentFilter } from '@/components/InstrumentFields';
 import {
   deleteSessionTemplate,
   EMPTY_SESSION_TEMPLATE_SEARCH,
   getSessionTemplatesPage,
   type SessionTemplateSummary,
-} from '@/data/sessionTemplates'
-import { getInstruments } from '@/data/repertoire'
+} from '@/data/sessionTemplates';
+import { getInstruments } from '@/data/repertoire';
 
 export const Route = createFileRoute('/templates/')({
   loader: async () => {
     const [page, instruments] = await Promise.all([
       getSessionTemplatesPage({ data: EMPTY_SESSION_TEMPLATE_SEARCH }),
       getInstruments(),
-    ])
-    return { page, instruments }
+    ]);
+    return { page, instruments };
   },
   component: Templates,
-})
+});
 
 function Templates() {
-  const initialPage = Route.useLoaderData()
-  const [templates, setTemplates] = createSignal(initialPage().page)
-  const [instrumentIds, setInstrumentIds] = createSignal<string[]>([])
-  const [loading, setLoading] = createSignal(false)
-  const [error, setError] = createSignal('')
+  const initialPage = Route.useLoaderData();
+  const [templates, setTemplates] = createSignal(initialPage().page);
+  const [instrumentIds, setInstrumentIds] = createSignal<string[]>([]);
+  const [loading, setLoading] = createSignal(false);
+  const [error, setError] = createSignal('');
 
   createEffect(() => {
-    const refreshedPage = initialPage().page
-    if (instrumentIds().length === 0) setTemplates(refreshedPage)
-  })
+    const refreshedPage = initialPage().page;
+    if (instrumentIds().length === 0) setTemplates(refreshedPage);
+  });
 
   async function loadPage(page: number) {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError('');
     try {
-      let result = await getSessionTemplatesPage({ data: { instrumentIds: instrumentIds(), page } })
-      const lastPage = Math.max(1, result.totalPages)
+      let result = await getSessionTemplatesPage({
+        data: { instrumentIds: instrumentIds(), page },
+      });
+      const lastPage = Math.max(1, result.totalPages);
       if (result.page > lastPage) {
         result = await getSessionTemplatesPage({
           data: { instrumentIds: instrumentIds(), page: lastPage },
-        })
+        });
       }
-      setTemplates(result)
+      setTemplates(result);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Templates could not be loaded.')
+      setError(caught instanceof Error ? caught.message : 'Templates could not be loaded.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -76,16 +78,16 @@ function Templates() {
           instruments={initialPage().instruments}
           selectedIds={instrumentIds()}
           onChange={(ids) => {
-            setInstrumentIds(ids)
-            void loadPage(1)
+            setInstrumentIds(ids);
+            void loadPage(1);
           }}
         />
         <button
           class="text-button library-filter-clear"
           type="button"
           onClick={() => {
-            setInstrumentIds([])
-            void loadPage(1)
+            setInstrumentIds([]);
+            void loadPage(1);
           }}
         >
           Clear filters
@@ -115,8 +117,8 @@ function Templates() {
               <TemplateListItem
                 template={template}
                 onDelete={async () => {
-                  await deleteSessionTemplate({ data: template.id })
-                  await loadPage(templates().page)
+                  await deleteSessionTemplate({ data: template.id });
+                  await loadPage(templates().page);
                 }}
               />
             )}
@@ -148,14 +150,14 @@ function Templates() {
         </nav>
       </Show>
     </main>
-  )
+  );
 }
 
 function TemplateListItem(props: {
-  template: SessionTemplateSummary
-  onDelete: () => Promise<void>
+  template: SessionTemplateSummary;
+  onDelete: () => Promise<void>;
 }) {
-  const [deleteOpen, setDeleteOpen] = createSignal(false)
+  const [deleteOpen, setDeleteOpen] = createSignal(false);
 
   return (
     <SwipeToDelete onDeleteRequest={() => props.template.canManage && setDeleteOpen(true)}>
@@ -214,5 +216,5 @@ function TemplateListItem(props: {
         </div>
       </article>
     </SwipeToDelete>
-  )
+  );
 }

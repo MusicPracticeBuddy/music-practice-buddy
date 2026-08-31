@@ -1,16 +1,16 @@
-import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js'
-import { Link, createFileRoute } from '@tanstack/solid-router'
-import { RepertoireLibraryNote } from '@/components/RepertoireLibraryNote'
-import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
-import { ExerciseNotation } from '@/components/ExerciseNotation'
-import { InstrumentFilter } from '@/components/InstrumentFields'
+import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js';
+import { Link, createFileRoute } from '@tanstack/solid-router';
+import { RepertoireLibraryNote } from '@/components/RepertoireLibraryNote';
+import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog';
+import { ExerciseNotation } from '@/components/ExerciseNotation';
+import { InstrumentFilter } from '@/components/InstrumentFields';
 import {
   EMPTY_EXERCISE_LIBRARY_SEARCH,
   getExerciseLibraryPage,
   removeExerciseFromLibrary,
   type ExerciseLibrarySearchInput,
   type ExerciseRow,
-} from '@/data/exercises'
+} from '@/data/exercises';
 import {
   EMPTY_REPERTOIRE_LIBRARY_SEARCH,
   getInstruments,
@@ -18,67 +18,67 @@ import {
   removeRepertoireFromLibrary,
   type RepertoireLibrarySearchInput,
   type RepertoireRow,
-} from '@/data/repertoire'
+} from '@/data/repertoire';
 
 export const Route = createFileRoute('/library')({
   loader: async () => {
-    const instruments = await getInstruments()
+    const instruments = await getInstruments();
     const instrumentIds = instruments
       .filter((instrument) => instrument.isPreferred)
-      .map((instrument) => instrument.id)
+      .map((instrument) => instrument.id);
     const [exercises, repertoire] = await Promise.all([
       getExerciseLibraryPage({ data: EMPTY_EXERCISE_LIBRARY_SEARCH }),
       getRepertoireLibraryPage({
         data: { ...EMPTY_REPERTOIRE_LIBRARY_SEARCH, instrumentIds },
       }),
-    ])
-    return { repertoire, exercises, instruments, instrumentIds }
+    ]);
+    return { repertoire, exercises, instruments, instrumentIds };
   },
   component: Library,
-})
+});
 
 function Library() {
-  const data = Route.useLoaderData()
-  const [repertoire, setRepertoire] = createSignal(data().repertoire)
-  const [exercises, setExercises] = createSignal(data().exercises)
-  const [repertoireLoading, setRepertoireLoading] = createSignal(false)
-  const [exercisesLoading, setExercisesLoading] = createSignal(false)
-  const [repertoireError, setRepertoireError] = createSignal('')
-  const [exerciseError, setExerciseError] = createSignal('')
-  const [repertoireQuery, setRepertoireQuery] = createSignal('')
-  const [composer, setComposer] = createSignal('')
-  const [instrumentIds, setInstrumentIds] = createSignal<string[]>(data().instrumentIds)
-  const [exerciseInstrumentIds, setExerciseInstrumentIds] = createSignal<string[]>([])
+  const data = Route.useLoaderData();
+  const [repertoire, setRepertoire] = createSignal(data().repertoire);
+  const [exercises, setExercises] = createSignal(data().exercises);
+  const [repertoireLoading, setRepertoireLoading] = createSignal(false);
+  const [exercisesLoading, setExercisesLoading] = createSignal(false);
+  const [repertoireError, setRepertoireError] = createSignal('');
+  const [exerciseError, setExerciseError] = createSignal('');
+  const [repertoireQuery, setRepertoireQuery] = createSignal('');
+  const [composer, setComposer] = createSignal('');
+  const [instrumentIds, setInstrumentIds] = createSignal<string[]>(data().instrumentIds);
+  const [exerciseInstrumentIds, setExerciseInstrumentIds] = createSignal<string[]>([]);
   const [repertoireVisibility, setRepertoireVisibility] =
-    createSignal<RepertoireLibrarySearchInput['visibility']>('ALL')
-  const [exerciseQuery, setExerciseQuery] = createSignal('')
+    createSignal<RepertoireLibrarySearchInput['visibility']>('ALL');
+  const [exerciseQuery, setExerciseQuery] = createSignal('');
   const [exerciseVisibility, setExerciseVisibility] =
-    createSignal<ExerciseLibrarySearchInput['visibility']>('ALL')
+    createSignal<ExerciseLibrarySearchInput['visibility']>('ALL');
   const [notationFormat, setNotationFormat] =
-    createSignal<ExerciseLibrarySearchInput['notationFormat']>('ALL')
-  let repertoireTimer: ReturnType<typeof setTimeout> | undefined
-  let exerciseTimer: ReturnType<typeof setTimeout> | undefined
-  let repertoireRequestId = 0
-  let exerciseRequestId = 0
+    createSignal<ExerciseLibrarySearchInput['notationFormat']>('ALL');
+  let repertoireTimer: ReturnType<typeof setTimeout> | undefined;
+  let exerciseTimer: ReturnType<typeof setTimeout> | undefined;
+  let repertoireRequestId = 0;
+  let exerciseRequestId = 0;
 
   createEffect(() => {
-    const refreshed = data()
-    const defaultRepertoireInstrumentIds = refreshed.instrumentIds
+    const refreshed = data();
+    const defaultRepertoireInstrumentIds = refreshed.instrumentIds;
     const repertoireFiltersAreDefault =
       repertoireQuery() === '' &&
       composer() === '' &&
       repertoireVisibility() === 'ALL' &&
       instrumentIds().length === defaultRepertoireInstrumentIds.length &&
-      instrumentIds().every((id, index) => id === defaultRepertoireInstrumentIds[index])
-    if (repertoireFiltersAreDefault) setRepertoire(refreshed.repertoire)
+      instrumentIds().every((id, index) => id === defaultRepertoireInstrumentIds[index]);
+    if (repertoireFiltersAreDefault) setRepertoire(refreshed.repertoire);
 
     const exerciseFiltersAreDefault =
       exerciseQuery() === '' &&
       exerciseVisibility() === 'ALL' &&
       notationFormat() === 'ALL' &&
-      exerciseInstrumentIds().length === 0
-    if (exerciseFiltersAreDefault) setExercises(refreshed.exercises)
-  })
+      exerciseInstrumentIds().length === 0;
+    if (exerciseFiltersAreDefault) setExercises(refreshed.exercises);
+  });
 
   function repertoireSearchInput(page: number): RepertoireLibrarySearchInput {
     return {
@@ -87,7 +87,7 @@ function Library() {
       instrumentIds: instrumentIds(),
       visibility: repertoireVisibility(),
       page,
-    }
+    };
   }
 
   function exerciseSearchInput(page: number): ExerciseLibrarySearchInput {
@@ -97,67 +97,67 @@ function Library() {
       notationFormat: notationFormat(),
       instrumentIds: exerciseInstrumentIds(),
       page,
-    }
+    };
   }
 
   async function loadRepertoirePage(page: number) {
-    clearTimeout(repertoireTimer)
-    const currentRequest = ++repertoireRequestId
-    setRepertoireLoading(true)
-    setRepertoireError('')
+    clearTimeout(repertoireTimer);
+    const currentRequest = ++repertoireRequestId;
+    setRepertoireLoading(true);
+    setRepertoireError('');
     try {
-      let result = await getRepertoireLibraryPage({ data: repertoireSearchInput(page) })
-      const lastPage = Math.max(1, result.totalPages)
+      let result = await getRepertoireLibraryPage({ data: repertoireSearchInput(page) });
+      const lastPage = Math.max(1, result.totalPages);
       if (result.page > lastPage) {
-        result = await getRepertoireLibraryPage({ data: repertoireSearchInput(lastPage) })
+        result = await getRepertoireLibraryPage({ data: repertoireSearchInput(lastPage) });
       }
-      if (currentRequest === repertoireRequestId) setRepertoire(result)
+      if (currentRequest === repertoireRequestId) setRepertoire(result);
     } catch (caught) {
       if (currentRequest === repertoireRequestId) {
         setRepertoireError(
           caught instanceof Error ? caught.message : 'Repertoire could not be loaded.',
-        )
+        );
       }
     } finally {
-      if (currentRequest === repertoireRequestId) setRepertoireLoading(false)
+      if (currentRequest === repertoireRequestId) setRepertoireLoading(false);
     }
   }
 
   async function loadExercisePage(page: number) {
-    clearTimeout(exerciseTimer)
-    const currentRequest = ++exerciseRequestId
-    setExercisesLoading(true)
-    setExerciseError('')
+    clearTimeout(exerciseTimer);
+    const currentRequest = ++exerciseRequestId;
+    setExercisesLoading(true);
+    setExerciseError('');
     try {
-      const result = await getExerciseLibraryPage({ data: exerciseSearchInput(page) })
-      if (currentRequest === exerciseRequestId) setExercises(result)
+      const result = await getExerciseLibraryPage({ data: exerciseSearchInput(page) });
+      if (currentRequest === exerciseRequestId) setExercises(result);
     } catch (caught) {
       if (currentRequest === exerciseRequestId) {
         setExerciseError(
           caught instanceof Error ? caught.message : 'Exercises could not be loaded.',
-        )
+        );
       }
     } finally {
-      if (currentRequest === exerciseRequestId) setExercisesLoading(false)
+      if (currentRequest === exerciseRequestId) setExercisesLoading(false);
     }
   }
 
   function queueRepertoireSearch(delay = 0) {
-    clearTimeout(repertoireTimer)
-    repertoireRequestId += 1
-    repertoireTimer = setTimeout(() => void loadRepertoirePage(1), delay)
+    clearTimeout(repertoireTimer);
+    repertoireRequestId += 1;
+    repertoireTimer = setTimeout(() => void loadRepertoirePage(1), delay);
   }
 
   function queueExerciseSearch(delay = 0) {
-    clearTimeout(exerciseTimer)
-    exerciseRequestId += 1
-    exerciseTimer = setTimeout(() => void loadExercisePage(1), delay)
+    clearTimeout(exerciseTimer);
+    exerciseRequestId += 1;
+    exerciseTimer = setTimeout(() => void loadExercisePage(1), delay);
   }
 
   onCleanup(() => {
-    clearTimeout(repertoireTimer)
-    clearTimeout(exerciseTimer)
-  })
+    clearTimeout(repertoireTimer);
+    clearTimeout(exerciseTimer);
+  });
 
   return (
     <main class="page">
@@ -200,8 +200,8 @@ function Library() {
                 value={repertoireQuery()}
                 placeholder="Title or composer…"
                 onInput={(event) => {
-                  setRepertoireQuery(event.currentTarget.value)
-                  queueRepertoireSearch(300)
+                  setRepertoireQuery(event.currentTarget.value);
+                  queueRepertoireSearch(300);
                 }}
               />
             </label>
@@ -213,8 +213,8 @@ function Library() {
                 value={composer()}
                 placeholder="Any composer"
                 onInput={(event) => {
-                  setComposer(event.currentTarget.value)
-                  queueRepertoireSearch(300)
+                  setComposer(event.currentTarget.value);
+                  queueRepertoireSearch(300);
                 }}
               />
             </label>
@@ -222,8 +222,8 @@ function Library() {
               instruments={data().instruments}
               selectedIds={instrumentIds()}
               onChange={(ids) => {
-                setInstrumentIds(ids)
-                queueRepertoireSearch()
+                setInstrumentIds(ids);
+                queueRepertoireSearch();
               }}
             />
             <label>
@@ -234,8 +234,8 @@ function Library() {
                 onChange={(event) => {
                   setRepertoireVisibility(
                     event.currentTarget.value as RepertoireLibrarySearchInput['visibility'],
-                  )
-                  queueRepertoireSearch()
+                  );
+                  queueRepertoireSearch();
                 }}
               >
                 <option value="ALL">All visibility</option>
@@ -247,11 +247,11 @@ function Library() {
               class="text-button library-filter-clear"
               type="button"
               onClick={() => {
-                setRepertoireQuery('')
-                setComposer('')
-                setInstrumentIds([])
-                setRepertoireVisibility('ALL')
-                queueRepertoireSearch()
+                setRepertoireQuery('');
+                setComposer('');
+                setInstrumentIds([]);
+                setRepertoireVisibility('ALL');
+                queueRepertoireSearch();
               }}
             >
               Clear filters
@@ -274,8 +274,8 @@ function Library() {
                   <RepertoireCard
                     piece={piece}
                     onRemove={async () => {
-                      await removeRepertoireFromLibrary({ data: piece.id })
-                      await loadRepertoirePage(repertoire().page)
+                      await removeRepertoireFromLibrary({ data: piece.id });
+                      await loadRepertoirePage(repertoire().page);
                     }}
                   />
                 )}
@@ -341,8 +341,8 @@ function Library() {
                 value={exerciseQuery()}
                 placeholder="Exercise name…"
                 onInput={(event) => {
-                  setExerciseQuery(event.currentTarget.value)
-                  queueExerciseSearch(300)
+                  setExerciseQuery(event.currentTarget.value);
+                  queueExerciseSearch(300);
                 }}
               />
             </label>
@@ -354,8 +354,8 @@ function Library() {
                 onChange={(event) => {
                   setNotationFormat(
                     event.currentTarget.value as ExerciseLibrarySearchInput['notationFormat'],
-                  )
-                  queueExerciseSearch()
+                  );
+                  queueExerciseSearch();
                 }}
               >
                 <option value="ALL">All formats</option>
@@ -367,8 +367,8 @@ function Library() {
               instruments={data().instruments}
               selectedIds={exerciseInstrumentIds()}
               onChange={(ids) => {
-                setExerciseInstrumentIds(ids)
-                queueExerciseSearch()
+                setExerciseInstrumentIds(ids);
+                queueExerciseSearch();
               }}
             />
             <label>
@@ -379,8 +379,8 @@ function Library() {
                 onChange={(event) => {
                   setExerciseVisibility(
                     event.currentTarget.value as ExerciseLibrarySearchInput['visibility'],
-                  )
-                  queueExerciseSearch()
+                  );
+                  queueExerciseSearch();
                 }}
               >
                 <option value="ALL">All visibility</option>
@@ -392,11 +392,11 @@ function Library() {
               class="text-button library-filter-clear"
               type="button"
               onClick={() => {
-                setExerciseQuery('')
-                setNotationFormat('ALL')
-                setExerciseVisibility('ALL')
-                setExerciseInstrumentIds([])
-                queueExerciseSearch()
+                setExerciseQuery('');
+                setNotationFormat('ALL');
+                setExerciseVisibility('ALL');
+                setExerciseInstrumentIds([]);
+                queueExerciseSearch();
               }}
             >
               Clear filters
@@ -420,8 +420,8 @@ function Library() {
                     exercise={exercise}
                     number={(exercises().page - 1) * exercises().pageSize + index() + 1}
                     onRemove={async () => {
-                      await removeExerciseFromLibrary({ data: exercise.id })
-                      await loadExercisePage(exercises().page)
+                      await removeExerciseFromLibrary({ data: exercise.id });
+                      await loadExercisePage(exercises().page);
                     }}
                   />
                 )}
@@ -455,16 +455,16 @@ function Library() {
         </section>
       </div>
     </main>
-  )
+  );
 }
 
 function ExerciseLibraryCard(props: {
-  exercise: ExerciseRow
-  number: number
-  onRemove: () => Promise<void>
+  exercise: ExerciseRow;
+  number: number;
+  onRemove: () => Promise<void>;
 }) {
-  const [expanded, setExpanded] = createSignal(false)
-  const notationId = `library-exercise-notation-${props.exercise.id}`
+  const [expanded, setExpanded] = createSignal(false);
+  const notationId = `library-exercise-notation-${props.exercise.id}`;
 
   return (
     <article class="list-card exercise-library-card">
@@ -522,7 +522,7 @@ function ExerciseLibraryCard(props: {
         </div>
       </div>
     </article>
-  )
+  );
 }
 
 function RepertoireCard(props: { piece: RepertoireRow; onRemove: () => Promise<void> }) {
@@ -566,5 +566,5 @@ function RepertoireCard(props: { piece: RepertoireRow; onRemove: () => Promise<v
         />
       </div>
     </article>
-  )
+  );
 }

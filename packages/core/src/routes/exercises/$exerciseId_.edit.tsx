@@ -1,23 +1,23 @@
-import { createFileRoute, notFound } from '@tanstack/solid-router'
-import { LibraryItemForm } from '@/components/LibraryItemForm'
-import { getExerciseDetail } from '@/data/exercises'
-import { getInstruments } from '@/data/repertoire'
+import { createFileRoute, notFound } from '@tanstack/solid-router';
+import { LibraryItemForm } from '@/components/LibraryItemForm';
+import { getExerciseDetail } from '@/data/exercises';
+import { getInstruments } from '@/data/repertoire';
 
 export const Route = createFileRoute('/exercises/$exerciseId_/edit')({
   loader: async ({ params }) => {
     const [exercise, instruments] = await Promise.all([
       getExerciseDetail({ data: params.exerciseId }),
       getInstruments(),
-    ])
-    if (!exercise?.canManage) throw notFound()
-    return { exercise, instruments }
+    ]);
+    if (!exercise?.canManage) throw notFound();
+    return { exercise, instruments };
   },
   component: EditExercise,
-})
+});
 
 function EditExercise() {
-  const exercise = Route.useLoaderData()
-  const context = Route.useRouteContext()
+  const exercise = Route.useLoaderData();
+  const context = Route.useRouteContext();
   return (
     <LibraryItemForm
       kind="exercise"
@@ -30,5 +30,5 @@ function EditExercise() {
       instrumentOptions={exercise().instruments}
       canCreatePublic={context().user?.isAdmin}
     />
-  )
+  );
 }

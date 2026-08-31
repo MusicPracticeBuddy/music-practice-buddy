@@ -1,61 +1,61 @@
-import { For, Show, createMemo, createSignal } from 'solid-js'
-import { createFileRoute, useRouter } from '@tanstack/solid-router'
-import { getMusicianInstrumentIds, updateMusicianInstrumentIds } from '@/data/preferences'
-import { getInstruments } from '@/data/repertoire'
-import { groupExpandedInstrumentOptions, groupInstrumentOptions } from '@/domain/instrument'
+import { For, Show, createMemo, createSignal } from 'solid-js';
+import { createFileRoute, useRouter } from '@tanstack/solid-router';
+import { getMusicianInstrumentIds, updateMusicianInstrumentIds } from '@/data/preferences';
+import { getInstruments } from '@/data/repertoire';
+import { groupExpandedInstrumentOptions, groupInstrumentOptions } from '@/domain/instrument';
 
 export const Route = createFileRoute('/settings')({
   loader: async () => {
     const [instruments, instrumentIds] = await Promise.all([
       getInstruments(),
       getMusicianInstrumentIds(),
-    ])
-    return { instruments, instrumentIds }
+    ]);
+    return { instruments, instrumentIds };
   },
   component: Settings,
-})
+});
 
 function Settings() {
-  const router = useRouter()
-  const data = Route.useLoaderData()
-  const [instrumentIds, setInstrumentIds] = createSignal<string[]>(data().instrumentIds)
-  const [showAllInstruments, setShowAllInstruments] = createSignal(false)
+  const router = useRouter();
+  const data = Route.useLoaderData();
+  const [instrumentIds, setInstrumentIds] = createSignal<string[]>(data().instrumentIds);
+  const [showAllInstruments, setShowAllInstruments] = createSignal(false);
   const instrumentsWithPreferences = createMemo(() =>
     data().instruments.map((instrument) => ({
       ...instrument,
       isPreferred: instrumentIds().includes(instrument.id),
     })),
-  )
+  );
   const instrumentGroups = createMemo(() =>
     showAllInstruments()
       ? groupExpandedInstrumentOptions(instrumentsWithPreferences())
       : groupInstrumentOptions(
           instrumentsWithPreferences().filter((instrument) => instrument.isPreferred),
         ),
-  )
-  const [saving, setSaving] = createSignal(false)
-  const [error, setError] = createSignal('')
-  const [saved, setSaved] = createSignal(false)
+  );
+  const [saving, setSaving] = createSignal(false);
+  const [error, setError] = createSignal('');
+  const [saved, setSaved] = createSignal(false);
 
   function toggleInstrument(id: string, checked: boolean) {
     setInstrumentIds((ids) =>
       checked ? [...ids, id] : ids.filter((candidate) => candidate !== id),
-    )
-    setSaved(false)
+    );
+    setSaved(false);
   }
 
   async function saveInstruments() {
-    setSaving(true)
-    setError('')
-    setSaved(false)
+    setSaving(true);
+    setError('');
+    setSaved(false);
     try {
-      await updateMusicianInstrumentIds({ data: instrumentIds() })
-      await router.invalidate({ sync: true })
-      setSaved(true)
+      await updateMusicianInstrumentIds({ data: instrumentIds() });
+      await router.invalidate({ sync: true });
+      setSaved(true);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Your instruments could not be saved.')
+      setError(caught instanceof Error ? caught.message : 'Your instruments could not be saved.');
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
@@ -74,8 +74,8 @@ function Settings() {
       <form
         class="creation-form"
         onSubmit={(event) => {
-          event.preventDefault()
-          void saveInstruments()
+          event.preventDefault();
+          void saveInstruments();
         }}
       >
         <fieldset class="settings-instrument-fieldset">
@@ -152,5 +152,5 @@ function Settings() {
         </div>
       </form>
     </main>
-  )
+  );
 }

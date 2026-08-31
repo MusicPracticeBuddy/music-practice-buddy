@@ -1,60 +1,60 @@
-import { createEffect, onCleanup, onMount } from 'solid-js'
-import { changeAbcClef, changeAbcMode, type AbcClef, type AbcKeyMode } from '@/domain/abcTranspose'
-import { EXERCISE_NOTATION_FORMAT } from '@/domain/exercise'
+import { createEffect, onCleanup, onMount } from 'solid-js';
+import { changeAbcClef, changeAbcMode, type AbcClef, type AbcKeyMode } from '@/domain/abcTranspose';
+import { EXERCISE_NOTATION_FORMAT } from '@/domain/exercise';
 
 type ExerciseNotationProps = {
-  notation: string
-  format: string | null
-  clef?: AbcClef | null
+  notation: string;
+  format: string | null;
+  clef?: AbcClef | null;
   transpose?: {
-    steps: number
-    sourceMode: AbcKeyMode
-    targetMode: AbcKeyMode
-    targetTonic: string
-  }
-}
+    steps: number;
+    sourceMode: AbcKeyMode;
+    targetMode: AbcKeyMode;
+    targetTonic: string;
+  };
+};
 
 function notationForTransposition(notation: string) {
   return /^X:/m.test(notation)
     ? { notation, addedReference: false }
-    : { notation: `X:1\n${notation}`, addedReference: true }
+    : { notation: `X:1\n${notation}`, addedReference: true };
 }
 
 export function ExerciseNotation(props: ExerciseNotationProps) {
-  let scoreElement: HTMLDivElement | undefined
+  let scoreElement: HTMLDivElement | undefined;
 
   onMount(() => {
-    let active = true
-    let renderVersion = 0
+    let active = true;
+    let renderVersion = 0;
 
     createEffect(() => {
-      const format = props.format
-      const notation = props.notation
-      const transpose = props.transpose
-      const clef = props.clef
-      const target = scoreElement
-      const version = ++renderVersion
+      const format = props.format;
+      const notation = props.notation;
+      const transpose = props.transpose;
+      const clef = props.clef;
+      const target = scoreElement;
+      const version = ++renderVersion;
 
-      if (!target) return
+      if (!target) return;
       if (format !== EXERCISE_NOTATION_FORMAT.ABC) {
-        target.replaceChildren()
-        return
+        target.replaceChildren();
+        return;
       }
 
-      const transposer = transpose ? import('abc-notation-transposition') : Promise.resolve(null)
+      const transposer = transpose ? import('abc-notation-transposition') : Promise.resolve(null);
       void Promise.all([import('abcjs'), transposer]).then(
         ([{ default: abcjs }, transposeModule]) => {
-          if (!active || version !== renderVersion) return
-          let renderedNotation = notation
+          if (!active || version !== renderVersion) return;
+          let renderedNotation = notation;
           if (transpose && transposeModule) {
             try {
               const notationInTargetMode =
                 transpose.sourceMode === transpose.targetMode
                   ? notation
-                  : changeAbcMode(notation, transpose.targetMode)
-              const source = notationForTransposition(notationInTargetMode)
-              const prefersFlats = transpose.targetTonic.includes('b')
-              const prefersSharps = transpose.targetTonic.includes('#')
+                  : changeAbcMode(notation, transpose.targetMode);
+              const source = notationForTransposition(notationInTargetMode);
+              const prefersFlats = transpose.targetTonic.includes('b');
+              const prefersSharps = transpose.targetTonic.includes('#');
               renderedNotation = transposeModule.transposeABC(source.notation, transpose.steps, {
                 accidentalNumberPreference:
                   prefersFlats || prefersSharps
@@ -65,24 +65,24 @@ export function ExerciseNotation(props: ExerciseNotationProps) {
                   : prefersSharps
                     ? transposeModule.SHARPS_OR_FLATS_PREFERENCES.PREFER_SHARPS
                     : transposeModule.SHARPS_OR_FLATS_PREFERENCES.PRESERVE_ORIGINAL,
-              })
+              });
               if (source.addedReference) {
-                renderedNotation = renderedNotation.replace(/^X:1\r?\n/, '')
+                renderedNotation = renderedNotation.replace(/^X:1\r?\n/, '');
               }
             } catch {
-              renderedNotation = notation
+              renderedNotation = notation;
             }
           }
-          if (clef) renderedNotation = changeAbcClef(renderedNotation, clef)
-          abcjs.renderAbc(target, renderedNotation, { responsive: 'resize' })
+          if (clef) renderedNotation = changeAbcClef(renderedNotation, clef);
+          abcjs.renderAbc(target, renderedNotation, { responsive: 'resize' });
         },
-      )
-    })
+      );
+    });
 
     onCleanup(() => {
-      active = false
-    })
-  })
+      active = false;
+    });
+  });
 
   return (
     <div class="notation-block">
@@ -93,9 +93,9 @@ export function ExerciseNotation(props: ExerciseNotationProps) {
         aria-label="Rendered music notation"
         hidden={props.format !== EXERCISE_NOTATION_FORMAT.ABC}
         ref={(element) => {
-          scoreElement = element
+          scoreElement = element;
         }}
       />
     </div>
-  )
+  );
 }

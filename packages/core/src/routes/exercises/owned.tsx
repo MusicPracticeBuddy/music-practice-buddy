@@ -1,25 +1,25 @@
-import { For, Show, createSignal } from 'solid-js'
-import { Link, createFileRoute, useRouter } from '@tanstack/solid-router'
-import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
+import { For, Show, createSignal } from 'solid-js';
+import { Link, createFileRoute, useRouter } from '@tanstack/solid-router';
+import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog';
 import {
   addExerciseToLibrary,
   getOwnedExercisePage,
   removeExerciseFromLibrary,
   type OwnedExerciseRow,
-} from '@/data/exercises'
+} from '@/data/exercises';
 
 export const Route = createFileRoute('/exercises/owned')({
   loader: () => getOwnedExercisePage({ data: 1 }),
   component: OwnedExercises,
-})
+});
 
 function OwnedExercises() {
-  const initialPage = Route.useLoaderData()
-  const router = useRouter()
-  const [results, setResults] = createSignal(initialPage())
-  const [loading, setLoading] = createSignal(false)
-  const [addingId, setAddingId] = createSignal<string | null>(null)
-  const [error, setError] = createSignal('')
+  const initialPage = Route.useLoaderData();
+  const router = useRouter();
+  const [results, setResults] = createSignal(initialPage());
+  const [loading, setLoading] = createSignal(false);
+  const [addingId, setAddingId] = createSignal<string | null>(null);
+  const [error, setError] = createSignal('');
 
   function setLibraryStatus(exerciseId: string, inLibrary: boolean) {
     setResults((page) => ({
@@ -27,39 +27,39 @@ function OwnedExercises() {
       items: page.items.map((exercise) =>
         exercise.id === exerciseId ? { ...exercise, inLibrary } : exercise,
       ),
-    }))
+    }));
   }
 
   async function loadPage(page: number) {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError('');
     try {
-      setResults(await getOwnedExercisePage({ data: page }))
+      setResults(await getOwnedExercisePage({ data: page }));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Owned exercises could not be loaded.')
+      setError(caught instanceof Error ? caught.message : 'Owned exercises could not be loaded.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   async function addToLibrary(exercise: OwnedExerciseRow) {
-    setAddingId(exercise.id)
-    setError('')
+    setAddingId(exercise.id);
+    setError('');
     try {
-      await addExerciseToLibrary({ data: exercise.id })
-      setLibraryStatus(exercise.id, true)
-      await router.invalidate({ sync: true })
+      await addExerciseToLibrary({ data: exercise.id });
+      setLibraryStatus(exercise.id, true);
+      await router.invalidate({ sync: true });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'The exercise could not be added.')
+      setError(caught instanceof Error ? caught.message : 'The exercise could not be added.');
     } finally {
-      setAddingId(null)
+      setAddingId(null);
     }
   }
 
   async function removeFromLibrary(exercise: OwnedExerciseRow) {
-    await removeExerciseFromLibrary({ data: exercise.id })
-    setLibraryStatus(exercise.id, false)
-    await router.invalidate({ sync: true })
+    await removeExerciseFromLibrary({ data: exercise.id });
+    setLibraryStatus(exercise.id, false);
+    await router.invalidate({ sync: true });
   }
 
   return (
@@ -154,7 +154,7 @@ function OwnedExercises() {
                     </Link>
                   </div>
                 </article>
-              )
+              );
             }}
           </For>
         </div>
@@ -184,5 +184,5 @@ function OwnedExercises() {
         </Show>
       </section>
     </main>
-  )
+  );
 }

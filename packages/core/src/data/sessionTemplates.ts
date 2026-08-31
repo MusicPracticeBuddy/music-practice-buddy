@@ -1,9 +1,9 @@
-import { createServerFn } from '@tanstack/solid-start'
-import type { PoolClient } from 'pg'
-import { resourceAccess, type ResourceAccess, type Visibility } from '@/auth/authorization'
-import { authMiddleware } from '@/auth/middleware'
-import type { AuthenticatedUser } from '@/auth/types'
-import { pool } from '@/data/db'
+import { createServerFn } from '@tanstack/solid-start';
+import type { PoolClient } from 'pg';
+import { resourceAccess, type ResourceAccess, type Visibility } from '@/auth/authorization';
+import { authMiddleware } from '@/auth/middleware';
+import type { AuthenticatedUser } from '@/auth/types';
+import { pool } from '@/data/db';
 import {
   LIBRARY_ITEM_TYPE,
   PRACTICE_ITEM_TYPE,
@@ -11,34 +11,34 @@ import {
   isPracticeItemType,
   type LibraryItemType,
   type PracticeItemType,
-} from '@/domain/session'
+} from '@/domain/session';
 
 export type TemplateItemInput = {
-  clientId: string
-  parentClientId: string | null
-  type: PracticeItemType
-  sourceId: string | null
-  name: string
-  instruction: string
-  position: number
-}
+  clientId: string;
+  parentClientId: string | null;
+  type: PracticeItemType;
+  sourceId: string | null;
+  name: string;
+  instruction: string;
+  position: number;
+};
 
 export type TemplateLibraryItem = {
-  id: string
-  type: LibraryItemType
-  name: string
-  detail: string
-  instrumentIds?: string[]
-  children?: TemplateLibraryItem[]
-}
+  id: string;
+  type: LibraryItemType;
+  name: string;
+  detail: string;
+  instrumentIds?: string[];
+  children?: TemplateLibraryItem[];
+};
 
 export type TemplateLibrarySearchInput = {
-  instrumentId: string | null
-  exerciseAnyInstrument: boolean
-  repertoireAnyInstrument: boolean
-  query?: string
-  type?: LibraryItemType | null
-}
+  instrumentId: string | null;
+  exerciseAnyInstrument: boolean;
+  repertoireAnyInstrument: boolean;
+  query?: string;
+  type?: LibraryItemType | null;
+};
 
 export const EMPTY_TEMPLATE_LIBRARY_SEARCH: TemplateLibrarySearchInput = {
   instrumentId: null,
@@ -46,124 +46,124 @@ export const EMPTY_TEMPLATE_LIBRARY_SEARCH: TemplateLibrarySearchInput = {
   repertoireAnyInstrument: false,
   query: '',
   type: null,
-}
+};
 
 export type SessionTemplateSummary = {
-  id: string
-  name: string
-  visibility: Visibility
-  ownerId: string
-  itemCount: number
-  updatedAt: string
-  instrumentId?: string | null
-  instrumentName?: string | null
-} & ResourceAccess
+  id: string;
+  name: string;
+  visibility: Visibility;
+  ownerId: string;
+  itemCount: number;
+  updatedAt: string;
+  instrumentId?: string | null;
+  instrumentName?: string | null;
+} & ResourceAccess;
 
 export type SessionTemplatePage = {
-  items: SessionTemplateSummary[]
-  page: number
-  pageSize: number
-  total: number
-  totalPages: number
-}
+  items: SessionTemplateSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
 
-export const SESSION_TEMPLATE_PAGE_SIZE = 20
-export type SessionTemplateSearchInput = { instrumentIds: string[]; page: number }
+export const SESSION_TEMPLATE_PAGE_SIZE = 20;
+export type SessionTemplateSearchInput = { instrumentIds: string[]; page: number };
 export const EMPTY_SESSION_TEMPLATE_SEARCH: SessionTemplateSearchInput = {
   instrumentIds: [],
   page: 1,
-}
+};
 
 export type SessionTemplateDetailItem = TemplateItemInput & {
-  notation?: string | null
-  notationFormat?: string | null
-}
+  notation?: string | null;
+  notationFormat?: string | null;
+};
 
 export type SessionTemplateDetail = {
-  id: string
-  name: string
-  visibility: Visibility
-  ownerId: string
-  instrumentId?: string | null
-  instrumentName?: string | null
-  items: SessionTemplateDetailItem[]
-} & ResourceAccess
+  id: string;
+  name: string;
+  visibility: Visibility;
+  ownerId: string;
+  instrumentId?: string | null;
+  instrumentName?: string | null;
+  items: SessionTemplateDetailItem[];
+} & ResourceAccess;
 
 export type PlannedSessionEdit = {
-  id: string
-  name: string
-  assignedDate: string | null
-  instrumentId: string | null
-  items: TemplateItemInput[]
-}
+  id: string;
+  name: string;
+  assignedDate: string | null;
+  instrumentId: string | null;
+  items: TemplateItemInput[];
+};
 
 type SaveTemplateInput = {
-  name: string
-  visibility?: Visibility
-  instrumentId?: string | null
-  items: TemplateItemInput[]
-}
+  name: string;
+  visibility?: Visibility;
+  instrumentId?: string | null;
+  items: TemplateItemInput[];
+};
 
-type UpdateTemplateInput = SaveTemplateInput & { id: string }
+type UpdateTemplateInput = SaveTemplateInput & { id: string };
 
 type CreateSessionInput = {
-  templateId: string | null
-  assignedDate: string | null
-  instrumentId?: string | null
-}
+  templateId: string | null;
+  assignedDate: string | null;
+  instrumentId?: string | null;
+};
 
 function validateInstrumentId(instrumentId: string | null) {
-  if (instrumentId !== null && !/^\d+$/.test(instrumentId)) throw new Error('Invalid instrument')
-  return instrumentId
+  if (instrumentId !== null && !/^\d+$/.test(instrumentId)) throw new Error('Invalid instrument');
+  return instrumentId;
 }
 
 function validateInstrumentIds(instrumentIds: string[]) {
-  const ids = [...new Set(instrumentIds)]
+  const ids = [...new Set(instrumentIds)];
   if (ids.length > 50 || ids.some((id) => !/^\d+$/.test(id))) {
-    throw new Error('Invalid instrument filter')
+    throw new Error('Invalid instrument filter');
   }
-  return ids
+  return ids;
 }
 
 function validateTemplate(input: SaveTemplateInput): Required<SaveTemplateInput> {
-  const name = input.name.trim()
-  const visibility = input.visibility ?? 'PRIVATE'
-  if (!name) throw new Error('Template name is required')
-  if (name.length > 200) throw new Error('Template name must be 200 characters or fewer')
+  const name = input.name.trim();
+  const visibility = input.visibility ?? 'PRIVATE';
+  if (!name) throw new Error('Template name is required');
+  if (name.length > 200) throw new Error('Template name must be 200 characters or fewer');
   if (visibility !== 'PRIVATE' && visibility !== 'PUBLIC') {
-    throw new Error('Invalid template visibility')
+    throw new Error('Invalid template visibility');
   }
-  if (input.items.length > 200) throw new Error('A template can contain at most 200 items')
+  if (input.items.length > 200) throw new Error('A template can contain at most 200 items');
 
-  const ids = new Set<string>()
+  const ids = new Set<string>();
   for (const item of input.items) {
     if (!item.clientId || ids.has(item.clientId))
-      throw new Error('Template item IDs must be unique')
-    ids.add(item.clientId)
+      throw new Error('Template item IDs must be unique');
+    ids.add(item.clientId);
     if (!isPracticeItemType(item.type)) {
-      throw new Error('Invalid template item type')
+      throw new Error('Invalid template item type');
     }
     if (item.instruction.length > 2000) {
-      throw new Error('Instructions must be 2000 characters or fewer')
+      throw new Error('Instructions must be 2000 characters or fewer');
     }
     if (item.type === PRACTICE_ITEM_TYPE.SECTION && item.sourceId !== null) {
-      throw new Error('Sections cannot reference library items')
+      throw new Error('Sections cannot reference library items');
     }
     if (item.type !== PRACTICE_ITEM_TYPE.SECTION && !item.sourceId?.match(/^\d+$/)) {
-      throw new Error('Practice items must reference a library item')
+      throw new Error('Practice items must reference a library item');
     }
   }
 
   for (const item of input.items) {
     if (item.parentClientId !== null && !ids.has(item.parentClientId)) {
-      throw new Error('A template item references a missing parent')
+      throw new Error('A template item references a missing parent');
     }
     if (
       item.parentClientId !== null &&
       input.items.find((candidate) => candidate.clientId === item.parentClientId)?.type !==
         PRACTICE_ITEM_TYPE.SECTION
     ) {
-      throw new Error('Template items can only be placed inside sections')
+      throw new Error('Template items can only be placed inside sections');
     }
   }
 
@@ -172,7 +172,7 @@ function validateTemplate(input: SaveTemplateInput): Required<SaveTemplateInput>
     visibility,
     instrumentId: validateInstrumentId(input.instrumentId ?? null),
     items: input.items,
-  }
+  };
 }
 
 async function resolveLibrarySource(
@@ -188,8 +188,8 @@ async function resolveLibrarySource(
        WHERE id = $1 AND deleted_at IS NULL
          AND (musician_id = $2 OR visibility = 'PUBLIC')`,
       [sourceId, user.musicianId],
-    )
-    if (result.rows[0]) return result.rows[0]
+    );
+    if (result.rows[0]) return result.rows[0];
   } else {
     const result = await client.query<{ name: string; visibility: Visibility }>(
       `WITH RECURSIVE access AS (
@@ -205,10 +205,10 @@ async function resolveLibrarySource(
        SELECT title AS name, visibility::text FROM access
        WHERE id = $1 AND (owner_musician_id = $2 OR visibility = 'PUBLIC')`,
       [sourceId, user.musicianId],
-    )
-    if (result.rows[0]) return result.rows[0]
+    );
+    if (result.rows[0]) return result.rows[0];
   }
-  throw new Error('Library item not found')
+  throw new Error('Library item not found');
 }
 
 async function insertTemplateItems(
@@ -218,22 +218,22 @@ async function insertTemplateItems(
   templateVisibility: Visibility,
   items: TemplateItemInput[],
 ) {
-  const remaining = [...items]
-  const databaseIds = new Map<string, string>()
+  const remaining = [...items];
+  const databaseIds = new Map<string, string>();
   while (remaining.length > 0) {
     const index = remaining.findIndex(
       (item) => item.parentClientId === null || databaseIds.has(item.parentClientId),
-    )
-    if (index < 0) throw new Error('Template sections contain a circular reference')
-    const [item] = remaining.splice(index, 1)
-    if (!item) continue
-    const parentId = item.parentClientId ? databaseIds.get(item.parentClientId) : null
+    );
+    if (index < 0) throw new Error('Template sections contain a circular reference');
+    const [item] = remaining.splice(index, 1);
+    if (!item) continue;
+    const parentId = item.parentClientId ? databaseIds.get(item.parentClientId) : null;
     const source =
       item.type === PRACTICE_ITEM_TYPE.SECTION
         ? null
-        : await resolveLibrarySource(client, user, item.type, item.sourceId!)
+        : await resolveLibrarySource(client, user, item.type, item.sourceId!);
     if (source && templateVisibility === 'PUBLIC' && source.visibility !== 'PUBLIC') {
-      throw new Error('Public templates can only reference public library items')
+      throw new Error('Public templates can only reference public library items');
     }
     const result = await client.query<{ id: string }>(
       `
@@ -254,10 +254,10 @@ async function insertTemplateItems(
           : source!.name,
         item.instruction.trim() || null,
       ],
-    )
-    const id = result.rows[0]?.id
-    if (!id) throw new Error('Template item could not be created')
-    databaseIds.set(item.clientId, id)
+    );
+    const id = result.rows[0]?.id;
+    if (!id) throw new Error('Template item could not be created');
+    databaseIds.set(item.clientId, id);
   }
 }
 
@@ -271,25 +271,25 @@ async function insertSessionItems(
     { type: PracticeItemType; sourceId: string | null; name: string }
   >(),
 ) {
-  const remaining = [...items]
-  const databaseIds = new Map<string, string>()
+  const remaining = [...items];
+  const databaseIds = new Map<string, string>();
   while (remaining.length > 0) {
     const index = remaining.findIndex(
       (item) => item.parentClientId === null || databaseIds.has(item.parentClientId),
-    )
-    if (index < 0) throw new Error('Session sections contain a circular reference')
-    const [item] = remaining.splice(index, 1)
-    if (!item) continue
-    const parentId = item.parentClientId ? databaseIds.get(item.parentClientId) : null
-    const preservedItem = preservedItems.get(item.clientId)
+    );
+    if (index < 0) throw new Error('Session sections contain a circular reference');
+    const [item] = remaining.splice(index, 1);
+    if (!item) continue;
+    const parentId = item.parentClientId ? databaseIds.get(item.parentClientId) : null;
+    const preservedItem = preservedItems.get(item.clientId);
     const canPreserveSource =
-      preservedItem?.type === item.type && preservedItem.sourceId === item.sourceId
+      preservedItem?.type === item.type && preservedItem.sourceId === item.sourceId;
     const source =
       item.type === PRACTICE_ITEM_TYPE.SECTION
         ? null
         : canPreserveSource
           ? { name: preservedItem.name }
-          : await resolveLibrarySource(client, user, item.type, item.sourceId!)
+          : await resolveLibrarySource(client, user, item.type, item.sourceId!);
     const result = await client.query<{ id: string }>(
       `
         INSERT INTO session_item
@@ -309,10 +309,10 @@ async function insertSessionItems(
           : source!.name,
         item.instruction.trim() || null,
       ],
-    )
-    const id = result.rows[0]?.id
-    if (!id) throw new Error('Session item could not be created')
-    databaseIds.set(item.clientId, id)
+    );
+    const id = result.rows[0]?.id;
+    if (!id) throw new Error('Session item could not be created');
+    databaseIds.set(item.clientId, id);
   }
 }
 
@@ -320,14 +320,14 @@ export const getSessionTemplates = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(async ({ context }): Promise<SessionTemplateSummary[]> => {
     const result = await pool.query<{
-      id: string
-      name: string
-      visibility: Visibility
-      ownerId: string
-      itemCount: number
-      updatedAt: Date
-      instrumentId: string | null
-      instrumentName: string | null
+      id: string;
+      name: string;
+      visibility: Visibility;
+      ownerId: string;
+      itemCount: number;
+      updatedAt: Date;
+      instrumentId: string | null;
+      instrumentName: string | null;
     }>(
       `
       SELECT
@@ -347,36 +347,36 @@ export const getSessionTemplates = createServerFn({ method: 'GET' })
       ORDER BY template.updated_at DESC, template.id DESC
     `,
       [context.user.musicianId],
-    )
+    );
 
     return result.rows.map((row) => ({
       ...row,
       updatedAt: row.updatedAt.toISOString(),
       ...resourceAccess(context.user, row.ownerId, row.visibility),
-    }))
-  })
+    }));
+  });
 
 export const getSessionTemplatesPage = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .validator((input: SessionTemplateSearchInput | number) => {
-    const search = typeof input === 'number' ? { instrumentIds: [], page: input } : input
-    if (!Number.isInteger(search.page) || search.page < 1) throw new Error('Invalid page')
-    return { ...search, instrumentIds: validateInstrumentIds(search.instrumentIds) }
+    const search = typeof input === 'number' ? { instrumentIds: [], page: input } : input;
+    if (!Number.isInteger(search.page) || search.page < 1) throw new Error('Invalid page');
+    return { ...search, instrumentIds: validateInstrumentIds(search.instrumentIds) };
   })
   .handler(async ({ data, context }): Promise<SessionTemplatePage> => {
-    const page = data.page
-    const offset = (page - 1) * SESSION_TEMPLATE_PAGE_SIZE
+    const page = data.page;
+    const offset = (page - 1) * SESSION_TEMPLATE_PAGE_SIZE;
     const instrumentCondition =
-      data.instrumentIds.length > 0 ? ` AND template.instrument_id = ANY($2::bigint[])` : ''
+      data.instrumentIds.length > 0 ? ` AND template.instrument_id = ANY($2::bigint[])` : '';
     const countInstrumentCondition =
-      data.instrumentIds.length > 0 ? ` AND instrument_id = ANY($2::bigint[])` : ''
+      data.instrumentIds.length > 0 ? ` AND instrument_id = ANY($2::bigint[])` : '';
     const countParameters =
       data.instrumentIds.length > 0
         ? [context.user.musicianId, data.instrumentIds]
-        : [context.user.musicianId]
-    const listParameters = [...countParameters, SESSION_TEMPLATE_PAGE_SIZE, offset]
-    const limitParameter = `$${countParameters.length + 1}`
-    const offsetParameter = `$${countParameters.length + 2}`
+        : [context.user.musicianId];
+    const listParameters = [...countParameters, SESSION_TEMPLATE_PAGE_SIZE, offset];
+    const limitParameter = `$${countParameters.length + 1}`;
+    const offsetParameter = `$${countParameters.length + 2}`;
     const [countResult, result] = await Promise.all([
       pool.query<{ total: number }>(
         `SELECT count(*)::integer AS total
@@ -385,14 +385,14 @@ export const getSessionTemplatesPage = createServerFn({ method: 'GET' })
         countParameters,
       ),
       pool.query<{
-        id: string
-        name: string
-        visibility: Visibility
-        ownerId: string
-        itemCount: number
-        updatedAt: Date
-        instrumentId: string | null
-        instrumentName: string | null
+        id: string;
+        name: string;
+        visibility: Visibility;
+        ownerId: string;
+        itemCount: number;
+        updatedAt: Date;
+        instrumentId: string | null;
+        instrumentName: string | null;
       }>(
         `SELECT
            template.id::text,
@@ -412,8 +412,8 @@ export const getSessionTemplatesPage = createServerFn({ method: 'GET' })
          LIMIT ${limitParameter} OFFSET ${offsetParameter}`,
         listParameters,
       ),
-    ])
-    const total = countResult.rows[0]?.total ?? 0
+    ]);
+    const total = countResult.rows[0]?.total ?? 0;
     return {
       items: result.rows.map((row) => ({
         ...row,
@@ -424,16 +424,16 @@ export const getSessionTemplatesPage = createServerFn({ method: 'GET' })
       pageSize: SESSION_TEMPLATE_PAGE_SIZE,
       total,
       totalPages: Math.ceil(total / SESSION_TEMPLATE_PAGE_SIZE),
-    }
-  })
+    };
+  });
 
 export const getTemplateLibrary = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .validator((input: TemplateLibrarySearchInput = EMPTY_TEMPLATE_LIBRARY_SEARCH) => {
-    const query = input.query?.trim() ?? ''
-    if (query.length > 200) throw new Error('Search text is too long')
+    const query = input.query?.trim() ?? '';
+    if (query.length > 200) throw new Error('Search text is too long');
     if (input.type != null && !isLibraryItemType(input.type)) {
-      throw new Error('Invalid library type')
+      throw new Error('Invalid library type');
     }
     return {
       instrumentId: validateInstrumentId(input.instrumentId),
@@ -441,45 +441,45 @@ export const getTemplateLibrary = createServerFn({ method: 'GET' })
       repertoireAnyInstrument: Boolean(input.repertoireAnyInstrument),
       query,
       type: input.type ?? null,
-    }
+    };
   })
   .handler(async ({ data, context }): Promise<TemplateLibraryItem[]> => {
-    const filterExercises = data.instrumentId !== null && !data.exerciseAnyInstrument
-    const filterRepertoire = data.instrumentId !== null && !data.repertoireAnyInstrument
-    const searchPattern = `%${data.query.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`
-    const exerciseParameters: unknown[] = [context.user.musicianId]
-    const exerciseConditions: string[] = []
+    const filterExercises = data.instrumentId !== null && !data.exerciseAnyInstrument;
+    const filterRepertoire = data.instrumentId !== null && !data.repertoireAnyInstrument;
+    const searchPattern = `%${data.query.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
+    const exerciseParameters: unknown[] = [context.user.musicianId];
+    const exerciseConditions: string[] = [];
     if (filterExercises) {
-      exerciseParameters.push(data.instrumentId)
+      exerciseParameters.push(data.instrumentId);
       exerciseConditions.push(
         `(exercise.instrument_id IS NULL OR exercise.instrument_id = $${exerciseParameters.length})`,
-      )
+      );
     }
     if (data.query) {
-      exerciseParameters.push(searchPattern)
+      exerciseParameters.push(searchPattern);
       exerciseConditions.push(
         `COALESCE(exercise.name, 'Untitled exercise') ILIKE $${exerciseParameters.length} ESCAPE '\\'`,
-      )
+      );
     }
 
-    const repertoireParameters: unknown[] = [context.user.musicianId]
-    const repertoireMatchConditions: string[] = []
+    const repertoireParameters: unknown[] = [context.user.musicianId];
+    const repertoireMatchConditions: string[] = [];
     if (filterRepertoire) {
-      repertoireParameters.push(data.instrumentId)
+      repertoireParameters.push(data.instrumentId);
       repertoireMatchConditions.push(`EXISTS (
         SELECT 1
         FROM repertoire_instrument part
         WHERE part.repertoire_id = repertoire.id
           AND part.instrument_id = $${repertoireParameters.length}
-      )`)
+      )`);
     }
     if (data.query) {
-      repertoireParameters.push(searchPattern)
+      repertoireParameters.push(searchPattern);
       repertoireMatchConditions.push(
         `repertoire.title ILIKE $${repertoireParameters.length} ESCAPE '\\'`,
-      )
+      );
     }
-    const filterRepertoireRows = repertoireMatchConditions.length > 0
+    const filterRepertoireRows = repertoireMatchConditions.length > 0;
     const [exercises, repertoire] = await Promise.all([
       data.type === LIBRARY_ITEM_TYPE.REPERTOIRE
         ? Promise.resolve({ rows: [] })
@@ -506,11 +506,11 @@ export const getTemplateLibrary = createServerFn({ method: 'GET' })
       data.type === LIBRARY_ITEM_TYPE.EXERCISE
         ? Promise.resolve({ rows: [] })
         : pool.query<{
-            id: string
-            parentId: string | null
-            name: string
-            detail: string
-            instrumentIds: string[]
+            id: string;
+            parentId: string | null;
+            name: string;
+            detail: string;
+            instrumentIds: string[];
           }>(
             `
         WITH RECURSIVE access AS (
@@ -573,7 +573,7 @@ export const getTemplateLibrary = createServerFn({ method: 'GET' })
             `,
             repertoireParameters,
           ),
-    ])
+    ]);
 
     const repertoireItems = new Map(
       repertoire.rows.map((item) => [
@@ -587,37 +587,37 @@ export const getTemplateLibrary = createServerFn({ method: 'GET' })
           children: [] as TemplateLibraryItem[],
         },
       ]),
-    )
-    const repertoireRoots: TemplateLibraryItem[] = []
+    );
+    const repertoireRoots: TemplateLibraryItem[] = [];
     for (const row of repertoire.rows) {
-      const item = repertoireItems.get(row.id)!
-      const parent = row.parentId ? repertoireItems.get(row.parentId) : undefined
-      if (parent) parent.children!.push(item)
-      else repertoireRoots.push(item)
+      const item = repertoireItems.get(row.id)!;
+      const parent = row.parentId ? repertoireItems.get(row.parentId) : undefined;
+      if (parent) parent.children!.push(item);
+      else repertoireRoots.push(item);
     }
 
     return [
       ...exercises.rows.map((item) => ({ ...item, type: LIBRARY_ITEM_TYPE.EXERCISE })),
       ...repertoireRoots,
-    ]
-  })
+    ];
+  });
 
 export const getSessionTemplate = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .validator((templateId: string) => {
-    if (!/^\d+$/.test(templateId)) throw new Error('Template ID must be a positive integer')
-    return templateId
+    if (!/^\d+$/.test(templateId)) throw new Error('Template ID must be a positive integer');
+    return templateId;
   })
 
   .handler(async ({ data: templateId, context }): Promise<SessionTemplateDetail | null> => {
     const [templateResult, itemResult] = await Promise.all([
       pool.query<{
-        id: string
-        name: string
-        visibility: Visibility
-        ownerId: string
-        instrumentId: string | null
-        instrumentName: string | null
+        id: string;
+        name: string;
+        visibility: Visibility;
+        ownerId: string;
+        instrumentId: string | null;
+        instrumentName: string | null;
       }>(
         `SELECT template.id::text, template.name, template.visibility::text,
            template.musician_id::text AS "ownerId", template.instrument_id::text AS "instrumentId",
@@ -671,30 +671,30 @@ export const getSessionTemplate = createServerFn({ method: 'GET' })
         `,
         [templateId, context.user.musicianId],
       ),
-    ])
-    const template = templateResult.rows[0]
+    ]);
+    const template = templateResult.rows[0];
     return template
       ? {
           ...template,
           items: itemResult.rows,
           ...resourceAccess(context.user, template.ownerId, template.visibility),
         }
-      : null
-  })
+      : null;
+  });
 
 export const getPlannedSessionForEdit = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .validator((sessionId: string) => {
-    if (!/^\d+$/.test(sessionId)) throw new Error('Session ID must be a positive integer')
-    return sessionId
+    if (!/^\d+$/.test(sessionId)) throw new Error('Session ID must be a positive integer');
+    return sessionId;
   })
   .handler(async ({ data: sessionId, context }): Promise<PlannedSessionEdit | null> => {
     const [sessionResult, itemResult] = await Promise.all([
       pool.query<{
-        id: string
-        name: string
-        assignedDate: string | null
-        instrumentId: string | null
+        id: string;
+        name: string;
+        assignedDate: string | null;
+        instrumentId: string | null;
       }>(
         `
           SELECT session.id::text, session.name, session.instrument_id::text AS "instrumentId",
@@ -730,137 +730,137 @@ export const getPlannedSessionForEdit = createServerFn({ method: 'GET' })
         `,
         [sessionId, context.user.musicianId],
       ),
-    ])
-    const session = sessionResult.rows[0]
-    return session ? { ...session, items: itemResult.rows } : null
-  })
+    ]);
+    const session = sessionResult.rows[0];
+    return session ? { ...session, items: itemResult.rows } : null;
+  });
 
 export const createSessionTemplate = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .validator(validateTemplate)
   .handler(async ({ data, context }): Promise<{ id: string }> => {
-    const client = await pool.connect()
+    const client = await pool.connect();
     try {
-      await client.query('BEGIN')
+      await client.query('BEGIN');
       const templateResult = await client.query<{ id: string }>(
         `INSERT INTO session_template (musician_id, name, visibility, instrument_id)
          VALUES ($1, $2, $3, $4) RETURNING id::text`,
         [context.user.musicianId, data.name, data.visibility, data.instrumentId],
-      )
-      const templateId = templateResult.rows[0]?.id
-      if (!templateId) throw new Error('Template could not be created')
+      );
+      const templateId = templateResult.rows[0]?.id;
+      if (!templateId) throw new Error('Template could not be created');
 
-      await insertTemplateItems(client, context.user, templateId, data.visibility, data.items)
+      await insertTemplateItems(client, context.user, templateId, data.visibility, data.items);
 
-      await client.query('COMMIT')
-      return { id: templateId }
+      await client.query('COMMIT');
+      return { id: templateId };
     } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
+      await client.query('ROLLBACK');
+      throw error;
     } finally {
-      client.release()
+      client.release();
     }
-  })
+  });
 
 export const updateSessionTemplate = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .validator((input: UpdateTemplateInput) => {
-    if (!/^\d+$/.test(input.id)) throw new Error('Invalid template')
-    return { id: input.id, ...validateTemplate(input) }
+    if (!/^\d+$/.test(input.id)) throw new Error('Invalid template');
+    return { id: input.id, ...validateTemplate(input) };
   })
 
   .handler(async ({ data, context }): Promise<{ id: string }> => {
-    const client = await pool.connect()
+    const client = await pool.connect();
     try {
-      await client.query('BEGIN')
+      await client.query('BEGIN');
       const currentResult = await client.query<{
-        ownerId: string
-        visibility: Visibility
+        ownerId: string;
+        visibility: Visibility;
       }>(
         `SELECT musician_id::text AS "ownerId", visibility::text
          FROM session_template WHERE id = $1 FOR UPDATE`,
         [data.id],
-      )
-      const current = currentResult.rows[0]
+      );
+      const current = currentResult.rows[0];
       if (
         !current ||
         (current.ownerId !== context.user.musicianId &&
           !(context.user.isAdmin && current.visibility === 'PUBLIC'))
       ) {
-        throw new Error('Template not found')
+        throw new Error('Template not found');
       }
       const visibility =
-        current.ownerId === context.user.musicianId ? data.visibility : current.visibility
+        current.ownerId === context.user.musicianId ? data.visibility : current.visibility;
       await client.query(
         `UPDATE session_template SET name = $1, visibility = $2, instrument_id = $3 WHERE id = $4`,
         [data.name, visibility, data.instrumentId, data.id],
-      )
+      );
       await client.query(`DELETE FROM session_template_item WHERE session_template_id = $1`, [
         data.id,
-      ])
-      await insertTemplateItems(client, context.user, data.id, visibility, data.items)
-      await client.query('COMMIT')
-      return { id: data.id }
+      ]);
+      await insertTemplateItems(client, context.user, data.id, visibility, data.items);
+      await client.query('COMMIT');
+      return { id: data.id };
     } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
+      await client.query('ROLLBACK');
+      throw error;
     } finally {
-      client.release()
+      client.release();
     }
-  })
+  });
 
 export const deleteSessionTemplate = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .validator((templateId: string) => {
-    if (!/^\d+$/.test(templateId)) throw new Error('Invalid template')
-    return templateId
+    if (!/^\d+$/.test(templateId)) throw new Error('Invalid template');
+    return templateId;
   })
   .handler(async ({ data: templateId, context }): Promise<{ id: string }> => {
-    const client = await pool.connect()
+    const client = await pool.connect();
     try {
       const result = await client.query<{ id: string }>(
         `DELETE FROM session_template
          WHERE id = $1 AND musician_id = $2
          RETURNING id::text`,
         [templateId, context.user.musicianId],
-      )
-      const deletedTemplate = result.rows[0]
-      if (!deletedTemplate) throw new Error('Template not found')
-      return deletedTemplate
+      );
+      const deletedTemplate = result.rows[0];
+      if (!deletedTemplate) throw new Error('Template not found');
+      return deletedTemplate;
     } finally {
-      client.release()
+      client.release();
     }
-  })
+  });
 
 export const updatePlannedSession = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .validator(
     (input: {
-      id: string
-      name: string
-      assignedDate: string | null
-      instrumentId?: string | null
-      items: TemplateItemInput[]
+      id: string;
+      name: string;
+      assignedDate: string | null;
+      instrumentId?: string | null;
+      items: TemplateItemInput[];
     }) => {
-      const name = input.name.trim()
-      if (!/^\d+$/.test(input.id)) throw new Error('Invalid session')
-      if (!name) throw new Error('Session name is required')
-      if (name.length > 200) throw new Error('Session name must be 200 characters or fewer')
+      const name = input.name.trim();
+      if (!/^\d+$/.test(input.id)) throw new Error('Invalid session');
+      if (!name) throw new Error('Session name is required');
+      if (name.length > 200) throw new Error('Session name must be 200 characters or fewer');
       if (input.assignedDate !== null && !/^\d{4}-\d{2}-\d{2}$/.test(input.assignedDate)) {
-        throw new Error('Invalid scheduled date')
+        throw new Error('Invalid scheduled date');
       }
-      validateInstrumentId(input.instrumentId ?? null)
+      validateInstrumentId(input.instrumentId ?? null);
       return {
         ...input,
         name,
         items: validateTemplate({ name: 'Session', items: input.items }).items,
-      }
+      };
     },
   )
   .handler(async ({ data, context }): Promise<{ id: string }> => {
-    const client = await pool.connect()
+    const client = await pool.connect();
     try {
-      await client.query('BEGIN')
+      await client.query('BEGIN');
       const result = await client.query(
         `
           UPDATE session
@@ -868,13 +868,13 @@ export const updatePlannedSession = createServerFn({ method: 'POST' })
           WHERE id = $4 AND musician_id = $5 AND status = 'PLANNED'
         `,
         [data.name, data.assignedDate, data.instrumentId ?? null, data.id, context.user.musicianId],
-      )
-      if (result.rowCount === 0) throw new Error('Only planned sessions can be edited')
+      );
+      if (result.rowCount === 0) throw new Error('Only planned sessions can be edited');
       const existingItems = await client.query<{
-        clientId: string
-        type: PracticeItemType
-        sourceId: string | null
-        name: string
+        clientId: string;
+        type: PracticeItemType;
+        sourceId: string | null;
+        name: string;
       }>(
         `SELECT
            id::text AS "clientId",
@@ -888,47 +888,47 @@ export const updatePlannedSession = createServerFn({ method: 'POST' })
          FROM session_item
          WHERE session_id = $1`,
         [data.id],
-      )
+      );
       const preservedItems = new Map(
         existingItems.rows.map((item) => [item.clientId, item] as const),
-      )
-      await client.query(`DELETE FROM session_item WHERE session_id = $1`, [data.id])
-      await insertSessionItems(client, context.user, data.id, data.items, preservedItems)
-      await client.query('COMMIT')
-      return { id: data.id }
+      );
+      await client.query(`DELETE FROM session_item WHERE session_id = $1`, [data.id]);
+      await insertSessionItems(client, context.user, data.id, data.items, preservedItems);
+      await client.query('COMMIT');
+      return { id: data.id };
     } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
+      await client.query('ROLLBACK');
+      throw error;
     } finally {
-      client.release()
+      client.release();
     }
-  })
+  });
 
 export const createPracticeSession = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .validator((input: CreateSessionInput) => {
     if (input.templateId !== null && !/^\d+$/.test(input.templateId)) {
-      throw new Error('Invalid template')
+      throw new Error('Invalid template');
     }
     if (input.assignedDate !== null && !/^\d{4}-\d{2}-\d{2}$/.test(input.assignedDate)) {
-      throw new Error('Invalid scheduled date')
+      throw new Error('Invalid scheduled date');
     }
-    return { ...input, instrumentId: validateInstrumentId(input.instrumentId ?? null) }
+    return { ...input, instrumentId: validateInstrumentId(input.instrumentId ?? null) };
   })
   .handler(async ({ data, context }): Promise<{ id: string }> => {
-    const client = await pool.connect()
+    const client = await pool.connect();
     try {
-      await client.query('BEGIN')
-      const musicianId = context.user.musicianId
-      let sessionName = 'Open practice'
+      await client.query('BEGIN');
+      const musicianId = context.user.musicianId;
+      let sessionName = 'Open practice';
       if (data.templateId) {
         const template = await client.query<{ name: string }>(
           `SELECT name FROM session_template
            WHERE id = $1 AND (musician_id = $2 OR visibility = 'PUBLIC')`,
           [data.templateId, musicianId],
-        )
-        if (template.rowCount === 0) throw new Error('Template not found')
-        sessionName = template.rows[0]!.name
+        );
+        if (template.rowCount === 0) throw new Error('Template not found');
+        sessionName = template.rows[0]!.name;
       }
 
       const sessionResult = await client.query<{ id: string }>(
@@ -938,19 +938,19 @@ export const createPracticeSession = createServerFn({ method: 'POST' })
           RETURNING id::text
         `,
         [musicianId, data.templateId, sessionName, data.assignedDate, data.instrumentId],
-      )
-      const sessionId = sessionResult.rows[0]!.id
+      );
+      const sessionId = sessionResult.rows[0]!.id;
 
       if (data.templateId) {
         const items = await client.query<{
-          id: string
-          parentId: string | null
-          type: string
-          position: string
-          exerciseId: string | null
-          repertoireId: string | null
-          name: string | null
-          instruction: string | null
+          id: string;
+          parentId: string | null;
+          type: string;
+          position: string;
+          exerciseId: string | null;
+          repertoireId: string | null;
+          name: string | null;
+          instruction: string | null;
         }>(
           `
           SELECT id::text, parent_id::text AS "parentId", type::text, position::text,
@@ -961,16 +961,16 @@ export const createPracticeSession = createServerFn({ method: 'POST' })
           ORDER BY parent_id NULLS FIRST, position, id
         `,
           [data.templateId],
-        )
-        const copiedIds = new Map<string, string>()
-        const remaining = [...items.rows]
+        );
+        const copiedIds = new Map<string, string>();
+        const remaining = [...items.rows];
         while (remaining.length > 0) {
           const index = remaining.findIndex(
             (item) => item.parentId === null || copiedIds.has(item.parentId),
-          )
-          if (index < 0) throw new Error('Template hierarchy could not be copied')
-          const [item] = remaining.splice(index, 1)
-          if (!item) continue
+          );
+          if (index < 0) throw new Error('Template hierarchy could not be copied');
+          const [item] = remaining.splice(index, 1);
+          if (!item) continue;
           const result = await client.query<{ id: string }>(
             `
               INSERT INTO session_item
@@ -988,17 +988,17 @@ export const createPracticeSession = createServerFn({ method: 'POST' })
               item.name,
               item.instruction,
             ],
-          )
-          copiedIds.set(item.id, result.rows[0]!.id)
+          );
+          copiedIds.set(item.id, result.rows[0]!.id);
         }
       }
 
-      await client.query('COMMIT')
-      return { id: sessionId }
+      await client.query('COMMIT');
+      return { id: sessionId };
     } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
+      await client.query('ROLLBACK');
+      throw error;
     } finally {
-      client.release()
+      client.release();
     }
-  })
+  });

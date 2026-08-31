@@ -1,40 +1,40 @@
-import { Show, createSignal } from 'solid-js'
-import * as AlertDialog from '@kobalte/core/alert-dialog'
+import { Show, createSignal } from 'solid-js';
+import * as AlertDialog from '@kobalte/core/alert-dialog';
 
 export function DeleteConfirmationDialog(props: {
-  triggerLabel: string
-  title: string
-  itemName: string
-  description: string
-  confirmLabel: string
-  pendingLabel?: string
-  onConfirm: () => Promise<void>
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
+  triggerLabel: string;
+  title: string;
+  itemName: string;
+  description: string;
+  confirmLabel: string;
+  pendingLabel?: string;
+  onConfirm: () => Promise<void>;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [internalOpen, setInternalOpen] = createSignal(false)
-  const [deleting, setDeleting] = createSignal(false)
-  const [error, setError] = createSignal('')
+  const [internalOpen, setInternalOpen] = createSignal(false);
+  const [deleting, setDeleting] = createSignal(false);
+  const [error, setError] = createSignal('');
 
   function handleOpenChange(nextOpen: boolean) {
-    if (deleting()) return
-    if (nextOpen) setError('')
-    setInternalOpen(nextOpen)
-    props.onOpenChange?.(nextOpen)
+    if (deleting()) return;
+    if (nextOpen) setError('');
+    setInternalOpen(nextOpen);
+    props.onOpenChange?.(nextOpen);
   }
 
   async function confirmDelete(event: SubmitEvent) {
-    event.preventDefault()
-    setDeleting(true)
-    setError('')
+    event.preventDefault();
+    setDeleting(true);
+    setError('');
     try {
-      await props.onConfirm()
-      setInternalOpen(false)
-      props.onOpenChange?.(false)
+      await props.onConfirm();
+      setInternalOpen(false);
+      props.onOpenChange?.(false);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'The item could not be deleted.')
+      setError(caught instanceof Error ? caught.message : 'The item could not be deleted.');
     } finally {
-      setDeleting(false)
+      setDeleting(false);
     }
   }
 
@@ -67,5 +67,5 @@ export function DeleteConfirmationDialog(props: {
         </AlertDialog.Content>
       </AlertDialog.Portal>
     </AlertDialog.Root>
-  )
+  );
 }

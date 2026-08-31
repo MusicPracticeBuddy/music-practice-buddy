@@ -1,5 +1,5 @@
-import { For, Show, createEffect, createSignal, createUniqueId } from 'solid-js'
-import { ExerciseNotation } from '@/components/ExerciseNotation'
+import { For, Show, createEffect, createSignal, createUniqueId } from 'solid-js';
+import { ExerciseNotation } from '@/components/ExerciseNotation';
 import {
   abcClefOctaveShift,
   abcKeyOptionsForMode,
@@ -8,71 +8,71 @@ import {
   parseAbcKey,
   type AbcClef,
   type AbcKeyMode,
-} from '@/domain/abcTranspose'
-import { EXERCISE_NOTATION_FORMAT } from '@/domain/exercise'
+} from '@/domain/abcTranspose';
+import { EXERCISE_NOTATION_FORMAT } from '@/domain/exercise';
 
 type SessionExerciseNotationProps = {
-  notation: string
-  format: string | null
-  onRecordKey?: (keyLabel: string) => void
-  showKeyControls?: boolean
-}
+  notation: string;
+  format: string | null;
+  onRecordKey?: (keyLabel: string) => void;
+  showKeyControls?: boolean;
+};
 
 const ABC_CLEF_OPTIONS: Array<{ value: AbcClef; label: string }> = [
   { value: 'treble', label: 'Treble' },
   { value: 'alto', label: 'Alto' },
   { value: 'tenor', label: 'Tenor' },
   { value: 'bass', label: 'Bass' },
-]
+];
 
 export function SessionExerciseNotation(props: SessionExerciseNotationProps) {
-  const labelId = `session-notation-key-${createUniqueId()}`
+  const labelId = `session-notation-key-${createUniqueId()}`;
   const sourceKey = () =>
-    props.format === EXERCISE_NOTATION_FORMAT.ABC ? parseAbcKey(props.notation) : null
-  const sourceClef = () => parseAbcClef(props.notation) ?? 'treble'
-  const [targetKeyId, setTargetKeyId] = createSignal<string | null>(null)
-  const [displayMode, setDisplayMode] = createSignal<AbcKeyMode>('major')
-  const [octaveShift, setOctaveShift] = createSignal(0)
-  const [displayClef, setDisplayClef] = createSignal<AbcClef | null>(null)
-  const [hasRandomizedKey, setHasRandomizedKey] = createSignal(false)
-  let previousSource = ''
+    props.format === EXERCISE_NOTATION_FORMAT.ABC ? parseAbcKey(props.notation) : null;
+  const sourceClef = () => parseAbcClef(props.notation) ?? 'treble';
+  const [targetKeyId, setTargetKeyId] = createSignal<string | null>(null);
+  const [displayMode, setDisplayMode] = createSignal<AbcKeyMode>('major');
+  const [octaveShift, setOctaveShift] = createSignal(0);
+  const [displayClef, setDisplayClef] = createSignal<AbcClef | null>(null);
+  const [hasRandomizedKey, setHasRandomizedKey] = createSignal(false);
+  let previousSource = '';
 
   createEffect(() => {
-    const sourceSignature = `${props.format}\u0000${props.notation}\u0000${props.showKeyControls}`
-    if (sourceSignature === previousSource) return
-    previousSource = sourceSignature
-    const source = sourceKey()
-    setDisplayMode(source?.mode ?? 'major')
-    setTargetKeyId(source?.id ?? null)
-    setOctaveShift(0)
-    setDisplayClef(null)
-    setHasRandomizedKey(false)
-  })
+    const sourceSignature = `${props.format}\u0000${props.notation}\u0000${props.showKeyControls}`;
+    if (sourceSignature === previousSource) return;
+    previousSource = sourceSignature;
+    const source = sourceKey();
+    setDisplayMode(source?.mode ?? 'major');
+    setTargetKeyId(source?.id ?? null);
+    setOctaveShift(0);
+    setDisplayClef(null);
+    setHasRandomizedKey(false);
+  });
 
-  const options = () => (sourceKey() ? abcKeyOptionsForMode(displayMode()) : [])
+  const options = () => (sourceKey() ? abcKeyOptionsForMode(displayMode()) : []);
   const targetKey = () => {
-    const source = sourceKey()
+    const source = sourceKey();
     return (
       options().find((key) => key.id === targetKeyId()) ??
       options().find((key) => key.pitchClass === source?.pitchClass) ??
       options()[7]
-    )
-  }
-  const selectedIndex = () => options().findIndex((key) => key.id === targetKey()?.id)
+    );
+  };
+  const selectedIndex = () => options().findIndex((key) => key.id === targetKey()?.id);
   const visibleKeys = () => {
-    const index = selectedIndex()
-    return [-2, -1, 0, 1, 2].map((offset) => options()[index + offset] ?? null)
-  }
+    const index = selectedIndex();
+    return [-2, -1, 0, 1, 2].map((offset) => options()[index + offset] ?? null);
+  };
   const octaveLabel = () => {
-    const shift = octaveShift()
-    if (shift === 0) return 'Original octave'
-    const distance = Math.abs(shift)
-    return distance + ' octave' + (distance === 1 ? '' : 's') + (shift > 0 ? ' up' : ' down')
-  }
+    const shift = octaveShift();
+    if (shift === 0) return 'Original octave';
+    const distance = Math.abs(shift);
+    return distance + ' octave' + (distance === 1 ? '' : 's') + (shift > 0 ? ' up' : ' down');
+  };
   const transpose = () => {
-    const source = sourceKey()
-    const target = targetKey()
-    const keySteps = source && target ? abcTransposeSteps(source, target) : 0
+    const source = sourceKey();
+    const target = targetKey();
+    const keySteps = source && target ? abcTransposeSteps(source, target) : 0;
     return source && target && (source.id !== target.id || octaveShift() !== 0)
       ? {
           steps: keySteps + octaveShift() * 12,
@@ -80,52 +80,52 @@ export function SessionExerciseNotation(props: SessionExerciseNotationProps) {
           targetMode: target.mode,
           targetTonic: target.tonic,
         }
-      : undefined
-  }
+      : undefined;
+  };
 
   function selectClef(clef: AbcClef | null) {
-    const from = displayClef() ?? sourceClef()
-    const to = clef ?? sourceClef()
-    setDisplayClef(clef)
-    setOctaveShift((value) => value + abcClefOctaveShift(from, to))
+    const from = displayClef() ?? sourceClef();
+    const to = clef ?? sourceClef();
+    setDisplayClef(clef);
+    setOctaveShift((value) => value + abcClefOctaveShift(from, to));
   }
 
   function selectMode(mode: AbcKeyMode) {
-    if (mode === displayMode()) return
-    const current = targetKey()
-    const nextOptions = abcKeyOptionsForMode(mode)
-    const parallelKey = nextOptions.find((key) => key.tonic === current?.tonic)
-    const enharmonicKey = nextOptions.find((key) => key.pitchClass === current?.pitchClass)
-    const nextKey = parallelKey ?? enharmonicKey ?? nextOptions[7]
-    setDisplayMode(mode)
-    setTargetKeyId(nextKey?.id ?? null)
+    if (mode === displayMode()) return;
+    const current = targetKey();
+    const nextOptions = abcKeyOptionsForMode(mode);
+    const parallelKey = nextOptions.find((key) => key.tonic === current?.tonic);
+    const enharmonicKey = nextOptions.find((key) => key.pitchClass === current?.pitchClass);
+    const nextKey = parallelKey ?? enharmonicKey ?? nextOptions[7];
+    setDisplayMode(mode);
+    setTargetKeyId(nextKey?.id ?? null);
   }
 
   function resetKey() {
-    const source = sourceKey()
-    if (!source) return
-    setDisplayMode(source.mode)
-    setTargetKeyId(source.id)
+    const source = sourceKey();
+    if (!source) return;
+    setDisplayMode(source.mode);
+    setTargetKeyId(source.id);
   }
 
   function moveSelection(offset: number) {
-    const target = options()[selectedIndex() + offset]
-    if (target) setTargetKeyId(target.id)
+    const target = options()[selectedIndex() + offset];
+    if (target) setTargetKeyId(target.id);
   }
 
   function selectRandomKey(mode?: AbcKeyMode) {
-    const current = targetKey()
+    const current = targetKey();
     const allKeys = mode
       ? abcKeyOptionsForMode(mode)
-      : [...abcKeyOptionsForMode('major'), ...abcKeyOptionsForMode('minor')]
+      : [...abcKeyOptionsForMode('major'), ...abcKeyOptionsForMode('minor')];
     const candidates = hasRandomizedKey()
       ? allKeys.filter((key) => key.id !== current?.id)
-      : allKeys
-    const target = candidates[Math.floor(Math.random() * candidates.length)]
-    if (!target) return
-    setHasRandomizedKey(true)
-    setDisplayMode(target.mode)
-    setTargetKeyId(target.id)
+      : allKeys;
+    const target = candidates[Math.floor(Math.random() * candidates.length)];
+    if (!target) return;
+    setHasRandomizedKey(true);
+    setDisplayMode(target.mode);
+    setTargetKeyId(target.id);
   }
 
   return (
@@ -183,8 +183,8 @@ export function SessionExerciseNotation(props: SessionExerciseNotationProps) {
                   class="secondary-button record-key-button"
                   type="button"
                   onClick={() => {
-                    const target = targetKey()
-                    if (target) props.onRecordKey?.(target.label)
+                    const target = targetKey();
+                    if (target) props.onRecordKey?.(target.label);
                   }}
                 >
                   Add {targetKey()?.label} to note
@@ -293,5 +293,5 @@ export function SessionExerciseNotation(props: SessionExerciseNotationProps) {
         clef={displayClef()}
       />
     </div>
-  )
+  );
 }

@@ -1,32 +1,32 @@
-import { Show, createSignal } from 'solid-js'
-import { Link, createFileRoute } from '@tanstack/solid-router'
-import { LibraryItemForm } from '@/components/LibraryItemForm'
-import { RepertoireCatalogSearch } from '@/components/RepertoireCatalogSearch'
+import { Show, createSignal } from 'solid-js';
+import { Link, createFileRoute } from '@tanstack/solid-router';
+import { LibraryItemForm } from '@/components/LibraryItemForm';
+import { RepertoireCatalogSearch } from '@/components/RepertoireCatalogSearch';
 import {
   EMPTY_CATALOG_SEARCH,
   getInstruments,
   getPublicRepertoireCatalogPage,
-} from '@/data/repertoire'
-import { getMusicianInstrumentIds } from '@/data/preferences'
+} from '@/data/repertoire';
+import { getMusicianInstrumentIds } from '@/data/preferences';
 
 export const Route = createFileRoute('/repertoire/search')({
   loader: async () => {
     const [instruments, instrumentIds] = await Promise.all([
       getInstruments(),
       getMusicianInstrumentIds(),
-    ])
+    ]);
     const catalog = await getPublicRepertoireCatalogPage({
       data: { ...EMPTY_CATALOG_SEARCH, instrumentIds },
-    })
-    return { catalog, instruments, instrumentIds }
+    });
+    return { catalog, instruments, instrumentIds };
   },
   component: SearchRepertoire,
-})
+});
 
 function SearchRepertoire() {
-  const data = Route.useLoaderData()
-  const context = Route.useRouteContext()
-  const [creating, setCreating] = createSignal(false)
+  const data = Route.useLoaderData();
+  const context = Route.useRouteContext();
+  const [creating, setCreating] = createSignal(false);
 
   return (
     <main class={`page ${creating() ? 'form-page repertoire-form-page' : ''}`}>
@@ -86,5 +86,5 @@ function SearchRepertoire() {
         </div>
       </Show>
     </main>
-  )
+  );
 }

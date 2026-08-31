@@ -1,33 +1,33 @@
-import { readFile, readdir } from 'node:fs/promises'
-import { fileURLToPath } from 'node:url'
-import { Client } from 'pg'
-import { PostgreSqlContainer } from '@testcontainers/postgresql'
-import type { TestProject } from 'vitest/node'
+import { readFile, readdir } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { Client } from 'pg';
+import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import type { TestProject } from 'vitest/node';
 
 declare module 'vitest' {
   export interface ProvidedContext {
-    testDatabaseUri: string
+    testDatabaseUri: string;
   }
 }
 
 async function applyMigrations(connectionUri: string) {
   const migrationDirectory = fileURLToPath(
     new URL('../../packages/core/migrations/', import.meta.url),
-  )
+  );
   const migrationFiles = (await readdir(migrationDirectory))
     .map((name) => ({ name, version: Number(name.match(/^V(\d+)__/)?.[1]) }))
     .filter((file) => Number.isInteger(file.version))
-    .sort((left, right) => left.version - right.version)
+    .sort((left, right) => left.version - right.version);
 
-  const client = new Client({ connectionString: connectionUri })
-  await client.connect()
+  const client = new Client({ connectionString: connectionUri });
+  await client.connect();
   try {
     for (const migration of migrationFiles) {
-      const sql = await readFile(`${migrationDirectory}/${migration.name}`, 'utf8')
-      await client.query(sql)
+      const sql = await readFile(`${migrationDirectory}/${migration.name}`, 'utf8');
+      await client.query(sql);
     }
   } finally {
-    await client.end()
+    await client.end();
   }
 }
 
@@ -36,15 +36,15 @@ export default async function setup(project: TestProject) {
     .withDatabase('music_practice_test')
     .withUsername('music_practice_test')
     .withPassword('music_practice_test')
-    .start()
+    .start();
 
   try {
-    await applyMigrations(container.getConnectionUri())
+    await applyMigrations(container.getConnectionUri());
   } catch (error) {
-    await container.stop()
-    throw error
+    await container.stop();
+    throw error;
   }
 
-  project.provide('testDatabaseUri', container.getConnectionUri())
-  return async () => container.stop()
+  project.provide('testDatabaseUri', container.getConnectionUri());
+  return async () => container.stop();
 }

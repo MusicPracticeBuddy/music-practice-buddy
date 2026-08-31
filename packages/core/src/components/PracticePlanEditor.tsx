@@ -1,18 +1,18 @@
-import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js'
-import { createStore, produce } from 'solid-js/store'
-import { Link, useNavigate, useRouter } from '@tanstack/solid-router'
-import * as Dialog from '@kobalte/core/dialog'
-import Sortable, { type MoveEvent, type SortableEvent } from 'sortablejs'
-import { LibraryItemForm } from '@/components/LibraryItemForm'
-import { InstrumentSelect } from '@/components/InstrumentFields'
-import { PracticeLibraryPanel } from '@/components/PracticeLibraryPanel'
+import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
+import { createStore, produce } from 'solid-js/store';
+import { Link, useNavigate, useRouter } from '@tanstack/solid-router';
+import * as Dialog from '@kobalte/core/dialog';
+import Sortable, { type MoveEvent, type SortableEvent } from 'sortablejs';
+import { LibraryItemForm } from '@/components/LibraryItemForm';
+import { InstrumentSelect } from '@/components/InstrumentFields';
+import { PracticeLibraryPanel } from '@/components/PracticeLibraryPanel';
 import {
   EMPTY_CATALOG_SEARCH,
   getInstruments,
   getPublicRepertoireCatalogPage,
   type CatalogRepertoireRow,
   type InstrumentOption,
-} from '@/data/repertoire'
+} from '@/data/repertoire';
 import {
   createSessionTemplate,
   getTemplateLibrary,
@@ -22,26 +22,26 @@ import {
   type TemplateItemInput,
   type TemplateLibraryItem,
   type SessionTemplateDetail,
-} from '@/data/sessionTemplates'
+} from '@/data/sessionTemplates';
 import {
   LIBRARY_ITEM_TYPE,
   PRACTICE_ITEM_TYPE,
   isLibraryItemType,
   type LibraryItemType,
-} from '@/domain/session'
+} from '@/domain/session';
 
 type EditorNode = Omit<TemplateItemInput, 'parentClientId' | 'position'> & {
-  children: EditorNode[]
-}
+  children: EditorNode[];
+};
 
-let nextClientId = 0
+let nextClientId = 0;
 function clientId() {
-  nextClientId += 1
-  return `item-${Date.now()}-${nextClientId}`
+  nextClientId += 1;
+  return `item-${Date.now()}-${nextClientId}`;
 }
 
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Something went wrong. Please try again.'
+  return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
 }
 
 function catalogLibraryItem(item: CatalogRepertoireRow): TemplateLibraryItem {
@@ -52,7 +52,7 @@ function catalogLibraryItem(item: CatalogRepertoireRow): TemplateLibraryItem {
     detail: item.composers.map((composer) => composer.name).join(', ') || 'Unknown composer',
     instrumentIds: item.instruments.map((instrument) => instrument.id),
     children: item.children.map(catalogLibraryItem),
-  }
+  };
 }
 
 function flatten(nodes: EditorNode[], parentClientId: string | null = null): TemplateItemInput[] {
@@ -67,26 +67,26 @@ function flatten(nodes: EditorNode[], parentClientId: string | null = null): Tem
       position: position + 1,
     },
     ...flatten(node.children, node.clientId),
-  ])
+  ]);
 }
 
 function findChildren(items: EditorNode[], parentId: string | null): EditorNode[] | null {
-  if (parentId === null) return items
+  if (parentId === null) return items;
   for (const item of items) {
-    if (item.clientId === parentId) return item.children
-    const found = findChildren(item.children, parentId)
-    if (found) return found
+    if (item.clientId === parentId) return item.children;
+    const found = findChildren(item.children, parentId);
+    if (found) return found;
   }
-  return null
+  return null;
 }
 
 function findNode(items: EditorNode[], id: string): EditorNode | null {
   for (const item of items) {
-    if (item.clientId === id) return item
-    const found = findNode(item.children, id)
-    if (found) return found
+    if (item.clientId === id) return item;
+    const found = findNode(item.children, id);
+    if (found) return found;
   }
-  return null
+  return null;
 }
 
 function findLibraryItem(
@@ -95,30 +95,30 @@ function findLibraryItem(
   type: LibraryItemType,
 ): TemplateLibraryItem | null {
   for (const item of items) {
-    if (item.id === id && item.type === type) return item
-    const child = findLibraryItem(item.children ?? [], id, type)
-    if (child) return child
+    if (item.id === id && item.type === type) return item;
+    const child = findLibraryItem(item.children ?? [], id, type);
+    if (child) return child;
   }
-  return null
+  return null;
 }
 
 function containsNode(item: EditorNode, id: string): boolean {
-  return item.children.some((child) => child.clientId === id || containsNode(child, id))
+  return item.children.some((child) => child.clientId === id || containsNode(child, id));
 }
 
 function removeEditorNode(items: EditorNode[], id: string): EditorNode | null {
-  const index = items.findIndex((item) => item.clientId === id)
-  if (index >= 0) return items.splice(index, 1)[0] ?? null
+  const index = items.findIndex((item) => item.clientId === id);
+  if (index >= 0) return items.splice(index, 1)[0] ?? null;
   for (const item of items) {
-    const removed = removeEditorNode(item.children, id)
-    if (removed) return removed
+    const removed = removeEditorNode(item.children, id);
+    if (removed) return removed;
   }
-  return null
+  return null;
 }
 
 function buildTree(items: TemplateItemInput[]): EditorNode[] {
-  const nodes = new Map<string, EditorNode>()
-  const roots: EditorNode[] = []
+  const nodes = new Map<string, EditorNode>();
+  const roots: EditorNode[] = [];
   for (const item of items) {
     nodes.set(item.clientId, {
       clientId: item.clientId,
@@ -127,35 +127,35 @@ function buildTree(items: TemplateItemInput[]): EditorNode[] {
       name: item.name,
       instruction: item.instruction,
       children: [],
-    })
+    });
   }
   for (const item of items) {
-    const node = nodes.get(item.clientId)
-    if (!node) continue
-    const parent = item.parentClientId ? nodes.get(item.parentClientId) : undefined
-    if (parent) parent.children.push(node)
-    else roots.push(node)
+    const node = nodes.get(item.clientId);
+    if (!node) continue;
+    const parent = item.parentClientId ? nodes.get(item.parentClientId) : undefined;
+    if (parent) parent.children.push(node);
+    else roots.push(node);
   }
-  return roots
+  return roots;
 }
 
 function PlanSortableList(props: {
-  parentId: string | null
-  class: string
-  children: JSX.Element
-  canMove: (nodeId: string, parentId: string | null) => boolean
-  onMoveNode: (nodeId: string, parentId: string | null, index: number) => void
+  parentId: string | null;
+  class: string;
+  children: JSX.Element;
+  canMove: (nodeId: string, parentId: string | null) => boolean;
+  onMoveNode: (nodeId: string, parentId: string | null, index: number) => void;
   onAddLibraryItem: (
     libraryId: string,
     libraryType: LibraryItemType,
     parentId: string | null,
     index: number,
-  ) => void
+  ) => void;
 }) {
-  let element: HTMLDivElement | undefined
+  let element: HTMLDivElement | undefined;
 
   onMount(() => {
-    if (!element) return
+    if (!element) return;
     const sortable = new Sortable(element, {
       group: { name: 'practice-plan', pull: true, put: ['practice-plan', 'practice-library'] },
       animation: 150,
@@ -166,56 +166,56 @@ function PlanSortableList(props: {
       ghostClass: 'sortable-ghost',
       chosenClass: 'sortable-chosen',
       onMove: (event: MoveEvent) => {
-        const nodeId = (event.dragged as HTMLElement).dataset.nodeId
-        return nodeId ? props.canMove(nodeId, props.parentId) : true
+        const nodeId = (event.dragged as HTMLElement).dataset.nodeId;
+        return nodeId ? props.canMove(nodeId, props.parentId) : true;
       },
       onAdd: (event: SortableEvent) => {
         if (event.from.dataset.sortableKind === 'library') {
-          const libraryId = event.item.dataset.libraryId
-          const libraryType = event.item.dataset.libraryType
-          const destinationIndex = event.newIndex ?? 0
+          const libraryId = event.item.dataset.libraryId;
+          const libraryType = event.item.dataset.libraryType;
+          const destinationIndex = event.newIndex ?? 0;
           queueMicrotask(() => {
             if (event.clone.parentElement === event.from) {
-              event.clone.replaceWith(event.item)
+              event.clone.replaceWith(event.item);
             } else if (event.item.parentElement !== event.from) {
-              const oldIndex = event.oldIndex ?? event.from.children.length
+              const oldIndex = event.oldIndex ?? event.from.children.length;
               const anchor = event.from.children.item(
                 Math.min(oldIndex, event.from.children.length),
-              )
-              event.from.insertBefore(event.item, anchor)
+              );
+              event.from.insertBefore(event.item, anchor);
             }
             if (libraryId && isLibraryItemType(libraryType)) {
-              props.onAddLibraryItem(libraryId, libraryType, props.parentId, destinationIndex)
+              props.onAddLibraryItem(libraryId, libraryType, props.parentId, destinationIndex);
             }
-          })
-          return
+          });
+          return;
         }
-        const nodeId = event.item.dataset.nodeId
+        const nodeId = event.item.dataset.nodeId;
         if (nodeId) {
-          queueMicrotask(() => props.onMoveNode(nodeId, props.parentId, event.newIndex ?? 0))
+          queueMicrotask(() => props.onMoveNode(nodeId, props.parentId, event.newIndex ?? 0));
         }
       },
       onUpdate: (event: SortableEvent) => {
-        const nodeId = event.item.dataset.nodeId
+        const nodeId = event.item.dataset.nodeId;
         if (nodeId) {
-          queueMicrotask(() => props.onMoveNode(nodeId, props.parentId, event.newIndex ?? 0))
+          queueMicrotask(() => props.onMoveNode(nodeId, props.parentId, event.newIndex ?? 0));
         }
       },
-    })
-    onCleanup(() => sortable.destroy())
-  })
+    });
+    onCleanup(() => sortable.destroy());
+  });
 
   return (
     <div
       ref={(node) => {
-        element = node
+        element = node;
       }}
       class={props.class}
       data-sortable-kind="plan"
     >
       {props.children}
     </div>
-  )
+  );
 }
 
 function libraryCacheKey(
@@ -236,80 +236,80 @@ function libraryCacheKey(
         ? 'any-instrument'
         : 'filtered-instrument',
     query.trim().toLocaleLowerCase(),
-  ].join('|')
+  ].join('|');
 }
 
 export function PracticePlanEditor(props: {
-  library: TemplateLibraryItem[]
-  instruments?: InstrumentOption[]
-  template?: SessionTemplateDetail
-  session?: PlannedSessionEdit
-  canCreatePublic?: boolean
+  library: TemplateLibraryItem[];
+  instruments?: InstrumentOption[];
+  template?: SessionTemplateDetail;
+  session?: PlannedSessionEdit;
+  canCreatePublic?: boolean;
 }) {
-  const navigate = useNavigate()
-  const router = useRouter()
-  const initialRecord = props.session ?? props.template
-  const [nodes, setNodes] = createStore<EditorNode[]>(buildTree(initialRecord?.items ?? []))
-  const [library, setLibrary] = createStore<TemplateLibraryItem[]>([...props.library])
-  const [name, setName] = createSignal(initialRecord?.name ?? '')
-  const [visibility, setVisibility] = createSignal(props.template?.visibility ?? 'PRIVATE')
-  const [assignedDate, setAssignedDate] = createSignal(props.session?.assignedDate ?? '')
-  const [instrumentId, setInstrumentId] = createSignal(initialRecord?.instrumentId ?? '')
-  const [exerciseAnyInstrument, setExerciseAnyInstrument] = createSignal(false)
-  const [repertoireAnyInstrument, setRepertoireAnyInstrument] = createSignal(false)
-  const [libraryType, setLibraryType] = createSignal<LibraryItemType>(LIBRARY_ITEM_TYPE.EXERCISE)
-  const [selectedParentId, setSelectedParentId] = createSignal<string | null>(null)
-  const [savingAction, setSavingAction] = createSignal<'save' | 'save-and-use' | null>(null)
-  const [error, setError] = createSignal('')
-  const [creatingItem, setCreatingItem] = createSignal(false)
-  const [newItemType, setNewItemType] = createSignal<LibraryItemType>(LIBRARY_ITEM_TYPE.EXERCISE)
-  const [newItemInstruction, setNewItemInstruction] = createSignal('')
+  const navigate = useNavigate();
+  const router = useRouter();
+  const initialRecord = props.session ?? props.template;
+  const [nodes, setNodes] = createStore<EditorNode[]>(buildTree(initialRecord?.items ?? []));
+  const [library, setLibrary] = createStore<TemplateLibraryItem[]>([...props.library]);
+  const [name, setName] = createSignal(initialRecord?.name ?? '');
+  const [visibility, setVisibility] = createSignal(props.template?.visibility ?? 'PRIVATE');
+  const [assignedDate, setAssignedDate] = createSignal(props.session?.assignedDate ?? '');
+  const [instrumentId, setInstrumentId] = createSignal(initialRecord?.instrumentId ?? '');
+  const [exerciseAnyInstrument, setExerciseAnyInstrument] = createSignal(false);
+  const [repertoireAnyInstrument, setRepertoireAnyInstrument] = createSignal(false);
+  const [libraryType, setLibraryType] = createSignal<LibraryItemType>(LIBRARY_ITEM_TYPE.EXERCISE);
+  const [selectedParentId, setSelectedParentId] = createSignal<string | null>(null);
+  const [savingAction, setSavingAction] = createSignal<'save' | 'save-and-use' | null>(null);
+  const [error, setError] = createSignal('');
+  const [creatingItem, setCreatingItem] = createSignal(false);
+  const [newItemType, setNewItemType] = createSignal<LibraryItemType>(LIBRARY_ITEM_TYPE.EXERCISE);
+  const [newItemInstruction, setNewItemInstruction] = createSignal('');
   const [instrumentOptions, setInstrumentOptions] = createSignal<InstrumentOption[]>(
     props.instruments ?? [],
-  )
-  const [searchPublicRepertoire, setSearchPublicRepertoire] = createSignal(false)
-  const [publicRepertoire, setPublicRepertoire] = createSignal<TemplateLibraryItem[]>([])
+  );
+  const [searchPublicRepertoire, setSearchPublicRepertoire] = createSignal(false);
+  const [publicRepertoire, setPublicRepertoire] = createSignal<TemplateLibraryItem[]>([]);
   const [publicRepertoirePage, setPublicRepertoirePage] = createSignal({
     page: 1,
     total: 0,
     totalPages: 0,
-  })
-  const [publicRepertoireQuery, setPublicRepertoireQuery] = createSignal('')
-  const [libraryQuery, setLibraryQuery] = createSignal('')
-  const [loadingPublicRepertoire, setLoadingPublicRepertoire] = createSignal(false)
-  const [loadingLibrary, setLoadingLibrary] = createSignal(false)
-  let publicRepertoireRequest = 0
-  let libraryRequest = 0
-  const libraryCache = new Map<string, TemplateLibraryItem[]>()
+  });
+  const [publicRepertoireQuery, setPublicRepertoireQuery] = createSignal('');
+  const [libraryQuery, setLibraryQuery] = createSignal('');
+  const [loadingPublicRepertoire, setLoadingPublicRepertoire] = createSignal(false);
+  const [loadingLibrary, setLoadingLibrary] = createSignal(false);
+  let publicRepertoireRequest = 0;
+  let libraryRequest = 0;
+  const libraryCache = new Map<string, TemplateLibraryItem[]>();
 
   for (const type of [LIBRARY_ITEM_TYPE.EXERCISE, LIBRARY_ITEM_TYPE.REPERTOIRE]) {
     libraryCache.set(
       libraryCacheKey(type, instrumentId(), false, false, ''),
       props.library.filter((item) => item.type === type),
-    )
+    );
   }
 
   const searchableRepertoire = createMemo(() => {
-    const libraryRepertoire = library.filter((item) => item.type === LIBRARY_ITEM_TYPE.REPERTOIRE)
-    const libraryItems = new Map(libraryRepertoire.map((item) => [item.id, item]))
-    return publicRepertoire().map((item) => libraryItems.get(item.id) ?? item)
-  })
+    const libraryRepertoire = library.filter((item) => item.type === LIBRARY_ITEM_TYPE.REPERTOIRE);
+    const libraryItems = new Map(libraryRepertoire.map((item) => [item.id, item]));
+    return publicRepertoire().map((item) => libraryItems.get(item.id) ?? item);
+  });
 
   const itemCount = createMemo(
     () => flatten(nodes).filter((item) => item.type !== PRACTICE_ITEM_TYPE.SECTION).length,
-  )
+  );
 
   function addNode(node: EditorNode, parentId = selectedParentId(), index?: number) {
     setNodes(
       produce((items) => {
-        const destination = findChildren(items, parentId) ?? items
+        const destination = findChildren(items, parentId) ?? items;
         if (index === undefined) {
-          destination.push(node)
-          return
+          destination.push(node);
+          return;
         }
-        destination.splice(Math.min(Math.max(index, 0), destination.length), 0, node)
+        destination.splice(Math.min(Math.max(index, 0), destination.length), 0, node);
       }),
-    )
+    );
   }
 
   function addSection(parentId: string | null = selectedParentId()) {
@@ -323,7 +323,7 @@ export function PracticePlanEditor(props: {
         children: [],
       },
       parentId,
-    )
+    );
   }
 
   function addLibraryEntry(
@@ -343,25 +343,25 @@ export function PracticePlanEditor(props: {
       },
       parentId,
       index,
-    )
+    );
   }
 
   function canMoveNode(nodeId: string, parentId: string | null) {
-    const node = findNode(nodes, nodeId)
-    return Boolean(node && parentId !== nodeId && (!parentId || !containsNode(node, parentId)))
+    const node = findNode(nodes, nodeId);
+    return Boolean(node && parentId !== nodeId && (!parentId || !containsNode(node, parentId)));
   }
 
   function moveNodeTo(nodeId: string, parentId: string | null, index: number) {
     setNodes(
       produce((items) => {
-        const node = findNode(items, nodeId)
-        if (!node || parentId === nodeId || (parentId && containsNode(node, parentId))) return
-        const moved = removeEditorNode(items, nodeId)
-        if (!moved) return
-        const destination = findChildren(items, parentId) ?? items
-        destination.splice(Math.min(Math.max(index, 0), destination.length), 0, moved)
+        const node = findNode(items, nodeId);
+        if (!node || parentId === nodeId || (parentId && containsNode(node, parentId))) return;
+        const moved = removeEditorNode(items, nodeId);
+        if (!moved) return;
+        const destination = findChildren(items, parentId) ?? items;
+        destination.splice(Math.min(Math.max(index, 0), destination.length), 0, moved);
       }),
-    )
+    );
   }
 
   function addLibraryItemById(
@@ -370,87 +370,87 @@ export function PracticePlanEditor(props: {
     parentId: string | null,
     index: number,
   ) {
-    const item = findLibraryItem([...library, ...publicRepertoire()], libraryId, itemType)
-    if (!item) return
-    addLibraryEntry(item, '', parentId, index)
-    setSelectedParentId(parentId)
+    const item = findLibraryItem([...library, ...publicRepertoire()], libraryId, itemType);
+    if (!item) return;
+    addLibraryEntry(item, '', parentId, index);
+    setSelectedParentId(parentId);
   }
 
   function removeNode(id: string) {
     setNodes(
       produce((items) => {
         function removeFrom(children: EditorNode[]): boolean {
-          const index = children.findIndex((item) => item.clientId === id)
+          const index = children.findIndex((item) => item.clientId === id);
           if (index >= 0) {
-            children.splice(index, 1)
-            return true
+            children.splice(index, 1);
+            return true;
           }
-          return children.some((item) => removeFrom(item.children))
+          return children.some((item) => removeFrom(item.children));
         }
-        removeFrom(items)
+        removeFrom(items);
       }),
-    )
-    if (selectedParentId() === id) setSelectedParentId(null)
+    );
+    if (selectedParentId() === id) setSelectedParentId(null);
   }
 
   function moveNode(id: string, offset: -1 | 1) {
     setNodes(
       produce((items) => {
         function moveIn(children: EditorNode[]): boolean {
-          const index = children.findIndex((item) => item.clientId === id)
+          const index = children.findIndex((item) => item.clientId === id);
           if (index >= 0) {
-            const destination = index + offset
-            if (destination < 0 || destination >= children.length) return true
-            const [item] = children.splice(index, 1)
-            if (item) children.splice(destination, 0, item)
-            return true
+            const destination = index + offset;
+            if (destination < 0 || destination >= children.length) return true;
+            const [item] = children.splice(index, 1);
+            if (item) children.splice(destination, 0, item);
+            return true;
           }
-          return children.some((item) => moveIn(item.children))
+          return children.some((item) => moveIn(item.children));
         }
-        moveIn(items)
+        moveIn(items);
       }),
-    )
+    );
   }
 
   function renameSection(id: string, value: string) {
     setNodes(
       produce((items) => {
         function rename(children: EditorNode[]): boolean {
-          const item = children.find((candidate) => candidate.clientId === id)
+          const item = children.find((candidate) => candidate.clientId === id);
           if (item) {
-            item.name = value
-            return true
+            item.name = value;
+            return true;
           }
-          return children.some((candidate) => rename(candidate.children))
+          return children.some((candidate) => rename(candidate.children));
         }
-        rename(items)
+        rename(items);
       }),
-    )
+    );
   }
 
   function updateItemInstruction(id: string, value: string) {
     setNodes(
       produce((items) => {
-        const item = findNode(items, id)
-        if (item && item.type !== PRACTICE_ITEM_TYPE.SECTION) item.instruction = value
+        const item = findNode(items, id);
+        if (item && item.type !== PRACTICE_ITEM_TYPE.SECTION) item.instruction = value;
       }),
-    )
+    );
   }
 
   async function saveTemplate(action: 'save' | 'save-and-use') {
-    setError('')
+    setError('');
     if (!name().trim()) {
-      setError(props.session ? 'Enter a session name.' : 'Enter a template name.')
-      return
+      setError(props.session ? 'Enter a session name.' : 'Enter a template name.');
+      return;
     }
-    setSavingAction(action)
+    setSavingAction(action);
     try {
       const data = {
         name: name(),
         visibility: visibility(),
         instrumentId: instrumentId() || null,
         items: flatten(nodes),
-      }
+      };
       if (props.session) {
         await updatePlannedSession({
           data: {
@@ -460,60 +460,60 @@ export function PracticePlanEditor(props: {
             instrumentId: instrumentId() || null,
             items: data.items,
           },
-        })
-        await router.invalidate({ sync: true })
+        });
+        await router.invalidate({ sync: true });
         await navigate({
           to: '/sessions/$sessionId',
           params: { sessionId: props.session.id },
-        })
-        return
+        });
+        return;
       }
 
       const template = props.template
         ? await updateSessionTemplate({ data: { id: props.template.id, ...data } })
-        : await createSessionTemplate({ data })
-      await router.invalidate({ sync: true })
+        : await createSessionTemplate({ data });
+      await router.invalidate({ sync: true });
       if (action === 'save-and-use') {
-        await navigate({ to: '/sessions/new', search: { template: template.id } })
+        await navigate({ to: '/sessions/new', search: { template: template.id } });
       } else {
-        await navigate({ to: '/templates' })
+        await navigate({ to: '/templates' });
       }
     } catch (caught) {
-      setError(errorMessage(caught))
+      setError(errorMessage(caught));
     } finally {
-      setSavingAction(null)
+      setSavingAction(null);
     }
   }
 
   function addCreatedItem(item: TemplateLibraryItem) {
-    libraryCache.clear()
-    setLibrary((items) => [...items, item])
-    setLibraryType(item.type)
-    addLibraryEntry(item, newItemInstruction())
-    setNewItemInstruction('')
-    setCreatingItem(false)
+    libraryCache.clear();
+    setLibrary((items) => [...items, item]);
+    setLibraryType(item.type);
+    addLibraryEntry(item, newItemInstruction());
+    setNewItemInstruction('');
+    setCreatingItem(false);
   }
 
   function resetNewItemForm(type: LibraryItemType) {
-    setNewItemType(type)
-    setNewItemInstruction('')
+    setNewItemType(type);
+    setNewItemInstruction('');
   }
 
   async function prepareNewItemForm(type: LibraryItemType) {
-    resetNewItemForm(type)
-    if (type !== LIBRARY_ITEM_TYPE.REPERTOIRE || instrumentOptions().length > 0) return
+    resetNewItemForm(type);
+    if (type !== LIBRARY_ITEM_TYPE.REPERTOIRE || instrumentOptions().length > 0) return;
     try {
-      setInstrumentOptions(await getInstruments())
+      setInstrumentOptions(await getInstruments());
     } catch (caught) {
-      setError(errorMessage(caught))
+      setError(errorMessage(caught));
     }
   }
 
   async function searchPublicCatalog(query: string, page: number) {
-    const request = ++publicRepertoireRequest
-    setPublicRepertoireQuery(query)
-    setLoadingPublicRepertoire(true)
-    setError('')
+    const request = ++publicRepertoireRequest;
+    setPublicRepertoireQuery(query);
+    setLoadingPublicRepertoire(true);
+    setError('');
     try {
       const catalog = await getPublicRepertoireCatalogPage({
         data: {
@@ -522,39 +522,39 @@ export function PracticePlanEditor(props: {
           instrumentIds: instrumentId() && !repertoireAnyInstrument() ? [instrumentId()] : [],
           page,
         },
-      })
-      if (request !== publicRepertoireRequest) return
-      setPublicRepertoire(catalog.items.map(catalogLibraryItem))
+      });
+      if (request !== publicRepertoireRequest) return;
+      setPublicRepertoire(catalog.items.map(catalogLibraryItem));
       setPublicRepertoirePage({
         page: catalog.page,
         total: catalog.total,
         totalPages: catalog.totalPages,
-      })
+      });
     } catch (caught) {
-      if (request !== publicRepertoireRequest) return
-      setError(errorMessage(caught))
-      setSearchPublicRepertoire(false)
+      if (request !== publicRepertoireRequest) return;
+      setError(errorMessage(caught));
+      setSearchPublicRepertoire(false);
     } finally {
-      if (request === publicRepertoireRequest) setLoadingPublicRepertoire(false)
+      if (request === publicRepertoireRequest) setLoadingPublicRepertoire(false);
     }
   }
 
   async function togglePublicRepertoireSearch(enabled: boolean, query: string) {
-    setSearchPublicRepertoire(enabled)
+    setSearchPublicRepertoire(enabled);
     if (!enabled) {
-      publicRepertoireRequest += 1
-      setLoadingPublicRepertoire(false)
-      setLibraryQuery(query)
+      publicRepertoireRequest += 1;
+      setLoadingPublicRepertoire(false);
+      setLibraryQuery(query);
       void loadLibrary(
         instrumentId(),
         exerciseAnyInstrument(),
         repertoireAnyInstrument(),
         query,
         LIBRARY_ITEM_TYPE.REPERTOIRE,
-      )
-      return
+      );
+      return;
     }
-    await searchPublicCatalog(query, 1)
+    await searchPublicCatalog(query, 1);
   }
 
   async function loadLibrary(
@@ -573,29 +573,29 @@ export function PracticePlanEditor(props: {
           nextRepertoireAnyInstrument,
           query,
         ),
-      )
+      );
     if (type !== null) {
-      const cached = cachedItems(type)
+      const cached = cachedItems(type);
       if (cached) {
-        libraryRequest += 1
-        setLibrary((current) => [...current.filter((item) => item.type !== type), ...cached])
-        setLoadingLibrary(false)
-        return
+        libraryRequest += 1;
+        setLibrary((current) => [...current.filter((item) => item.type !== type), ...cached]);
+        setLoadingLibrary(false);
+        return;
       }
     } else {
-      const cachedExercises = cachedItems(LIBRARY_ITEM_TYPE.EXERCISE)
-      const cachedRepertoire = cachedItems(LIBRARY_ITEM_TYPE.REPERTOIRE)
+      const cachedExercises = cachedItems(LIBRARY_ITEM_TYPE.EXERCISE);
+      const cachedRepertoire = cachedItems(LIBRARY_ITEM_TYPE.REPERTOIRE);
       if (cachedExercises && cachedRepertoire) {
-        libraryRequest += 1
-        setLibrary([...cachedExercises, ...cachedRepertoire])
-        setLoadingLibrary(false)
-        return
+        libraryRequest += 1;
+        setLibrary([...cachedExercises, ...cachedRepertoire]);
+        setLoadingLibrary(false);
+        return;
       }
     }
 
-    const request = ++libraryRequest
-    setLoadingLibrary(true)
-    setError('')
+    const request = ++libraryRequest;
+    setLoadingLibrary(true);
+    setError('');
     try {
       const items = await getTemplateLibrary({
         data: {
@@ -605,7 +605,7 @@ export function PracticePlanEditor(props: {
           query,
           type,
         },
-      })
+      });
       if (request === libraryRequest) {
         if (type === null) {
           for (const resultType of [LIBRARY_ITEM_TYPE.EXERCISE, LIBRARY_ITEM_TYPE.REPERTOIRE]) {
@@ -618,7 +618,7 @@ export function PracticePlanEditor(props: {
                 query,
               ),
               items.filter((item) => item.type === resultType),
-            )
+            );
           }
         } else {
           libraryCache.set(
@@ -630,24 +630,24 @@ export function PracticePlanEditor(props: {
               query,
             ),
             items,
-          )
+          );
         }
         setLibrary((current) =>
           type === null ? items : [...current.filter((item) => item.type !== type), ...items],
-        )
+        );
       }
     } catch (caught) {
-      if (request === libraryRequest) setError(errorMessage(caught))
+      if (request === libraryRequest) setError(errorMessage(caught));
     } finally {
-      if (request === libraryRequest) setLoadingLibrary(false)
+      if (request === libraryRequest) setLoadingLibrary(false);
     }
   }
 
   function changeInstrument(nextInstrumentId: string) {
-    setInstrumentId(nextInstrumentId)
+    setInstrumentId(nextInstrumentId);
     if (libraryType() === LIBRARY_ITEM_TYPE.REPERTOIRE && searchPublicRepertoire()) {
-      void searchPublicCatalog(publicRepertoireQuery(), 1)
-      return
+      void searchPublicCatalog(publicRepertoireQuery(), 1);
+      return;
     }
     void loadLibrary(
       nextInstrumentId,
@@ -655,25 +655,25 @@ export function PracticePlanEditor(props: {
       repertoireAnyInstrument(),
       libraryQuery(),
       libraryType(),
-    )
+    );
   }
 
   function changeAnyInstrument(type: LibraryItemType, enabled: boolean) {
     if (type === LIBRARY_ITEM_TYPE.EXERCISE) {
-      setExerciseAnyInstrument(enabled)
+      setExerciseAnyInstrument(enabled);
       void loadLibrary(
         instrumentId(),
         enabled,
         repertoireAnyInstrument(),
         libraryQuery(),
         LIBRARY_ITEM_TYPE.EXERCISE,
-      )
-      return
+      );
+      return;
     }
-    setRepertoireAnyInstrument(enabled)
+    setRepertoireAnyInstrument(enabled);
     if (searchPublicRepertoire()) {
-      void searchPublicCatalog(publicRepertoireQuery(), 1)
-      return
+      void searchPublicCatalog(publicRepertoireQuery(), 1);
+      return;
     }
     void loadLibrary(
       instrumentId(),
@@ -681,30 +681,30 @@ export function PracticePlanEditor(props: {
       enabled,
       libraryQuery(),
       LIBRARY_ITEM_TYPE.REPERTOIRE,
-    )
+    );
   }
 
   function searchLibrary(query: string) {
-    setLibraryQuery(query)
+    setLibraryQuery(query);
     void loadLibrary(
       instrumentId(),
       exerciseAnyInstrument(),
       repertoireAnyInstrument(),
       query,
       libraryType(),
-    )
+    );
   }
 
   function changeLibraryType(type: LibraryItemType) {
-    setLibraryType(type)
-    if (type === LIBRARY_ITEM_TYPE.REPERTOIRE && searchPublicRepertoire()) return
+    setLibraryType(type);
+    if (type === LIBRARY_ITEM_TYPE.REPERTOIRE && searchPublicRepertoire()) return;
     void loadLibrary(
       instrumentId(),
       exerciseAnyInstrument(),
       repertoireAnyInstrument(),
       libraryQuery(),
       type,
-    )
+    );
   }
 
   return (
@@ -947,8 +947,8 @@ export function PracticePlanEditor(props: {
             <Dialog.Root
               open={creatingItem()}
               onOpenChange={(open) => {
-                if (open) void prepareNewItemForm(libraryType())
-                setCreatingItem(open)
+                if (open) void prepareNewItemForm(libraryType());
+                setCreatingItem(open);
               }}
             >
               <Show when={libraryType() === LIBRARY_ITEM_TYPE.EXERCISE || searchPublicRepertoire()}>
@@ -998,30 +998,30 @@ export function PracticePlanEditor(props: {
         />
       </div>
     </main>
-  )
+  );
 }
 
 function TemplateNode(props: {
-  node: EditorNode
-  selectedParentId: string | null
-  onSelect: (id: string | null) => void
-  onAddSection: (id: string | null) => void
-  onRemove: (id: string) => void
-  onMove: (id: string, offset: -1 | 1) => void
-  onRename: (id: string, value: string) => void
-  onUpdateInstruction: (id: string, value: string) => void
-  canMove: (nodeId: string, parentId: string | null) => boolean
-  onMoveNode: (nodeId: string, parentId: string | null, index: number) => void
+  node: EditorNode;
+  selectedParentId: string | null;
+  onSelect: (id: string | null) => void;
+  onAddSection: (id: string | null) => void;
+  onRemove: (id: string) => void;
+  onMove: (id: string, offset: -1 | 1) => void;
+  onRename: (id: string, value: string) => void;
+  onUpdateInstruction: (id: string, value: string) => void;
+  canMove: (nodeId: string, parentId: string | null) => boolean;
+  onMoveNode: (nodeId: string, parentId: string | null, index: number) => void;
   onAddLibraryItem: (
     libraryId: string,
     libraryType: LibraryItemType,
     parentId: string | null,
     index: number,
-  ) => void
+  ) => void;
 }) {
-  const isSection = () => props.node.type === PRACTICE_ITEM_TYPE.SECTION
-  const [editingInstruction, setEditingInstruction] = createSignal(false)
-  const instructionId = () => `practice-item-instruction-${props.node.clientId}`
+  const isSection = () => props.node.type === PRACTICE_ITEM_TYPE.SECTION;
+  const [editingInstruction, setEditingInstruction] = createSignal(false);
+  const instructionId = () => `practice-item-instruction-${props.node.clientId}`;
 
   return (
     <article
@@ -1136,5 +1136,5 @@ function TemplateNode(props: {
         </PlanSortableList>
       </Show>
     </article>
-  )
+  );
 }

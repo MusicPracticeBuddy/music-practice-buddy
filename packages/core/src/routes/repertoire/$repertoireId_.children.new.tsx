@@ -1,22 +1,22 @@
-import { createFileRoute, notFound } from '@tanstack/solid-router'
-import { LibraryItemForm } from '@/components/LibraryItemForm'
-import { getInstruments, getRepertoireDetail } from '@/data/repertoire'
+import { createFileRoute, notFound } from '@tanstack/solid-router';
+import { LibraryItemForm } from '@/components/LibraryItemForm';
+import { getInstruments, getRepertoireDetail } from '@/data/repertoire';
 
 export const Route = createFileRoute('/repertoire/$repertoireId_/children/new')({
   loader: async ({ params }) => {
     const [parent, instruments] = await Promise.all([
       getRepertoireDetail({ data: params.repertoireId }),
       getInstruments(),
-    ])
-    if (!parent?.canUse || parent.parent) throw notFound()
-    return { parent, instruments }
+    ]);
+    if (!parent?.canUse || parent.parent) throw notFound();
+    return { parent, instruments };
   },
   component: NewChildRepertoire,
-})
+});
 
 function NewChildRepertoire() {
-  const data = Route.useLoaderData()
-  const parent = () => data().parent
+  const data = Route.useLoaderData();
+  const parent = () => data().parent;
   return (
     <LibraryItemForm
       kind="repertoire"
@@ -37,5 +37,5 @@ function NewChildRepertoire() {
       instrumentOptions={data().instruments}
       submitLabel="Add movement or piece"
     />
-  )
+  );
 }

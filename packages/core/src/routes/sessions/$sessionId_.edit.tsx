@@ -1,23 +1,23 @@
-import { createFileRoute, notFound } from '@tanstack/solid-router'
-import { PracticePlanEditor } from '@/components/PracticePlanEditor'
-import { getPlannedSessionForEdit, getTemplateLibrary } from '@/data/sessionTemplates'
-import { getInstruments } from '@/data/repertoire'
+import { createFileRoute, notFound } from '@tanstack/solid-router';
+import { PracticePlanEditor } from '@/components/PracticePlanEditor';
+import { getPlannedSessionForEdit, getTemplateLibrary } from '@/data/sessionTemplates';
+import { getInstruments } from '@/data/repertoire';
 
 export const Route = createFileRoute('/sessions/$sessionId_/edit')({
   loader: async ({ params }) => {
     const [session, instruments] = await Promise.all([
       getPlannedSessionForEdit({ data: params.sessionId }),
       getInstruments(),
-    ])
-    if (!session) throw notFound()
+    ]);
+    if (!session) throw notFound();
     const library = await getTemplateLibrary({
       data: {
         instrumentId: session.instrumentId,
         exerciseAnyInstrument: false,
         repertoireAnyInstrument: false,
       },
-    })
-    return { session, library, instruments }
+    });
+    return { session, library, instruments };
   },
   component: EditPlannedSession,
   notFoundComponent: () => (
@@ -26,11 +26,11 @@ export const Route = createFileRoute('/sessions/$sessionId_/edit')({
       <p>Only planned sessions can be changed.</p>
     </main>
   ),
-})
+});
 
 function EditPlannedSession() {
-  const data = Route.useLoaderData()
-  const context = Route.useRouteContext()
+  const data = Route.useLoaderData();
+  const context = Route.useRouteContext();
   return (
     <PracticePlanEditor
       session={data().session}
@@ -38,5 +38,5 @@ function EditPlannedSession() {
       instruments={data().instruments}
       canCreatePublic={context().user?.isAdmin}
     />
-  )
+  );
 }

@@ -1,12 +1,12 @@
-import { Link } from '@tanstack/solid-router'
-import type { MpbEdition } from '@music-practice-buddy/core/contracts'
+import { Link } from '@tanstack/solid-router';
+import type { MpbEdition } from '@music-practice-buddy/core/contracts';
 
 function InsightsNavigation() {
   return (
     <Link to="/insights" activeProps={{ class: 'active' }}>
       Insights
     </Link>
-  )
+  );
 }
 
 function PracticeInsightsPanel() {
@@ -23,7 +23,7 @@ function PracticeInsightsPanel() {
         View insights
       </Link>
     </section>
-  )
+  );
 }
 
 export const proProofEdition: MpbEdition = {
@@ -31,4 +31,4 @@ export const proProofEdition: MpbEdition = {
   displayName: 'Music Practice Buddy Pro',
   primaryNavigation: [{ id: 'insights', component: InsightsNavigation }],
   dashboardPanels: [{ id: 'practice-insights', component: PracticeInsightsPanel }],
-}
+};

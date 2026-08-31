@@ -1,13 +1,13 @@
-import { createFileRoute } from '@tanstack/solid-router'
-import { getPracticeInsights } from '../features/insights/data'
+import { createFileRoute } from '@tanstack/solid-router';
+import { getPracticeInsights } from '../features/insights/data';
 
 export const Route = createFileRoute('/insights')({
   loader: () => getPracticeInsights(),
   component: PracticeInsightsPage,
-})
+});
 
 function PracticeInsightsPage() {
-  const insights = Route.useLoaderData()
+  const insights = Route.useLoaderData();
   return (
     <main class="page">
       <section class="hero">
@@ -34,5 +34,5 @@ function PracticeInsightsPage() {
         </article>
       </section>
     </main>
-  )
+  );
 }

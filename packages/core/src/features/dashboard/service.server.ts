@@ -1,20 +1,20 @@
-import type { Pool } from 'pg'
+import type { Pool } from 'pg';
 
 export type DashboardData = {
   counts: {
-    repertoire: number
-    exercises: number
-    sessions: number
-    completedSessions: number
-  }
-  minutesPracticed: number
+    repertoire: number;
+    exercises: number;
+    sessions: number;
+    completedSessions: number;
+  };
+  minutesPracticed: number;
   nextSession: {
-    id: string
-    templateName: string
-    status: string
-    assignedDate: string | null
-  } | null
-}
+    id: string;
+    templateName: string;
+    status: string;
+    assignedDate: string | null;
+  } | null;
+};
 
 export async function getDashboardForMusician(
   database: Pool,
@@ -22,11 +22,11 @@ export async function getDashboardForMusician(
 ): Promise<DashboardData> {
   const [summary, nextSession] = await Promise.all([
     database.query<{
-      repertoire: number
-      exercises: number
-      sessions: number
-      completed_sessions: number
-      minutes_practiced: number
+      repertoire: number;
+      exercises: number;
+      sessions: number;
+      completed_sessions: number;
+      minutes_practiced: number;
     }>(
       `
         WITH RECURSIVE repertoire_access AS (
@@ -65,10 +65,10 @@ export async function getDashboardForMusician(
       [musicianId],
     ),
     database.query<{
-      id: string
-      template_name: string
-      status: string
-      assigned_date: string | null
+      id: string;
+      template_name: string;
+      status: string;
+      assigned_date: string | null;
     }>(
       `
         SELECT s.id::text, COALESCE(st.name, 'Open practice') AS template_name,
@@ -82,10 +82,10 @@ export async function getDashboardForMusician(
       `,
       [musicianId],
     ),
-  ])
+  ]);
 
-  const totals = summary.rows[0]!
-  const next = nextSession.rows[0]
+  const totals = summary.rows[0]!;
+  const next = nextSession.rows[0];
 
   return {
     counts: {
@@ -103,5 +103,5 @@ export async function getDashboardForMusician(
           assignedDate: next.assigned_date,
         }
       : null,
-  }
+  };
 }

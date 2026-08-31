@@ -6,7 +6,7 @@ import {
   trace,
   type Attributes,
   type Span,
-} from '@opentelemetry/api'
+} from '@opentelemetry/api';
 import type {
   OperationOutcome,
   PageView,
@@ -14,38 +14,38 @@ import type {
   SqlQuery,
   TelemetryOperation,
   TelemetryProvider,
-} from '@/telemetry/telemetry'
+} from '@/telemetry/telemetry';
 
-const tracer = trace.getTracer('music-practice.telemetry')
-const meter = metrics.getMeter('music-practice.telemetry')
+const tracer = trace.getTracer('music-practice.telemetry');
+const meter = metrics.getMeter('music-practice.telemetry');
 const pageViewCounter = meter.createCounter('music_practice.page_views', {
   description: 'Completed client-side page views',
-})
+});
 const serverFunctionCounter = meter.createCounter('music_practice.server_function.calls', {
   description: 'TanStack Start server-function calls',
-})
+});
 const serverFunctionDuration = meter.createHistogram('music_practice.server_function.duration', {
   description: 'TanStack Start server-function duration',
   unit: 'ms',
-})
+});
 const sqlQueryCounter = meter.createCounter('music_practice.sql.calls', {
   description: 'PostgreSQL query calls',
-})
+});
 const sqlQueryDuration = meter.createHistogram('music_practice.sql.duration', {
   description: 'PostgreSQL query duration',
   unit: 'ms',
-})
+});
 
 export const openTelemetryProvider: TelemetryProvider = {
   recordPageView: (pageView) => {
-    const attributes = pageViewAttributes(pageView)
-    pageViewCounter.add(1, { 'page.route_id': pageView.routeId })
+    const attributes = pageViewAttributes(pageView);
+    pageViewCounter.add(1, { 'page.route_id': pageView.routeId });
     const span = tracer.startSpan(
       `page_view ${pageView.routeId}`,
       { attributes, startTime: new Date(pageView.timestamp) },
       context.active(),
-    )
-    span.end()
+    );
+    span.end();
   },
   startServerFunction: (call) =>
     createTimedOperation({
@@ -63,8 +63,8 @@ export const openTelemetryProvider: TelemetryProvider = {
         'server.function.method': call.method,
       },
       recordMetrics: (durationMs, attributes) => {
-        serverFunctionCounter.add(1, attributes)
-        serverFunctionDuration.record(durationMs, attributes)
+        serverFunctionCounter.add(1, attributes);
+        serverFunctionDuration.record(durationMs, attributes);
       },
     }),
   startSqlQuery: (query) =>
@@ -83,41 +83,41 @@ export const openTelemetryProvider: TelemetryProvider = {
         'db.query.name': query.queryName,
       },
       recordMetrics: (durationMs, attributes) => {
-        sqlQueryCounter.add(1, attributes)
-        sqlQueryDuration.record(durationMs, attributes)
+        sqlQueryCounter.add(1, attributes);
+        sqlQueryDuration.record(durationMs, attributes);
       },
     }),
-}
+};
 
 function createTimedOperation({
   span,
   metricAttributes,
   recordMetrics,
 }: {
-  span: Span
-  metricAttributes: Attributes
-  recordMetrics: (durationMs: number, attributes: Attributes) => void
+  span: Span;
+  metricAttributes: Attributes;
+  recordMetrics: (durationMs: number, attributes: Attributes) => void;
 }): TelemetryOperation {
-  const activeContext = trace.setSpan(context.active(), span)
-  const startedAt = performance.now()
+  const activeContext = trace.setSpan(context.active(), span);
+  const startedAt = performance.now();
 
   return {
     run: (operation) => context.with(activeContext, operation),
     end: (outcome) => {
-      const durationMs = performance.now() - startedAt
-      const attributes = { ...metricAttributes, outcome }
-      context.with(activeContext, () => recordMetrics(durationMs, attributes))
-      setSpanOutcome(span, outcome)
-      span.end()
+      const durationMs = performance.now() - startedAt;
+      const attributes = { ...metricAttributes, outcome };
+      context.with(activeContext, () => recordMetrics(durationMs, attributes));
+      setSpanOutcome(span, outcome);
+      span.end();
     },
-  }
+  };
 }
 
 function setSpanOutcome(span: Span, outcome: OperationOutcome): void {
-  span.setAttribute('operation.outcome', outcome)
+  span.setAttribute('operation.outcome', outcome);
   span.setStatus({
     code: outcome === 'success' ? SpanStatusCode.OK : SpanStatusCode.ERROR,
-  })
+  });
 }
 
 function pageViewAttributes(pageView: PageView): Attributes {
@@ -126,7 +126,7 @@ function pageViewAttributes(pageView: PageView): Attributes {
     'page.path': pageView.path,
     'page.route_id': pageView.routeId,
     'service.version': pageView.serverVersion,
-  }
+  };
 }
 
 function serverFunctionAttributes(call: ServerFunctionCall): Attributes {
@@ -135,7 +135,7 @@ function serverFunctionAttributes(call: ServerFunctionCall): Attributes {
     'server.function.name': call.functionName,
     'server.function.method': call.method,
     'service.version': call.serverVersion,
-  }
+  };
 }
 
 function sqlQueryAttributes(query: SqlQuery): Attributes {
@@ -146,5 +146,5 @@ function sqlQueryAttributes(query: SqlQuery): Attributes {
     'db.query.text': query.statement,
     'db.system.name': 'postgresql',
     'service.version': query.serverVersion,
-  }
+  };
 }

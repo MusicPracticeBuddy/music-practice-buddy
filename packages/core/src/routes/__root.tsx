@@ -1,4 +1,4 @@
-import * as Solid from 'solid-js'
+import * as Solid from 'solid-js';
 import {
   HeadContent,
   Link,
@@ -7,22 +7,22 @@ import {
   createRootRouteWithContext,
   redirect,
   useRouter,
-} from '@tanstack/solid-router'
-import { Dynamic, HydrationScript } from 'solid-js/web'
-import type { AuthenticatedUser } from '@/auth/types'
-import { getCurrentUser, logout } from '@/data/auth'
-import type { MpbRouterContext } from '@/edition/contracts'
-import '@/styles.css'
+} from '@tanstack/solid-router';
+import { Dynamic, HydrationScript } from 'solid-js/web';
+import type { AuthenticatedUser } from '@/auth/types';
+import { getCurrentUser, logout } from '@/data/auth';
+import type { MpbRouterContext } from '@/edition/contracts';
+import '@/styles.css';
 
 export const Route = createRootRouteWithContext<MpbRouterContext>()({
   beforeLoad: async ({ location }) => {
-    const user = await getCurrentUser()
-    const isLogin = location.pathname === '/login'
+    const user = await getCurrentUser();
+    const isLogin = location.pathname === '/login';
     if (!user && !isLogin) {
-      throw redirect({ to: '/login', search: { redirect: location.href }, replace: true })
+      throw redirect({ to: '/login', search: { redirect: location.href }, replace: true });
     }
-    if (user && isLogin) throw redirect({ to: '/', replace: true })
-    return { user }
+    if (user && isLogin) throw redirect({ to: '/', replace: true });
+    return { user };
   },
   head: () => ({
     meta: [
@@ -40,7 +40,7 @@ export const Route = createRootRouteWithContext<MpbRouterContext>()({
   }),
   component: RootComponent,
   notFoundComponent: NotFoundPage,
-})
+});
 
 function NotFoundPage() {
   return (
@@ -54,37 +54,37 @@ function NotFoundPage() {
         </Link>
       </section>
     </main>
-  )
+  );
 }
 
 function RootComponent() {
-  const context = Route.useRouteContext()
+  const context = Route.useRouteContext();
   return (
     <RootDocument>
       <Solid.Show when={context().user} fallback={<Outlet />}>
         {(user) => <AuthenticatedShell edition={context().edition} user={user()} />}
       </Solid.Show>
     </RootDocument>
-  )
+  );
 }
 
 function AuthenticatedShell({
   edition,
   user,
 }: Readonly<{ edition: MpbRouterContext['edition']; user: AuthenticatedUser }>) {
-  const router = useRouter()
+  const router = useRouter();
 
   async function signOut() {
-    await logout()
-    router.clearCache()
-    await router.invalidate({ sync: true })
+    await logout();
+    router.clearCache();
+    await router.invalidate({ sync: true });
   }
 
   async function switchUser() {
-    await logout()
-    router.clearCache()
-    router.history.push('/login')
-    await router.invalidate({ sync: true })
+    await logout();
+    router.clearCache();
+    router.history.push('/login');
+    await router.invalidate({ sync: true });
   }
 
   return (
@@ -133,7 +133,7 @@ function AuthenticatedShell({
         <Outlet />
       </Solid.Suspense>
     </div>
-  )
+  );
 }
 
 function RootDocument({ children }: Readonly<{ children: Solid.JSX.Element }>) {
@@ -148,5 +148,5 @@ function RootDocument({ children }: Readonly<{ children: Solid.JSX.Element }>) {
         <Scripts />
       </body>
     </html>
-  )
+  );
 }

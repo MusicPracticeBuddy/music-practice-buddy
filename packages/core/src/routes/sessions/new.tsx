@@ -1,35 +1,35 @@
-import { For, Show, createSignal } from 'solid-js'
-import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/solid-router'
-import { InstrumentSelect } from '@/components/InstrumentFields'
-import { createPracticeSession, getSessionTemplates } from '@/data/sessionTemplates'
-import { getInstruments } from '@/data/repertoire'
+import { For, Show, createSignal } from 'solid-js';
+import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/solid-router';
+import { InstrumentSelect } from '@/components/InstrumentFields';
+import { createPracticeSession, getSessionTemplates } from '@/data/sessionTemplates';
+import { getInstruments } from '@/data/repertoire';
 
 export const Route = createFileRoute('/sessions/new')({
   validateSearch: (search: Record<string, unknown>): { template?: string } =>
     typeof search.template === 'string' ? { template: search.template } : {},
   loader: async () => {
-    const [templates, instruments] = await Promise.all([getSessionTemplates(), getInstruments()])
-    return { templates, instruments }
+    const [templates, instruments] = await Promise.all([getSessionTemplates(), getInstruments()]);
+    return { templates, instruments };
   },
   component: NewSession,
-})
+});
 
 function NewSession() {
-  const data = Route.useLoaderData()
-  const search = Route.useSearch()
-  const navigate = useNavigate()
-  const router = useRouter()
-  const [templateId, setTemplateId] = createSignal(search().template ?? '')
-  const selectedTemplate = () => data().templates.find((template) => template.id === templateId())
-  const [instrumentId, setInstrumentId] = createSignal(selectedTemplate()?.instrumentId ?? '')
-  const [assignedDate, setAssignedDate] = createSignal('')
-  const [saving, setSaving] = createSignal(false)
-  const [error, setError] = createSignal('')
+  const data = Route.useLoaderData();
+  const search = Route.useSearch();
+  const navigate = useNavigate();
+  const router = useRouter();
+  const [templateId, setTemplateId] = createSignal(search().template ?? '');
+  const selectedTemplate = () => data().templates.find((template) => template.id === templateId());
+  const [instrumentId, setInstrumentId] = createSignal(selectedTemplate()?.instrumentId ?? '');
+  const [assignedDate, setAssignedDate] = createSignal('');
+  const [saving, setSaving] = createSignal(false);
+  const [error, setError] = createSignal('');
 
   async function submit(event: SubmitEvent) {
-    event.preventDefault()
-    setSaving(true)
-    setError('')
+    event.preventDefault();
+    setSaving(true);
+    setError('');
     try {
       const session = await createPracticeSession({
         data: {
@@ -37,13 +37,13 @@ function NewSession() {
           assignedDate: assignedDate() || null,
           instrumentId: instrumentId() || null,
         },
-      })
-      await router.invalidate({ sync: true })
-      await navigate({ to: '/sessions/$sessionId', params: { sessionId: session.id } })
+      });
+      await router.invalidate({ sync: true });
+      await navigate({ to: '/sessions/$sessionId', params: { sessionId: session.id } });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'The session could not be created.')
+      setError(caught instanceof Error ? caught.message : 'The session could not be created.');
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
@@ -67,12 +67,12 @@ function NewSession() {
           class="text-input"
           value={templateId()}
           onChange={(event) => {
-            const nextTemplateId = event.currentTarget.value
-            setTemplateId(nextTemplateId)
+            const nextTemplateId = event.currentTarget.value;
+            setTemplateId(nextTemplateId);
             setInstrumentId(
               data().templates.find((template) => template.id === nextTemplateId)?.instrumentId ??
                 '',
-            )
+            );
           }}
         >
           <option value="">Open practice (no template)</option>
@@ -118,5 +118,5 @@ function NewSession() {
         </div>
       </form>
     </main>
-  )
+  );
 }

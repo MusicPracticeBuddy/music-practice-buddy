@@ -1,14 +1,14 @@
-export type AbcKeyMode = 'major' | 'minor'
-export type AbcClef = 'treble' | 'alto' | 'tenor' | 'bass'
+export type AbcKeyMode = 'major' | 'minor';
+export type AbcClef = 'treble' | 'alto' | 'tenor' | 'bass';
 
 export type AbcKey = {
-  id: string
-  tonic: string
-  label: string
-  mode: AbcKeyMode
-  pitchClass: number
-  fifths: number
-}
+  id: string;
+  tonic: string;
+  label: string;
+  mode: AbcKeyMode;
+  pitchClass: number;
+  fifths: number;
+};
 
 const MAJOR_KEYS = createKeys('major', [
   ['Cb', 11],
@@ -26,7 +26,7 @@ const MAJOR_KEYS = createKeys('major', [
   ['B', 11],
   ['F#', 6],
   ['C#', 1],
-])
+]);
 
 const MINOR_KEYS = createKeys('minor', [
   ['Ab', 8],
@@ -44,10 +44,10 @@ const MINOR_KEYS = createKeys('minor', [
   ['G#', 8],
   ['D#', 3],
   ['A#', 10],
-])
+]);
 
-const MAJOR_MODES = new Set(['', 'maj', 'major'])
-const MINOR_MODES = new Set(['m', 'min', 'minor'])
+const MAJOR_MODES = new Set(['', 'maj', 'major']);
+const MINOR_MODES = new Set(['m', 'min', 'minor']);
 const OTHER_MODES = new Set([
   'dor',
   'dorian',
@@ -59,7 +59,7 @@ const OTHER_MODES = new Set([
   'mixolydian',
   'loc',
   'locrian',
-])
+]);
 
 function createKeys(mode: AbcKeyMode, definitions: Array<[string, number]>): AbcKey[] {
   return definitions.map(([tonic, pitchClass], index) => ({
@@ -69,94 +69,94 @@ function createKeys(mode: AbcKeyMode, definitions: Array<[string, number]>): Abc
     mode,
     pitchClass,
     fifths: index - 7,
-  }))
+  }));
 }
 
 export function parseAbcKey(notation: string): AbcKey | null {
-  const keyLine = notation.match(/^K:\s*([^%\r\n]+)/m)?.[1]?.trim()
-  if (!keyLine) return null
+  const keyLine = notation.match(/^K:\s*([^%\r\n]+)/m)?.[1]?.trim();
+  if (!keyLine) return null;
 
-  const [keyToken, followingToken = ''] = keyLine.split(/\s+/)
-  const match = keyToken?.match(/^([A-Ga-g])([#b]?)(major|maj|minor|min|m)?$/i)
-  if (!match) return null
+  const [keyToken, followingToken = ''] = keyLine.split(/\s+/);
+  const match = keyToken?.match(/^([A-Ga-g])([#b]?)(major|maj|minor|min|m)?$/i);
+  if (!match) return null;
 
-  const tonic = `${match[1]?.toUpperCase()}${match[2] ?? ''}`
-  let modeToken = (match[3] ?? '').toLowerCase()
-  const normalizedFollowingToken = followingToken.toLowerCase()
+  const tonic = `${match[1]?.toUpperCase()}${match[2] ?? ''}`;
+  let modeToken = (match[3] ?? '').toLowerCase();
+  const normalizedFollowingToken = followingToken.toLowerCase();
   if (
     !modeToken &&
     (MAJOR_MODES.has(normalizedFollowingToken) || MINOR_MODES.has(normalizedFollowingToken))
   ) {
-    modeToken = normalizedFollowingToken
+    modeToken = normalizedFollowingToken;
   } else if (!modeToken && OTHER_MODES.has(normalizedFollowingToken)) {
-    return null
+    return null;
   }
 
-  const mode = MINOR_MODES.has(modeToken) ? 'minor' : MAJOR_MODES.has(modeToken) ? 'major' : null
-  if (!mode) return null
+  const mode = MINOR_MODES.has(modeToken) ? 'minor' : MAJOR_MODES.has(modeToken) ? 'major' : null;
+  if (!mode) return null;
 
-  return (mode === 'major' ? MAJOR_KEYS : MINOR_KEYS).find((key) => key.tonic === tonic) ?? null
+  return (mode === 'major' ? MAJOR_KEYS : MINOR_KEYS).find((key) => key.tonic === tonic) ?? null;
 }
 
 export function parseAbcClef(notation: string): AbcClef | null {
-  const keyLine = notation.match(/^K:\s*([^%\r\n]+)/m)?.[1]
+  const keyLine = notation.match(/^K:\s*([^%\r\n]+)/m)?.[1];
   const clef = keyLine?.match(
     /(?:^|\s)(?:clef=)?(treble|alto|tenor|bass)(?:[+-](?:8|16))?(?!\S)/i,
-  )?.[1]
-  return clef ? (clef.toLowerCase() as AbcClef) : null
+  )?.[1];
+  return clef ? (clef.toLowerCase() as AbcClef) : null;
 }
 
 export function abcClefOctaveShift(from: AbcClef, to: AbcClef) {
-  if (from === 'bass' && (to === 'alto' || to === 'treble')) return 1
-  if (from === 'tenor' && to === 'treble') return 1
-  if (from === 'alto' && to === 'bass') return -1
-  if (from === 'treble' && (to === 'tenor' || to === 'bass')) return -1
-  return 0
+  if (from === 'bass' && (to === 'alto' || to === 'treble')) return 1;
+  if (from === 'tenor' && to === 'treble') return 1;
+  if (from === 'alto' && to === 'bass') return -1;
+  if (from === 'treble' && (to === 'tenor' || to === 'bass')) return -1;
+  return 0;
 }
 
 export function abcKeyOptions(source: AbcKey): AbcKey[] {
-  return source.mode === 'major' ? MAJOR_KEYS : MINOR_KEYS
+  return source.mode === 'major' ? MAJOR_KEYS : MINOR_KEYS;
 }
 
 export function abcKeyOptionsForMode(mode: AbcKeyMode): AbcKey[] {
-  return mode === 'major' ? MAJOR_KEYS : MINOR_KEYS
+  return mode === 'major' ? MAJOR_KEYS : MINOR_KEYS;
 }
 
 export function changeAbcMode(notation: string, targetMode: AbcKeyMode) {
   return notation.replace(
     /^K:(\s*)([A-Ga-g])([#b]?)(major|maj|minor|min|m)?([^%\r\n]*)(?=%|$)/im,
     (_field, spacing: string, letter: string, accidental: string, _mode: string, rest: string) => {
-      const remainingFields = rest.replace(/^\s*(?:major|maj|minor|min|m)\b/i, '')
-      return `K:${spacing}${letter.toUpperCase()}${accidental}${targetMode === 'minor' ? 'm' : ''}${remainingFields}`
+      const remainingFields = rest.replace(/^\s*(?:major|maj|minor|min|m)\b/i, '');
+      return `K:${spacing}${letter.toUpperCase()}${accidental}${targetMode === 'minor' ? 'm' : ''}${remainingFields}`;
     },
-  )
+  );
 }
 
 export function changeAbcClef(notation: string, clef: AbcClef) {
   return notation.replace(/^K:(.*)$/m, (_field, contents: string) => {
-    const [fields = '', comment = ''] = contents.split(/(?=%)/, 2)
+    const [fields = '', comment = ''] = contents.split(/(?=%)/, 2);
     const withoutClef = fields.replace(
       /\s+clef=(?:treble|alto|tenor|bass)(?:[+-](?:8|16))?\b/gi,
       '',
-    )
-    return 'K:' + withoutClef.trimEnd() + ' clef=' + clef + (comment ? ' ' + comment : '')
-  })
+    );
+    return 'K:' + withoutClef.trimEnd() + ' clef=' + clef + (comment ? ' ' + comment : '');
+  });
 }
 
 function centeredRank(pitchClass: number, mode: AbcKeyMode) {
-  const center = mode === 'major' ? 0 : 9
-  const rank = (pitchClass - center + 12) % 12
-  return rank > 6 ? rank - 12 : rank
+  const center = mode === 'major' ? 0 : 9;
+  const rank = (pitchClass - center + 12) % 12;
+  return rank > 6 ? rank - 12 : rank;
 }
 
 export function abcTransposeSteps(source: AbcKey, target: AbcKey) {
-  let steps = (target.pitchClass - source.pitchClass + 12) % 12
-  if (steps > 6) steps -= 12
+  let steps = (target.pitchClass - source.pitchClass + 12) % 12;
+  if (steps > 6) steps -= 12;
   if (
     steps === 6 &&
     centeredRank(target.pitchClass, source.mode) < centeredRank(source.pitchClass, source.mode)
   ) {
-    steps = -6
+    steps = -6;
   }
-  return steps
+  return steps;
 }

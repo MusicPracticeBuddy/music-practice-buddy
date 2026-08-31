@@ -1,83 +1,83 @@
-import { createServerFn } from '@tanstack/solid-start'
-import { resourceAccess, type ResourceAccess, type Visibility } from '@/auth/authorization'
-import { authMiddleware } from '@/auth/middleware'
-import { pool, toIsoString } from '@/data/db'
-import { isExerciseNotationFormat, type ExerciseNotationFormat } from '@/domain/exercise'
+import { createServerFn } from '@tanstack/solid-start';
+import { resourceAccess, type ResourceAccess, type Visibility } from '@/auth/authorization';
+import { authMiddleware } from '@/auth/middleware';
+import { pool, toIsoString } from '@/data/db';
+import { isExerciseNotationFormat, type ExerciseNotationFormat } from '@/domain/exercise';
 
 export type ExerciseRow = {
-  id: string
-  name: string
-  notation: string | null
-  notationFormat: ExerciseNotationFormat
-  visibility: string
-  owner: string
-  ownerId: string
-  copiedFrom: string | null
-  instrumentId: string | null
-  instrumentName: string | null
-} & ResourceAccess
+  id: string;
+  name: string;
+  notation: string | null;
+  notationFormat: ExerciseNotationFormat;
+  visibility: string;
+  owner: string;
+  ownerId: string;
+  copiedFrom: string | null;
+  instrumentId: string | null;
+  instrumentName: string | null;
+} & ResourceAccess;
 
 export type ExerciseLibraryPage = {
-  items: ExerciseRow[]
-  page: number
-  pageSize: number
-  total: number
-  totalPages: number
-}
+  items: ExerciseRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
 
 export type ExerciseLibrarySearchInput = {
-  query: string
-  visibility: 'ALL' | Visibility
-  notationFormat: 'ALL' | ExerciseNotationFormat
-  instrumentIds: string[]
-  page: number
-}
+  query: string;
+  visibility: 'ALL' | Visibility;
+  notationFormat: 'ALL' | ExerciseNotationFormat;
+  instrumentIds: string[];
+  page: number;
+};
 
 export type ExerciseCatalogRow = {
-  id: string
-  name: string
-  notationFormat: ExerciseNotationFormat
-  owner: string
-  copiedFrom: string | null
-  instrumentId: string | null
-  instrumentName: string | null
-  inLibrary: boolean
-}
+  id: string;
+  name: string;
+  notationFormat: ExerciseNotationFormat;
+  owner: string;
+  copiedFrom: string | null;
+  instrumentId: string | null;
+  instrumentName: string | null;
+  inLibrary: boolean;
+};
 
 export type ExerciseCatalogSearchInput = {
-  query: string
-  notationFormat: 'ALL' | ExerciseNotationFormat
-  instrumentIds: string[]
-  page: number
-}
+  query: string;
+  notationFormat: 'ALL' | ExerciseNotationFormat;
+  instrumentIds: string[];
+  page: number;
+};
 
 export type ExerciseCatalogPage = {
-  items: ExerciseCatalogRow[]
-  page: number
-  pageSize: number
-  total: number
-  totalPages: number
-}
+  items: ExerciseCatalogRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
 
 export type OwnedExerciseRow = {
-  id: string
-  name: string
-  notationFormat: ExerciseNotationFormat
-  visibility: Visibility
-  copiedFrom: string | null
-  inLibrary: boolean
-}
+  id: string;
+  name: string;
+  notationFormat: ExerciseNotationFormat;
+  visibility: Visibility;
+  copiedFrom: string | null;
+  inLibrary: boolean;
+};
 
 export type OwnedExercisePage = {
-  items: OwnedExerciseRow[]
-  page: number
-  pageSize: number
-  total: number
-  totalPages: number
-}
+  items: OwnedExerciseRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
 
-export const EXERCISE_LIBRARY_PAGE_SIZE = 20
-export const EXERCISE_CATALOG_PAGE_SIZE = 25
+export const EXERCISE_LIBRARY_PAGE_SIZE = 20;
+export const EXERCISE_CATALOG_PAGE_SIZE = 25;
 
 export const EMPTY_EXERCISE_LIBRARY_SEARCH: ExerciseLibrarySearchInput = {
   query: '',
@@ -85,58 +85,58 @@ export const EMPTY_EXERCISE_LIBRARY_SEARCH: ExerciseLibrarySearchInput = {
   notationFormat: 'ALL',
   instrumentIds: [],
   page: 1,
-}
+};
 
 export const EMPTY_EXERCISE_CATALOG_SEARCH: ExerciseCatalogSearchInput = {
   query: '',
   notationFormat: 'ALL',
   instrumentIds: [],
   page: 1,
-}
+};
 
 type ExerciseDetail = {
-  id: string
-  name: string
-  notation: string | null
-  notationFormat: ExerciseNotationFormat
-  visibility: string
-  owner: string
-  ownerId: string
-  instrumentId: string | null
-  instrumentName: string | null
-  createdAt: string
-  copiedFrom: { id: string; name: string } | null
-  adaptations: { id: string; name: string }[]
+  id: string;
+  name: string;
+  notation: string | null;
+  notationFormat: ExerciseNotationFormat;
+  visibility: string;
+  owner: string;
+  ownerId: string;
+  instrumentId: string | null;
+  instrumentName: string | null;
+  createdAt: string;
+  copiedFrom: { id: string; name: string } | null;
+  adaptations: { id: string; name: string }[];
   sessions: {
-    id: string
-    templateName: string
-    status: string
-    startedAt: string | null
-  }[]
-} & ResourceAccess
+    id: string;
+    templateName: string;
+    status: string;
+    startedAt: string | null;
+  }[];
+} & ResourceAccess;
 
 export type ExerciseInput = {
-  name: string
-  notation: string
-  notationFormat: ExerciseNotationFormat
-  visibility: Visibility
-  instrumentId?: string | null
-}
+  name: string;
+  notation: string;
+  notationFormat: ExerciseNotationFormat;
+  visibility: Visibility;
+  instrumentId?: string | null;
+};
 
-type UpdateExerciseInput = ExerciseInput & { id: string }
+type UpdateExerciseInput = ExerciseInput & { id: string };
 
 function validateExercise(input: ExerciseInput): ExerciseInput {
-  const name = input.name.trim()
-  const notation = input.notation.trim()
-  const notationFormat = input.notationFormat.trim()
-  if (!name) throw new Error('Exercise name is required')
-  if (name.length > 200) throw new Error('Exercise name must be 200 characters or fewer')
-  if (!isExerciseNotationFormat(notationFormat)) throw new Error('Invalid notation format')
+  const name = input.name.trim();
+  const notation = input.notation.trim();
+  const notationFormat = input.notationFormat.trim();
+  if (!name) throw new Error('Exercise name is required');
+  if (name.length > 200) throw new Error('Exercise name must be 200 characters or fewer');
+  if (!isExerciseNotationFormat(notationFormat)) throw new Error('Invalid notation format');
   if (input.visibility !== 'PRIVATE' && input.visibility !== 'PUBLIC') {
-    throw new Error('Invalid exercise visibility')
+    throw new Error('Invalid exercise visibility');
   }
   if (input.instrumentId != null && !/^\d+$/.test(input.instrumentId)) {
-    throw new Error('Invalid instrument')
+    throw new Error('Invalid instrument');
   }
   return {
     name,
@@ -144,19 +144,19 @@ function validateExercise(input: ExerciseInput): ExerciseInput {
     notationFormat,
     visibility: input.visibility,
     instrumentId: input.instrumentId ?? null,
-  }
+  };
 }
 
 function validateInstrumentIds(instrumentIds: string[]) {
-  const uniqueIds = [...new Set(instrumentIds)]
+  const uniqueIds = [...new Set(instrumentIds)];
   if (uniqueIds.length > 50 || uniqueIds.some((id) => !/^\d+$/.test(id))) {
-    throw new Error('Invalid instrument filter')
+    throw new Error('Invalid instrument filter');
   }
-  return uniqueIds
+  return uniqueIds;
 }
 
 function catalogSubstringPattern(value: string) {
-  return `%${value.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`
+  return `%${value.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
 }
 
 export const getExercises = createServerFn({ method: 'GET' })
@@ -190,64 +190,64 @@ export const getExercises = createServerFn({ method: 'GET' })
       ORDER BY exercise.created_at, exercise.id
     `,
       [context.user.musicianId],
-    )
+    );
 
     return result.rows.map((exercise) => ({
       ...exercise,
       ...resourceAccess(context.user, exercise.ownerId, exercise.visibility),
-    }))
-  })
+    }));
+  });
 
 export const getExerciseLibraryPage = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .validator((input: ExerciseLibrarySearchInput) => {
-    const query = input.query.trim()
-    if (query.length > 200) throw new Error('Search text is too long')
+    const query = input.query.trim();
+    if (query.length > 200) throw new Error('Search text is too long');
     if (
       input.visibility !== 'ALL' &&
       input.visibility !== 'PRIVATE' &&
       input.visibility !== 'PUBLIC'
     ) {
-      throw new Error('Invalid visibility filter')
+      throw new Error('Invalid visibility filter');
     }
     if (input.notationFormat !== 'ALL' && !isExerciseNotationFormat(input.notationFormat)) {
-      throw new Error('Invalid notation format filter')
+      throw new Error('Invalid notation format filter');
     }
-    if (!Number.isInteger(input.page) || input.page < 1) throw new Error('Invalid page')
-    return { ...input, query, instrumentIds: validateInstrumentIds(input.instrumentIds) }
+    if (!Number.isInteger(input.page) || input.page < 1) throw new Error('Invalid page');
+    return { ...input, query, instrumentIds: validateInstrumentIds(input.instrumentIds) };
   })
 
   .handler(async ({ data, context }): Promise<ExerciseLibraryPage> => {
-    const parameters: unknown[] = [context.user.musicianId]
+    const parameters: unknown[] = [context.user.musicianId];
     const conditions = [
       `exercise.deleted_at IS NULL`,
       `(exercise.musician_id = $1 OR exercise.visibility = 'PUBLIC')`,
-    ]
+    ];
     const parameter = (value: unknown) => {
-      parameters.push(value)
-      return `$${parameters.length}`
-    }
+      parameters.push(value);
+      return `$${parameters.length}`;
+    };
     if (data.query) {
-      const substring = parameter(catalogSubstringPattern(data.query))
-      const fuzzyValue = data.query.length >= 4 ? parameter(data.query) : null
+      const substring = parameter(catalogSubstringPattern(data.query));
+      const fuzzyValue = data.query.length >= 4 ? parameter(data.query) : null;
       conditions.push(`(
         exercise.name ILIKE ${substring} ESCAPE '\\'
         ${fuzzyValue ? `OR CAST(${fuzzyValue} AS text) <<% CAST(exercise.name AS text)` : ''}
-      )`)
+      )`);
     }
     if (data.visibility !== 'ALL') {
-      conditions.push(`exercise.visibility = ${parameter(data.visibility)}::visibility_type`)
+      conditions.push(`exercise.visibility = ${parameter(data.visibility)}::visibility_type`);
     }
     if (data.notationFormat !== 'ALL') {
-      conditions.push(`exercise.notation_format = ${parameter(data.notationFormat)}`)
+      conditions.push(`exercise.notation_format = ${parameter(data.notationFormat)}`);
     }
     if (data.instrumentIds.length > 0) {
-      conditions.push(`exercise.instrument_id = ANY(${parameter(data.instrumentIds)}::bigint[])`)
+      conditions.push(`exercise.instrument_id = ANY(${parameter(data.instrumentIds)}::bigint[])`);
     }
-    const where = conditions.join('\n           AND ')
-    const countParameters = [...parameters]
-    const limit = parameter(EXERCISE_LIBRARY_PAGE_SIZE)
-    const offset = parameter((data.page - 1) * EXERCISE_LIBRARY_PAGE_SIZE)
+    const where = conditions.join('\n           AND ');
+    const countParameters = [...parameters];
+    const limit = parameter(EXERCISE_LIBRARY_PAGE_SIZE);
+    const offset = parameter((data.page - 1) * EXERCISE_LIBRARY_PAGE_SIZE);
     const [countResult, result] = await Promise.all([
       pool.query<{ total: number }>(
         `SELECT count(*)::integer AS total
@@ -282,8 +282,8 @@ export const getExerciseLibraryPage = createServerFn({ method: 'GET' })
          LIMIT ${limit} OFFSET ${offset}`,
         parameters,
       ),
-    ])
-    const total = countResult.rows[0]?.total ?? 0
+    ]);
+    const total = countResult.rows[0]?.total ?? 0;
 
     return {
       items: result.rows.map((exercise) => ({
@@ -294,46 +294,46 @@ export const getExerciseLibraryPage = createServerFn({ method: 'GET' })
       pageSize: EXERCISE_LIBRARY_PAGE_SIZE,
       total,
       totalPages: Math.ceil(total / EXERCISE_LIBRARY_PAGE_SIZE),
-    }
-  })
+    };
+  });
 
 export const getPublicExerciseCatalogPage = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .validator((input: ExerciseCatalogSearchInput) => {
-    const query = input.query.trim()
-    if (query.length > 200) throw new Error('Search text is too long')
+    const query = input.query.trim();
+    if (query.length > 200) throw new Error('Search text is too long');
     if (input.notationFormat !== 'ALL' && !isExerciseNotationFormat(input.notationFormat)) {
-      throw new Error('Invalid notation format filter')
+      throw new Error('Invalid notation format filter');
     }
-    if (!Number.isInteger(input.page) || input.page < 1) throw new Error('Invalid page')
-    return { ...input, query, instrumentIds: validateInstrumentIds(input.instrumentIds) }
+    if (!Number.isInteger(input.page) || input.page < 1) throw new Error('Invalid page');
+    return { ...input, query, instrumentIds: validateInstrumentIds(input.instrumentIds) };
   })
   .handler(async ({ data, context }): Promise<ExerciseCatalogPage> => {
-    const parameters: unknown[] = []
-    const conditions = [`exercise.visibility = 'PUBLIC'`, `exercise.deleted_at IS NULL`]
+    const parameters: unknown[] = [];
+    const conditions = [`exercise.visibility = 'PUBLIC'`, `exercise.deleted_at IS NULL`];
     const parameter = (value: unknown) => {
-      parameters.push(value)
-      return `$${parameters.length}`
-    }
+      parameters.push(value);
+      return `$${parameters.length}`;
+    };
     if (data.query) {
-      const substring = parameter(catalogSubstringPattern(data.query))
-      const fuzzyValue = data.query.length >= 4 ? parameter(data.query) : null
+      const substring = parameter(catalogSubstringPattern(data.query));
+      const fuzzyValue = data.query.length >= 4 ? parameter(data.query) : null;
       conditions.push(`(
         exercise.name ILIKE ${substring} ESCAPE '\\'
         ${fuzzyValue ? `OR CAST(${fuzzyValue} AS text) <<% CAST(exercise.name AS text)` : ''}
-      )`)
+      )`);
     }
     if (data.notationFormat !== 'ALL') {
-      conditions.push(`exercise.notation_format = ${parameter(data.notationFormat)}`)
+      conditions.push(`exercise.notation_format = ${parameter(data.notationFormat)}`);
     }
     if (data.instrumentIds.length > 0) {
-      conditions.push(`exercise.instrument_id = ANY(${parameter(data.instrumentIds)}::bigint[])`)
+      conditions.push(`exercise.instrument_id = ANY(${parameter(data.instrumentIds)}::bigint[])`);
     }
-    const where = conditions.join('\n           AND ')
-    const countParameters = [...parameters]
-    const musicianId = parameter(context.user.musicianId)
-    const limit = parameter(EXERCISE_CATALOG_PAGE_SIZE)
-    const offset = parameter((data.page - 1) * EXERCISE_CATALOG_PAGE_SIZE)
+    const where = conditions.join('\n           AND ');
+    const countParameters = [...parameters];
+    const musicianId = parameter(context.user.musicianId);
+    const limit = parameter(EXERCISE_CATALOG_PAGE_SIZE);
+    const offset = parameter((data.page - 1) * EXERCISE_CATALOG_PAGE_SIZE);
     const [countResult, result] = await Promise.all([
       pool.query<{ total: number }>(
         `SELECT count(*)::integer AS total FROM exercise WHERE ${where}`,
@@ -363,22 +363,22 @@ export const getPublicExerciseCatalogPage = createServerFn({ method: 'GET' })
          LIMIT ${limit} OFFSET ${offset}`,
         parameters,
       ),
-    ])
-    const total = countResult.rows[0]?.total ?? 0
+    ]);
+    const total = countResult.rows[0]?.total ?? 0;
     return {
       items: result.rows,
       page: data.page,
       pageSize: EXERCISE_CATALOG_PAGE_SIZE,
       total,
       totalPages: Math.ceil(total / EXERCISE_CATALOG_PAGE_SIZE),
-    }
-  })
+    };
+  });
 
 export const addExerciseToLibrary = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .validator((exerciseId: string) => {
-    if (!/^\d+$/.test(exerciseId)) throw new Error('Invalid exercise')
-    return exerciseId
+    if (!/^\d+$/.test(exerciseId)) throw new Error('Invalid exercise');
+    return exerciseId;
   })
   .handler(async ({ data: exerciseId, context }): Promise<{ id: string }> => {
     const result = await pool.query<{ id: string }>(
@@ -392,17 +392,17 @@ export const addExerciseToLibrary = createServerFn({ method: 'POST' })
          SET musician_id = EXCLUDED.musician_id
        RETURNING exercise_id::text AS id`,
       [context.user.musicianId, exerciseId],
-    )
-    const exercise = result.rows[0]
-    if (!exercise) throw new Error('Exercise not found')
-    return exercise
-  })
+    );
+    const exercise = result.rows[0];
+    if (!exercise) throw new Error('Exercise not found');
+    return exercise;
+  });
 
 export const removeExerciseFromLibrary = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .validator((exerciseId: string) => {
-    if (!/^\d+$/.test(exerciseId)) throw new Error('Invalid exercise')
-    return exerciseId
+    if (!/^\d+$/.test(exerciseId)) throw new Error('Invalid exercise');
+    return exerciseId;
   })
   .handler(async ({ data: exerciseId, context }): Promise<{ id: string }> => {
     const result = await pool.query<{ id: string }>(
@@ -410,20 +410,20 @@ export const removeExerciseFromLibrary = createServerFn({ method: 'POST' })
        WHERE musician_id = $1 AND exercise_id = $2
        RETURNING exercise_id::text AS id`,
       [context.user.musicianId, exerciseId],
-    )
-    const exercise = result.rows[0]
-    if (!exercise) throw new Error('Exercise is not in My Library')
-    return exercise
-  })
+    );
+    const exercise = result.rows[0];
+    if (!exercise) throw new Error('Exercise is not in My Library');
+    return exercise;
+  });
 
 export const getOwnedExercisePage = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .validator((page: number) => {
-    if (!Number.isInteger(page) || page < 1) throw new Error('Invalid page')
-    return page
+    if (!Number.isInteger(page) || page < 1) throw new Error('Invalid page');
+    return page;
   })
   .handler(async ({ data: page, context }): Promise<OwnedExercisePage> => {
-    const offset = (page - 1) * EXERCISE_CATALOG_PAGE_SIZE
+    const offset = (page - 1) * EXERCISE_CATALOG_PAGE_SIZE;
     const [countResult, result] = await Promise.all([
       pool.query<{ total: number }>(
         `SELECT count(*)::integer AS total
@@ -451,41 +451,41 @@ export const getOwnedExercisePage = createServerFn({ method: 'GET' })
          LIMIT $2 OFFSET $3`,
         [context.user.musicianId, EXERCISE_CATALOG_PAGE_SIZE, offset],
       ),
-    ])
-    const total = countResult.rows[0]?.total ?? 0
+    ]);
+    const total = countResult.rows[0]?.total ?? 0;
     return {
       items: result.rows,
       page,
       pageSize: EXERCISE_CATALOG_PAGE_SIZE,
       total,
       totalPages: Math.ceil(total / EXERCISE_CATALOG_PAGE_SIZE),
-    }
-  })
+    };
+  });
 
 export const getExerciseDetail = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .validator((exerciseId: string) => {
     if (!/^\d+$/.test(exerciseId)) {
-      throw new Error('Exercise ID must be a positive integer')
+      throw new Error('Exercise ID must be a positive integer');
     }
 
-    return exerciseId
+    return exerciseId;
   })
   .handler(async ({ data: exerciseId, context }): Promise<ExerciseDetail | null> => {
     const [exerciseResult, adaptationsResult, sessionsResult] = await Promise.all([
       pool.query<{
-        id: string
-        name: string
-        notation: string | null
-        notationFormat: ExerciseNotationFormat
-        visibility: string
-        owner: string
-        ownerId: string
-        createdAt: Date
-        copiedFromId: string | null
-        copiedFromName: string | null
-        instrumentId: string | null
-        instrumentName: string | null
+        id: string;
+        name: string;
+        notation: string | null;
+        notationFormat: ExerciseNotationFormat;
+        visibility: string;
+        owner: string;
+        ownerId: string;
+        createdAt: Date;
+        copiedFromId: string | null;
+        copiedFromName: string | null;
+        instrumentId: string | null;
+        instrumentName: string | null;
       }>(
         `
           SELECT
@@ -523,10 +523,10 @@ export const getExerciseDetail = createServerFn({ method: 'GET' })
         [exerciseId, context.user.musicianId],
       ),
       pool.query<{
-        id: string
-        templateName: string
-        status: string
-        startedAt: Date | null
+        id: string;
+        templateName: string;
+        status: string;
+        startedAt: Date | null;
       }>(
         `
           SELECT DISTINCT
@@ -542,10 +542,10 @@ export const getExerciseDetail = createServerFn({ method: 'GET' })
         `,
         [exerciseId, context.user.musicianId],
       ),
-    ])
+    ]);
 
-    const exercise = exerciseResult.rows[0]
-    if (!exercise) return null
+    const exercise = exerciseResult.rows[0];
+    if (!exercise) return null;
 
     return {
       id: exercise.id,
@@ -568,16 +568,16 @@ export const getExerciseDetail = createServerFn({ method: 'GET' })
         startedAt: toIsoString(session.startedAt),
       })),
       ...resourceAccess(context.user, exercise.ownerId, exercise.visibility as Visibility),
-    }
-  })
+    };
+  });
 
 export const createExercise = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .validator(validateExercise)
   .handler(async ({ data, context }): Promise<{ id: string }> => {
-    const client = await pool.connect()
+    const client = await pool.connect();
     try {
-      await client.query('BEGIN')
+      await client.query('BEGIN');
       const result = await client.query<{ id: string }>(
         `INSERT INTO exercise (musician_id, name, notation, notation_format, visibility, instrument_id)
          VALUES ($1, $2, $3, $4, $5, $6)
@@ -590,29 +590,29 @@ export const createExercise = createServerFn({ method: 'POST' })
           data.visibility,
           data.instrumentId,
         ],
-      )
-      const exercise = result.rows[0]
-      if (!exercise) throw new Error('Exercise could not be created')
+      );
+      const exercise = result.rows[0];
+      if (!exercise) throw new Error('Exercise could not be created');
       await client.query(
         `INSERT INTO musician_exercise_library (musician_id, exercise_id)
          VALUES ($1, $2)`,
         [context.user.musicianId, exercise.id],
-      )
-      await client.query('COMMIT')
-      return exercise
+      );
+      await client.query('COMMIT');
+      return exercise;
     } catch (error) {
-      await client.query('ROLLBACK')
-      throw error
+      await client.query('ROLLBACK');
+      throw error;
     } finally {
-      client.release()
+      client.release();
     }
-  })
+  });
 
 export const updateExercise = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .validator((input: UpdateExerciseInput) => {
-    if (!/^\d+$/.test(input.id)) throw new Error('Invalid exercise')
-    return { id: input.id, ...validateExercise(input) }
+    if (!/^\d+$/.test(input.id)) throw new Error('Invalid exercise');
+    return { id: input.id, ...validateExercise(input) };
   })
   .handler(async ({ data, context }): Promise<{ id: string }> => {
     const result = await pool.query<{ id: string }>(
@@ -629,17 +629,17 @@ export const updateExercise = createServerFn({ method: 'POST' })
         data.id,
         context.user.musicianId,
       ],
-    )
-    const exercise = result.rows[0]
-    if (!exercise) throw new Error('Exercise not found')
-    return exercise
-  })
+    );
+    const exercise = result.rows[0];
+    if (!exercise) throw new Error('Exercise not found');
+    return exercise;
+  });
 
 export const deleteExercise = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .validator((exerciseId: string) => {
-    if (!/^\d+$/.test(exerciseId)) throw new Error('Invalid exercise')
-    return exerciseId
+    if (!/^\d+$/.test(exerciseId)) throw new Error('Invalid exercise');
+    return exerciseId;
   })
   .handler(async ({ data: exerciseId, context }): Promise<{ id: string }> => {
     const result = await pool.query<{ id: string }>(
@@ -647,8 +647,8 @@ export const deleteExercise = createServerFn({ method: 'POST' })
        WHERE id = $1 AND musician_id = $2 AND deleted_at IS NULL
        RETURNING id::text`,
       [exerciseId, context.user.musicianId],
-    )
-    const exercise = result.rows[0]
-    if (!exercise) throw new Error('Exercise not found')
-    return exercise
-  })
+    );
+    const exercise = result.rows[0];
+    if (!exercise) throw new Error('Exercise not found');
+    return exercise;
+  });

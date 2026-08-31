@@ -1,15 +1,15 @@
-import { Show } from 'solid-js'
-import { Link, createFileRoute, notFound, useNavigate, useRouter } from '@tanstack/solid-router'
-import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
-import { PracticePlanOutline } from '@/components/PracticePlanOutline'
-import { deleteSessionTemplate, getSessionTemplate } from '@/data/sessionTemplates'
-import { PRACTICE_ITEM_TYPE } from '@/domain/session'
+import { Show } from 'solid-js';
+import { Link, createFileRoute, notFound, useNavigate, useRouter } from '@tanstack/solid-router';
+import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog';
+import { PracticePlanOutline } from '@/components/PracticePlanOutline';
+import { deleteSessionTemplate, getSessionTemplate } from '@/data/sessionTemplates';
+import { PRACTICE_ITEM_TYPE } from '@/domain/session';
 
 export const Route = createFileRoute('/templates/$templateId')({
   loader: async ({ params }) => {
-    const template = await getSessionTemplate({ data: params.templateId })
-    if (!template) throw notFound()
-    return template
+    const template = await getSessionTemplate({ data: params.templateId });
+    if (!template) throw notFound();
+    return template;
   },
   component: TemplateDetail,
   notFoundComponent: () => (
@@ -18,14 +18,14 @@ export const Route = createFileRoute('/templates/$templateId')({
       <p>The requested session template does not exist.</p>
     </main>
   ),
-})
+});
 
 function TemplateDetail() {
-  const template = Route.useLoaderData()
-  const navigate = useNavigate()
-  const router = useRouter()
+  const template = Route.useLoaderData();
+  const navigate = useNavigate();
+  const router = useRouter();
   const practiceItemCount = () =>
-    template().items.filter((item) => item.type !== PRACTICE_ITEM_TYPE.SECTION).length
+    template().items.filter((item) => item.type !== PRACTICE_ITEM_TYPE.SECTION).length;
 
   return (
     <main class="page session-detail-page">
@@ -62,9 +62,9 @@ function TemplateDetail() {
               description="This permanently deletes the template. Existing sessions created from it will remain."
               confirmLabel="Delete template"
               onConfirm={async () => {
-                await deleteSessionTemplate({ data: template().id })
-                await router.invalidate({ sync: true })
-                await navigate({ to: '/templates' })
+                await deleteSessionTemplate({ data: template().id });
+                await router.invalidate({ sync: true });
+                await navigate({ to: '/templates' });
               }}
             />
           </Show>
@@ -93,5 +93,5 @@ function TemplateDetail() {
         />
       </Show>
     </main>
-  )
+  );
 }

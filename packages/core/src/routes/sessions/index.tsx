@@ -1,87 +1,89 @@
-import { For, Show, createEffect, createSignal } from 'solid-js'
-import { Link, createFileRoute } from '@tanstack/solid-router'
-import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
-import { SwipeToDelete } from '@/components/SwipeToDelete'
-import { InstrumentFilter } from '@/components/InstrumentFields'
+import { For, Show, createEffect, createSignal } from 'solid-js';
+import { Link, createFileRoute } from '@tanstack/solid-router';
+import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog';
+import { SwipeToDelete } from '@/components/SwipeToDelete';
+import { InstrumentFilter } from '@/components/InstrumentFields';
 import {
   deletePlannedSession,
   EMPTY_SESSION_SEARCH,
   getSessionsPage,
   type SessionRow,
-} from '@/data/sessions'
-import { getInstruments } from '@/data/repertoire'
-import { SESSION_STATUS } from '@/domain/session'
+} from '@/data/sessions';
+import { getInstruments } from '@/data/repertoire';
+import { SESSION_STATUS } from '@/domain/session';
 
 export const Route = createFileRoute('/sessions/')({
   loader: async () => {
     const [page, instruments] = await Promise.all([
       getSessionsPage({ data: EMPTY_SESSION_SEARCH }),
       getInstruments(),
-    ])
-    return { page, instruments }
+    ]);
+    return { page, instruments };
   },
   component: Sessions,
-})
+});
 
 function formatDate(value: string | null) {
-  if (!value) return 'Not scheduled'
+  if (!value) return 'Not scheduled';
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  }).format(new Date(value))
+  }).format(new Date(value));
 }
 
 function dateOnlyValue(value: string) {
-  const [year, month, day] = value.split('-').map(Number)
-  return new Date(year!, month! - 1, day)
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year!, month! - 1, day);
 }
 
 function formatSchedule(startedAt: string | null, assignedDate: string | null) {
-  if (startedAt) return formatDate(startedAt)
-  if (!assignedDate) return 'Not scheduled'
+  if (startedAt) return formatDate(startedAt);
+  if (!assignedDate) return 'Not scheduled';
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-  }).format(dateOnlyValue(assignedDate))
+  }).format(dateOnlyValue(assignedDate));
 }
 
 function datePart(value: string | null, assignedDate: string | null, part: 'day' | 'month') {
-  if (!value && !assignedDate) return '—'
+  if (!value && !assignedDate) return '—';
   return new Intl.DateTimeFormat(undefined, {
     [part]: part === 'day' ? '2-digit' : 'short',
-  }).format(value ? new Date(value) : dateOnlyValue(assignedDate!))
+  }).format(value ? new Date(value) : dateOnlyValue(assignedDate!));
 }
 
 function Sessions() {
-  const initialPage = Route.useLoaderData()
-  const [sessions, setSessions] = createSignal(initialPage().page)
-  const [instrumentIds, setInstrumentIds] = createSignal<string[]>([])
-  const [loading, setLoading] = createSignal(false)
-  const [error, setError] = createSignal('')
+  const initialPage = Route.useLoaderData();
+  const [sessions, setSessions] = createSignal(initialPage().page);
+  const [instrumentIds, setInstrumentIds] = createSignal<string[]>([]);
+  const [loading, setLoading] = createSignal(false);
+  const [error, setError] = createSignal('');
 
   createEffect(() => {
-    const refreshedPage = initialPage().page
-    if (instrumentIds().length === 0) setSessions(refreshedPage)
-  })
+    const refreshedPage = initialPage().page;
+    if (instrumentIds().length === 0) setSessions(refreshedPage);
+  });
 
   async function loadPage(page: number) {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError('');
     try {
-      let result = await getSessionsPage({ data: { instrumentIds: instrumentIds(), page } })
-      const lastPage = Math.max(1, result.totalPages)
+      let result = await getSessionsPage({ data: { instrumentIds: instrumentIds(), page } });
+      const lastPage = Math.max(1, result.totalPages);
       if (result.page > lastPage) {
-        result = await getSessionsPage({ data: { instrumentIds: instrumentIds(), page: lastPage } })
+        result = await getSessionsPage({
+          data: { instrumentIds: instrumentIds(), page: lastPage },
+        });
       }
-      setSessions(result)
+      setSessions(result);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Sessions could not be loaded.')
+      setError(caught instanceof Error ? caught.message : 'Sessions could not be loaded.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -111,16 +113,16 @@ function Sessions() {
           instruments={initialPage().instruments}
           selectedIds={instrumentIds()}
           onChange={(ids) => {
-            setInstrumentIds(ids)
-            void loadPage(1)
+            setInstrumentIds(ids);
+            void loadPage(1);
           }}
         />
         <button
           class="text-button library-filter-clear"
           type="button"
           onClick={() => {
-            setInstrumentIds([])
-            void loadPage(1)
+            setInstrumentIds([]);
+            void loadPage(1);
           }}
         >
           Clear filters
@@ -138,8 +140,8 @@ function Sessions() {
             <SessionListItem
               session={session}
               onDelete={async () => {
-                await deletePlannedSession({ data: session.id })
-                await loadPage(sessions().page)
+                await deletePlannedSession({ data: session.id });
+                await loadPage(sessions().page);
               }}
             />
           )}
@@ -170,19 +172,19 @@ function Sessions() {
         </nav>
       </Show>
     </main>
-  )
+  );
 }
 
 function SessionListItem(props: { session: SessionRow; onDelete: () => Promise<void> }) {
-  const [deleteOpen, setDeleteOpen] = createSignal(false)
-  const isPlanned = () => props.session.status === SESSION_STATUS.PLANNED
+  const [deleteOpen, setDeleteOpen] = createSignal(false);
+  const isPlanned = () => props.session.status === SESSION_STATUS.PLANNED;
   const displayedStatus = () =>
     props.session.readyToFinalize
       ? { className: 'ready', label: 'Ready to finalize' }
       : {
           className: props.session.status.toLowerCase(),
           label: props.session.status.replace('_', ' '),
-        }
+        };
 
   return (
     <SwipeToDelete enabled={isPlanned()} onDeleteRequest={() => setDeleteOpen(true)}>
@@ -229,5 +231,5 @@ function SessionListItem(props: { session: SessionRow; onDelete: () => Promise<v
         </Show>
       </article>
     </SwipeToDelete>
-  )
+  );
 }

@@ -1,9 +1,11 @@
-import { For, Show, createSignal } from 'solid-js'
-import { createFileRoute, useRouter } from '@tanstack/solid-router'
-import { createDevelopmentUser, developmentLogin, getLoginConfiguration } from '@/data/auth'
+import { For, Show, createSignal } from 'solid-js';
+import { createFileRoute, useRouter } from '@tanstack/solid-router';
+import { createDevelopmentUser, developmentLogin, getLoginConfiguration } from '@/data/auth';
 
 function safeRedirect(value: unknown) {
-  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//') ? value : '/'
+  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//')
+    ? value
+    : '/';
 }
 
 export const Route = createFileRoute('/login')({
@@ -12,42 +14,42 @@ export const Route = createFileRoute('/login')({
   }),
   loader: () => getLoginConfiguration(),
   component: LoginPage,
-})
+});
 
 function LoginPage() {
-  const configuration = Route.useLoaderData()
-  const search = Route.useSearch()
-  const router = useRouter()
-  const [submitting, setSubmitting] = createSignal<string | null>(null)
-  const [newUsername, setNewUsername] = createSignal('')
-  const [error, setError] = createSignal('')
+  const configuration = Route.useLoaderData();
+  const search = Route.useSearch();
+  const router = useRouter();
+  const [submitting, setSubmitting] = createSignal<string | null>(null);
+  const [newUsername, setNewUsername] = createSignal('');
+  const [error, setError] = createSignal('');
 
   async function login(username: string) {
-    setSubmitting(username)
-    setError('')
+    setSubmitting(username);
+    setError('');
     try {
-      await developmentLogin({ data: username })
-      router.clearCache()
-      router.history.push(search().redirect)
-      await router.invalidate({ sync: true })
+      await developmentLogin({ data: username });
+      router.clearCache();
+      router.history.push(search().redirect);
+      await router.invalidate({ sync: true });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Sign in failed.')
-      setSubmitting(null)
+      setError(caught instanceof Error ? caught.message : 'Sign in failed.');
+      setSubmitting(null);
     }
   }
 
   async function createUser(event: SubmitEvent) {
-    event.preventDefault()
-    setSubmitting('new-user')
-    setError('')
+    event.preventDefault();
+    setSubmitting('new-user');
+    setError('');
     try {
-      await createDevelopmentUser({ data: newUsername() })
-      router.clearCache()
-      router.history.push(search().redirect)
-      await router.invalidate({ sync: true })
+      await createDevelopmentUser({ data: newUsername() });
+      router.clearCache();
+      router.history.push(search().redirect);
+      await router.invalidate({ sync: true });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'User creation failed.')
-      setSubmitting(null)
+      setError(caught instanceof Error ? caught.message : 'User creation failed.');
+      setSubmitting(null);
     }
   }
 
@@ -115,5 +117,5 @@ function LoginPage() {
         </Show>
       </section>
     </main>
-  )
+  );
 }

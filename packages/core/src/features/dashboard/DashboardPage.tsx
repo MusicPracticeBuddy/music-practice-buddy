@@ -1,22 +1,22 @@
-import { For, Show } from 'solid-js'
-import { Link } from '@tanstack/solid-router'
-import { Dynamic } from 'solid-js/web'
-import type { EditionContribution } from '@/edition/contracts'
-import type { DashboardData } from './service.server'
+import { For, Show } from 'solid-js';
+import { Link } from '@tanstack/solid-router';
+import { Dynamic } from 'solid-js/web';
+import type { EditionContribution } from '@/edition/contracts';
+import type { DashboardData } from './service.server';
 
 type DashboardPageProps = Readonly<{
-  data: DashboardData
-  panels: readonly EditionContribution[]
-}>
+  data: DashboardData;
+  panels: readonly EditionContribution[];
+}>;
 
 function formatSchedule(assignedDate: string | null) {
-  if (!assignedDate) return 'No date assigned'
-  const [year, month, day] = assignedDate.split('-').map(Number)
+  if (!assignedDate) return 'No date assigned';
+  const [year, month, day] = assignedDate.split('-').map(Number);
   return new Intl.DateTimeFormat(undefined, {
     weekday: 'long',
     month: 'short',
     day: 'numeric',
-  }).format(new Date(year!, month! - 1, day))
+  }).format(new Date(year!, month! - 1, day));
 }
 
 export function DashboardPage(props: DashboardPageProps) {
@@ -81,5 +81,5 @@ export function DashboardPage(props: DashboardPageProps) {
         {(contribution) => <Dynamic component={contribution.component} />}
       </For>
     </main>
-  )
+  );
 }

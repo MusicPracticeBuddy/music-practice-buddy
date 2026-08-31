@@ -1,32 +1,32 @@
-import { For, Show } from 'solid-js'
-import { Link, createFileRoute, notFound, useNavigate, useRouter } from '@tanstack/solid-router'
-import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
-import { ExerciseNotation } from '@/components/ExerciseNotation'
-import { deleteExercise, getExerciseDetail } from '@/data/exercises'
+import { For, Show } from 'solid-js';
+import { Link, createFileRoute, notFound, useNavigate, useRouter } from '@tanstack/solid-router';
+import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog';
+import { ExerciseNotation } from '@/components/ExerciseNotation';
+import { deleteExercise, getExerciseDetail } from '@/data/exercises';
 
 export const Route = createFileRoute('/exercises/$exerciseId')({
   loader: async ({ params }) => {
-    const exercise = await getExerciseDetail({ data: params.exerciseId })
-    if (!exercise) throw notFound()
-    return exercise
+    const exercise = await getExerciseDetail({ data: params.exerciseId });
+    if (!exercise) throw notFound();
+    return exercise;
   },
   component: ExerciseDetail,
   notFoundComponent: ExerciseNotFound,
-})
+});
 
 function formatDate(value: string | null) {
-  if (!value) return 'Not started'
+  if (!value) return 'Not started';
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-  }).format(new Date(value))
+  }).format(new Date(value));
 }
 
 function ExerciseDetail() {
-  const exercise = Route.useLoaderData()
-  const navigate = useNavigate()
-  const router = useRouter()
+  const exercise = Route.useLoaderData();
+  const navigate = useNavigate();
+  const router = useRouter();
 
   return (
     <main class="page detail-page">
@@ -56,9 +56,9 @@ function ExerciseDetail() {
               description="This removes the exercise from your library. Historical session entries will remain."
               confirmLabel="Delete exercise"
               onConfirm={async () => {
-                await deleteExercise({ data: exercise().id })
-                await router.invalidate({ sync: true })
-                await navigate({ to: '/library' })
+                await deleteExercise({ data: exercise().id });
+                await router.invalidate({ sync: true });
+                await navigate({ to: '/library' });
               }}
             />
           </Show>
@@ -135,7 +135,7 @@ function ExerciseDetail() {
         </article>
       </section>
     </main>
-  )
+  );
 }
 
 function ExerciseNotFound() {
@@ -147,5 +147,5 @@ function ExerciseNotFound() {
         Return to My Library
       </Link>
     </main>
-  )
+  );
 }

@@ -1,32 +1,32 @@
-import { For, Show } from 'solid-js'
-import { Link, createFileRoute, notFound, useNavigate, useRouter } from '@tanstack/solid-router'
-import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog'
-import { RepertoireLibraryNote } from '@/components/RepertoireLibraryNote'
-import { deleteRepertoire, getRepertoireDetail } from '@/data/repertoire'
+import { For, Show } from 'solid-js';
+import { Link, createFileRoute, notFound, useNavigate, useRouter } from '@tanstack/solid-router';
+import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog';
+import { RepertoireLibraryNote } from '@/components/RepertoireLibraryNote';
+import { deleteRepertoire, getRepertoireDetail } from '@/data/repertoire';
 
 export const Route = createFileRoute('/repertoire/$repertoireId')({
   loader: async ({ params }) => {
-    const repertoire = await getRepertoireDetail({ data: params.repertoireId })
-    if (!repertoire) throw notFound()
-    return repertoire
+    const repertoire = await getRepertoireDetail({ data: params.repertoireId });
+    if (!repertoire) throw notFound();
+    return repertoire;
   },
   component: RepertoireDetail,
   notFoundComponent: RepertoireNotFound,
-})
+});
 
 function formatDate(value: string | null) {
-  if (!value) return 'Not started'
+  if (!value) return 'Not started';
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-  }).format(new Date(value))
+  }).format(new Date(value));
 }
 
 function RepertoireDetail() {
-  const repertoire = Route.useLoaderData()
-  const navigate = useNavigate()
-  const router = useRouter()
+  const repertoire = Route.useLoaderData();
+  const navigate = useNavigate();
+  const router = useRouter();
 
   return (
     <main class="page detail-page">
@@ -69,16 +69,16 @@ function RepertoireDetail() {
               description="This removes the repertoire from your library. Historical session entries will remain."
               confirmLabel={repertoire().parent ? 'Delete child item' : 'Delete repertoire'}
               onConfirm={async () => {
-                await deleteRepertoire({ data: repertoire().id })
-                await router.invalidate({ sync: true })
-                const parent = repertoire().parent
+                await deleteRepertoire({ data: repertoire().id });
+                await router.invalidate({ sync: true });
+                const parent = repertoire().parent;
                 if (parent) {
                   await navigate({
                     to: '/repertoire/$repertoireId',
                     params: { repertoireId: parent.id },
-                  })
+                  });
                 } else {
-                  await navigate({ to: '/library' })
+                  await navigate({ to: '/library' });
                 }
               }}
             />
@@ -262,7 +262,7 @@ function RepertoireDetail() {
         </article>
       </section>
     </main>
-  )
+  );
 }
 
 function RepertoireNotFound() {
@@ -274,5 +274,5 @@ function RepertoireNotFound() {
         Return to My Library
       </Link>
     </main>
-  )
+  );
 }

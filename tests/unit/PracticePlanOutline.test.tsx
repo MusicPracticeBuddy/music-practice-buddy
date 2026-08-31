@@ -1,9 +1,9 @@
-import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library'
-import { PracticePlanOutline } from '@/components/PracticePlanOutline'
-import { PRACTICE_ITEM_TYPE } from '@/domain/session'
+import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library';
+import { PracticePlanOutline } from '@/components/PracticePlanOutline';
+import { PRACTICE_ITEM_TYPE } from '@/domain/session';
 
-afterEach(cleanup)
+afterEach(cleanup);
 
 describe('PracticePlanOutline', () => {
   it('collapses sections and expands practice items to show instructions and notation', () => {
@@ -30,21 +30,21 @@ describe('PracticePlanOutline', () => {
           },
         ]}
       />
-    ))
+    ));
 
-    const sectionButton = screen.getByRole('button', { name: 'Warm up' })
-    const exerciseButton = screen.getByRole('button', { name: 'Long tones' })
-    expect(sectionButton.getAttribute('aria-expanded')).toBe('true')
-    expect(exerciseButton.getAttribute('aria-expanded')).toBe('false')
-    expect(screen.queryByText('Display key')).toBeNull()
+    const sectionButton = screen.getByRole('button', { name: 'Warm up' });
+    const exerciseButton = screen.getByRole('button', { name: 'Long tones' });
+    expect(sectionButton.getAttribute('aria-expanded')).toBe('true');
+    expect(exerciseButton.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('Display key')).toBeNull();
 
-    fireEvent.click(exerciseButton)
-    expect(screen.getByText('Use a steady breath.')).toBeTruthy()
-    expect(screen.getByLabelText('Rendered music notation')).toBeTruthy()
-    expect(screen.queryByText('Display key')).toBeNull()
+    fireEvent.click(exerciseButton);
+    expect(screen.getByText('Use a steady breath.')).toBeTruthy();
+    expect(screen.getByLabelText('Rendered music notation')).toBeTruthy();
+    expect(screen.queryByText('Display key')).toBeNull();
 
-    fireEvent.click(sectionButton)
-    expect(sectionButton.getAttribute('aria-expanded')).toBe('false')
-    expect(screen.queryByRole('button', { name: 'Long tones' })).toBeNull()
-  })
-})
+    fireEvent.click(sectionButton);
+    expect(sectionButton.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('button', { name: 'Long tones' })).toBeNull();
+  });
+});

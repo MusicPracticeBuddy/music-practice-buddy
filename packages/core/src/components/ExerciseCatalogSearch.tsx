@@ -1,32 +1,32 @@
-import { For, Show, createSignal, onCleanup } from 'solid-js'
-import { Link, useRouter } from '@tanstack/solid-router'
-import { InstrumentFilter } from '@/components/InstrumentFields'
+import { For, Show, createSignal, onCleanup } from 'solid-js';
+import { Link, useRouter } from '@tanstack/solid-router';
+import { InstrumentFilter } from '@/components/InstrumentFields';
 import {
   addExerciseToLibrary,
   getPublicExerciseCatalogPage,
   type ExerciseCatalogPage,
   type ExerciseCatalogRow,
   type ExerciseCatalogSearchInput,
-} from '@/data/exercises'
-import type { InstrumentOption } from '@/data/repertoire'
+} from '@/data/exercises';
+import type { InstrumentOption } from '@/data/repertoire';
 
 export function ExerciseCatalogSearch(props: {
-  initialPage: ExerciseCatalogPage
-  instruments: InstrumentOption[]
-  initialInstrumentIds: string[]
+  initialPage: ExerciseCatalogPage;
+  instruments: InstrumentOption[];
+  initialInstrumentIds: string[];
 }) {
-  const router = useRouter()
-  const [query, setQuery] = createSignal('')
+  const router = useRouter();
+  const [query, setQuery] = createSignal('');
   const [notationFormat, setNotationFormat] =
-    createSignal<ExerciseCatalogSearchInput['notationFormat']>('ALL')
-  const [results, setResults] = createSignal(props.initialPage)
-  const [instrumentIds, setInstrumentIds] = createSignal(props.initialInstrumentIds)
-  const [loading, setLoading] = createSignal(false)
-  const [addingId, setAddingId] = createSignal<string | null>(null)
-  const [addedIds, setAddedIds] = createSignal<string[]>([])
-  const [error, setError] = createSignal('')
-  let searchTimer: ReturnType<typeof setTimeout> | undefined
-  let requestId = 0
+    createSignal<ExerciseCatalogSearchInput['notationFormat']>('ALL');
+  const [results, setResults] = createSignal(props.initialPage);
+  const [instrumentIds, setInstrumentIds] = createSignal(props.initialInstrumentIds);
+  const [loading, setLoading] = createSignal(false);
+  const [addingId, setAddingId] = createSignal<string | null>(null);
+  const [addedIds, setAddedIds] = createSignal<string[]>([]);
+  const [error, setError] = createSignal('');
+  let searchTimer: ReturnType<typeof setTimeout> | undefined;
+  let requestId = 0;
 
   function searchInput(page: number): ExerciseCatalogSearchInput {
     return {
@@ -34,47 +34,47 @@ export function ExerciseCatalogSearch(props: {
       notationFormat: notationFormat(),
       instrumentIds: instrumentIds(),
       page,
-    }
+    };
   }
 
   async function loadPage(page: number) {
-    clearTimeout(searchTimer)
-    const currentRequest = ++requestId
-    setLoading(true)
-    setError('')
+    clearTimeout(searchTimer);
+    const currentRequest = ++requestId;
+    setLoading(true);
+    setError('');
     try {
-      const nextResults = await getPublicExerciseCatalogPage({ data: searchInput(page) })
-      if (currentRequest === requestId) setResults(nextResults)
+      const nextResults = await getPublicExerciseCatalogPage({ data: searchInput(page) });
+      if (currentRequest === requestId) setResults(nextResults);
     } catch (caught) {
       if (currentRequest === requestId) {
         setError(
           caught instanceof Error ? caught.message : 'The exercise catalog could not be searched.',
-        )
+        );
       }
     } finally {
-      if (currentRequest === requestId) setLoading(false)
+      if (currentRequest === requestId) setLoading(false);
     }
   }
 
   function queueSearch(delay = 0) {
-    clearTimeout(searchTimer)
-    requestId += 1
-    searchTimer = setTimeout(() => void loadPage(1), delay)
+    clearTimeout(searchTimer);
+    requestId += 1;
+    searchTimer = setTimeout(() => void loadPage(1), delay);
   }
 
-  onCleanup(() => clearTimeout(searchTimer))
+  onCleanup(() => clearTimeout(searchTimer));
 
   async function addToLibrary(exercise: ExerciseCatalogRow) {
-    setAddingId(exercise.id)
-    setError('')
+    setAddingId(exercise.id);
+    setError('');
     try {
-      await addExerciseToLibrary({ data: exercise.id })
-      setAddedIds((ids) => [...ids, exercise.id])
-      await router.invalidate({ sync: true })
+      await addExerciseToLibrary({ data: exercise.id });
+      setAddedIds((ids) => [...ids, exercise.id]);
+      await router.invalidate({ sync: true });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'The exercise could not be added.')
+      setError(caught instanceof Error ? caught.message : 'The exercise could not be added.');
     } finally {
-      setAddingId(null)
+      setAddingId(null);
     }
   }
 
@@ -91,8 +91,8 @@ export function ExerciseCatalogSearch(props: {
           value={query()}
           placeholder="Exercise name…"
           onInput={(event) => {
-            setQuery(event.currentTarget.value)
-            queueSearch(300)
+            setQuery(event.currentTarget.value);
+            queueSearch(300);
           }}
         />
 
@@ -106,8 +106,8 @@ export function ExerciseCatalogSearch(props: {
           onChange={(event) => {
             setNotationFormat(
               event.currentTarget.value as ExerciseCatalogSearchInput['notationFormat'],
-            )
-            queueSearch()
+            );
+            queueSearch();
           }}
         >
           <option value="ALL">All formats</option>
@@ -119,8 +119,8 @@ export function ExerciseCatalogSearch(props: {
           instruments={props.instruments}
           selectedIds={instrumentIds()}
           onChange={(ids) => {
-            setInstrumentIds(ids)
-            queueSearch()
+            setInstrumentIds(ids);
+            queueSearch();
           }}
         />
 
@@ -128,10 +128,10 @@ export function ExerciseCatalogSearch(props: {
           class="text-button"
           type="button"
           onClick={() => {
-            setQuery('')
-            setNotationFormat('ALL')
-            setInstrumentIds([])
-            queueSearch()
+            setQuery('');
+            setNotationFormat('ALL');
+            setInstrumentIds([]);
+            queueSearch();
           }}
         >
           Clear all filters
@@ -164,7 +164,7 @@ export function ExerciseCatalogSearch(props: {
             fallback={<p class="library-empty">No public exercises match.</p>}
           >
             {(exercise) => {
-              const inLibrary = () => exercise.inLibrary || addedIds().includes(exercise.id)
+              const inLibrary = () => exercise.inLibrary || addedIds().includes(exercise.id);
               return (
                 <article class="catalog-result-card">
                   <div class="catalog-result-summary">
@@ -204,7 +204,7 @@ export function ExerciseCatalogSearch(props: {
                     </div>
                   </div>
                 </article>
-              )
+              );
             }}
           </For>
         </div>
@@ -234,5 +234,5 @@ export function ExerciseCatalogSearch(props: {
         </Show>
       </section>
     </div>
-  )
+  );
 }

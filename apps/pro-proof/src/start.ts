@@ -1,3 +1,3 @@
-import { createMpbStart } from '@music-practice-buddy/core/app/start'
+import { createMpbStart } from '@music-practice-buddy/core/app/start';
 
-export const startInstance = createMpbStart()
+export const startInstance = createMpbStart();

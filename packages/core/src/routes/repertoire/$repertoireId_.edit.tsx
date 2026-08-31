@@ -1,23 +1,23 @@
-import { createFileRoute, notFound } from '@tanstack/solid-router'
-import { LibraryItemForm } from '@/components/LibraryItemForm'
-import { getInstruments, getRepertoireDetail } from '@/data/repertoire'
+import { createFileRoute, notFound } from '@tanstack/solid-router';
+import { LibraryItemForm } from '@/components/LibraryItemForm';
+import { getInstruments, getRepertoireDetail } from '@/data/repertoire';
 
 export const Route = createFileRoute('/repertoire/$repertoireId_/edit')({
   loader: async ({ params }) => {
     const [repertoire, instruments] = await Promise.all([
       getRepertoireDetail({ data: params.repertoireId }),
       getInstruments(),
-    ])
-    if (!repertoire?.canManage) throw notFound()
-    return { repertoire, instruments }
+    ]);
+    if (!repertoire?.canManage) throw notFound();
+    return { repertoire, instruments };
   },
   component: EditRepertoire,
-})
+});
 
 function EditRepertoire() {
-  const data = Route.useLoaderData()
-  const context = Route.useRouteContext()
-  const repertoire = () => data().repertoire
+  const data = Route.useLoaderData();
+  const context = Route.useRouteContext();
+  const repertoire = () => data().repertoire;
   return (
     <LibraryItemForm
       kind="repertoire"
@@ -49,5 +49,5 @@ function EditRepertoire() {
       instrumentOptions={data().instruments}
       canCreatePublic={context().user?.isAdmin}
     />
-  )
+  );
 }

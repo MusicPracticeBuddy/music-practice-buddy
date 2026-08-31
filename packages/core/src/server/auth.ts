@@ -1,1 +1,1 @@
-export { authMiddleware } from '@/auth/middleware'
+export { authMiddleware } from '@/auth/middleware';

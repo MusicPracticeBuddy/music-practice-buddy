@@ -1,6 +1,6 @@
-import { For, Show, createSignal, createUniqueId } from 'solid-js'
-import { SessionExerciseNotation } from '@/components/SessionExerciseNotation'
-import { SessionRepertoireRandomizer } from '@/components/SessionRepertoireRandomizer'
+import { For, Show, createSignal, createUniqueId } from 'solid-js';
+import { SessionExerciseNotation } from '@/components/SessionExerciseNotation';
+import { SessionRepertoireRandomizer } from '@/components/SessionRepertoireRandomizer';
 import {
   PRACTICE_ITEM_TYPE,
   SESSION_ITEM_ACTION,
@@ -13,71 +13,71 @@ import {
   type SessionItemAction,
   type SessionItemStatus,
   type SessionTimingMode,
-} from '@/domain/session'
+} from '@/domain/session';
 
 export type PracticePlanItem = {
-  id: string
-  parentId: string | null
-  type: PracticeItemType
-  name: string
-  instruction: string | null
-  notation: string | null
-  notationFormat: string | null
-  repertoireChildren?: { id: string; title: string }[]
-  status?: SessionItemStatus
-  sessionNote?: string | null
-  addedDuringSession?: boolean
-  durationMinutes?: number | null
-}
+  id: string;
+  parentId: string | null;
+  type: PracticeItemType;
+  name: string;
+  instruction: string | null;
+  notation: string | null;
+  notationFormat: string | null;
+  repertoireChildren?: { id: string; title: string }[];
+  status?: SessionItemStatus;
+  sessionNote?: string | null;
+  addedDuringSession?: boolean;
+  durationMinutes?: number | null;
+};
 
-type PracticePlanItemNode = PracticePlanItem & { children: PracticePlanItemNode[] }
+type PracticePlanItemNode = PracticePlanItem & { children: PracticePlanItemNode[] };
 
 type PracticePlanOutlineProps = {
-  items: PracticePlanItem[]
-  sessionActive?: boolean
-  addingItem?: boolean
-  timingMode?: SessionTimingMode | null
-  hasActiveItem?: boolean
-  onAction?: (itemId: string, action: SessionItemAction) => void
-  onRemove?: (itemId: string) => Promise<boolean>
-  onUpdateSessionNote?: (itemId: string, sessionNote: string) => Promise<boolean>
-  onDropLibraryItem?: (event: DragEvent, parentId: string | null) => void
-}
+  items: PracticePlanItem[];
+  sessionActive?: boolean;
+  addingItem?: boolean;
+  timingMode?: SessionTimingMode | null;
+  hasActiveItem?: boolean;
+  onAction?: (itemId: string, action: SessionItemAction) => void;
+  onRemove?: (itemId: string) => Promise<boolean>;
+  onUpdateSessionNote?: (itemId: string, sessionNote: string) => Promise<boolean>;
+  onDropLibraryItem?: (event: DragEvent, parentId: string | null) => void;
+};
 
 function buildItemTree(items: PracticePlanItem[]): PracticePlanItemNode[] {
-  const nodes = new Map<string, PracticePlanItemNode>()
-  const roots: PracticePlanItemNode[] = []
-  for (const item of items) nodes.set(item.id, { ...item, children: [] })
+  const nodes = new Map<string, PracticePlanItemNode>();
+  const roots: PracticePlanItemNode[] = [];
+  for (const item of items) nodes.set(item.id, { ...item, children: [] });
   for (const item of items) {
-    const node = nodes.get(item.id)
-    if (!node) continue
-    const parent = item.parentId ? nodes.get(item.parentId) : undefined
-    if (parent) parent.children.push(node)
-    else roots.push(node)
+    const node = nodes.get(item.id);
+    if (!node) continue;
+    const parent = item.parentId ? nodes.get(item.parentId) : undefined;
+    if (parent) parent.children.push(node);
+    else roots.push(node);
   }
-  return roots
+  return roots;
 }
 
 function descendants(item: PracticePlanItemNode): PracticePlanItemNode[] {
-  return item.children.flatMap((child) => [child, ...descendants(child)])
+  return item.children.flatMap((child) => [child, ...descendants(child)]);
 }
 
 function practiceDescendants(item: PracticePlanItemNode) {
-  return descendants(item).filter((child) => child.type !== PRACTICE_ITEM_TYPE.SECTION)
+  return descendants(item).filter((child) => child.type !== PRACTICE_ITEM_TYPE.SECTION);
 }
 
 function derivedSectionStatus(item: PracticePlanItemNode): SessionItemStatus {
-  const children = practiceDescendants(item)
-  if (children.length === 0) return SESSION_ITEM_STATUS.NOT_STARTED
+  const children = practiceDescendants(item);
+  if (children.length === 0) return SESSION_ITEM_STATUS.NOT_STARTED;
   if (children.every((child) => child.status === SESSION_ITEM_STATUS.SKIPPED)) {
-    return SESSION_ITEM_STATUS.SKIPPED
+    return SESSION_ITEM_STATUS.SKIPPED;
   }
   if (
     children.every(
       (child) => child.status !== undefined && isResolvedSessionItemStatus(child.status),
     )
   ) {
-    return SESSION_ITEM_STATUS.COMPLETE
+    return SESSION_ITEM_STATUS.COMPLETE;
   }
   if (
     children.some(
@@ -86,25 +86,25 @@ function derivedSectionStatus(item: PracticePlanItemNode): SessionItemStatus {
         child.status === SESSION_ITEM_STATUS.COMPLETE,
     )
   ) {
-    return SESSION_ITEM_STATUS.IN_PROGRESS
+    return SESSION_ITEM_STATUS.IN_PROGRESS;
   }
-  return SESSION_ITEM_STATUS.NOT_STARTED
+  return SESSION_ITEM_STATUS.NOT_STARTED;
 }
 
 function statusLabel(status: SessionItemStatus) {
   return status
     .replace('_', ' ')
     .toLowerCase()
-    .replace(/^./, (character) => character.toUpperCase())
+    .replace(/^./, (character) => character.toUpperCase());
 }
 
 function StatusIndicator(props: { status: SessionItemStatus }) {
   const icon = () => {
-    if (props.status === SESSION_ITEM_STATUS.COMPLETE) return '✓'
-    if (props.status === SESSION_ITEM_STATUS.SKIPPED) return '—'
-    if (props.status === SESSION_ITEM_STATUS.IN_PROGRESS) return '◐'
-    return '○'
-  }
+    if (props.status === SESSION_ITEM_STATUS.COMPLETE) return '✓';
+    if (props.status === SESSION_ITEM_STATUS.SKIPPED) return '—';
+    if (props.status === SESSION_ITEM_STATUS.IN_PROGRESS) return '◐';
+    return '○';
+  };
   return (
     <span
       class={`item-state item-state-${props.status.toLowerCase().replace('_', '-')}`}
@@ -113,33 +113,33 @@ function StatusIndicator(props: { status: SessionItemStatus }) {
     >
       {icon()}
     </span>
-  )
+  );
 }
 
 export function PracticePlanOutline(props: PracticePlanOutlineProps) {
-  const tree = () => buildItemTree(props.items)
+  const tree = () => buildItemTree(props.items);
 
   return (
     <section class="session-outline" aria-label="Practice plan contents">
       <For each={tree()}>{(item) => <PracticePlanOutlineItem {...props} item={item} />}</For>
     </section>
-  )
+  );
 }
 
 function PracticePlanOutlineItem(props: PracticePlanOutlineProps & { item: PracticePlanItemNode }) {
-  const isSection = props.item.type === PRACTICE_ITEM_TYPE.SECTION
-  const [expanded, setExpanded] = createSignal(isSection)
-  const [editingSessionNote, setEditingSessionNote] = createSignal(false)
-  const [sessionNoteDraft, setSessionNoteDraft] = createSignal(props.item.sessionNote ?? '')
-  const [savingSessionNote, setSavingSessionNote] = createSignal(false)
-  const uniqueId = createUniqueId()
-  const contentId = `practice-plan-item-${uniqueId}-content`
-  const sessionNoteId = `practice-plan-item-${uniqueId}-session-note`
-  let sessionNoteElement: HTMLTextAreaElement | undefined
-  const itemStatus = () => props.item.status ?? SESSION_ITEM_STATUS.NOT_STARTED
-  const status = () => (isSection ? derivedSectionStatus(props.item) : itemStatus())
+  const isSection = props.item.type === PRACTICE_ITEM_TYPE.SECTION;
+  const [expanded, setExpanded] = createSignal(isSection);
+  const [editingSessionNote, setEditingSessionNote] = createSignal(false);
+  const [sessionNoteDraft, setSessionNoteDraft] = createSignal(props.item.sessionNote ?? '');
+  const [savingSessionNote, setSavingSessionNote] = createSignal(false);
+  const uniqueId = createUniqueId();
+  const contentId = `practice-plan-item-${uniqueId}-content`;
+  const sessionNoteId = `practice-plan-item-${uniqueId}-session-note`;
+  let sessionNoteElement: HTMLTextAreaElement | undefined;
+  const itemStatus = () => props.item.status ?? SESSION_ITEM_STATUS.NOT_STARTED;
+  const status = () => (isSection ? derivedSectionStatus(props.item) : itemStatus());
   const sectionCanSkip = () => {
-    const items = practiceDescendants(props.item)
+    const items = practiceDescendants(props.item);
     return (
       items.length > 0 &&
       items.every(
@@ -147,42 +147,42 @@ function PracticePlanOutlineItem(props: PracticePlanOutlineProps & { item: Pract
           item.status === SESSION_ITEM_STATUS.NOT_STARTED ||
           item.status === SESSION_ITEM_STATUS.SKIPPED,
       )
-    )
-  }
+    );
+  };
 
   function editSessionNote() {
-    setSessionNoteDraft(props.item.sessionNote ?? '')
-    setEditingSessionNote(true)
+    setSessionNoteDraft(props.item.sessionNote ?? '');
+    setEditingSessionNote(true);
   }
 
   async function saveSessionNote() {
-    if (!props.onUpdateSessionNote) return
-    setSavingSessionNote(true)
-    const saved = await props.onUpdateSessionNote(props.item.id, sessionNoteDraft())
-    setSavingSessionNote(false)
-    if (saved) setEditingSessionNote(false)
+    if (!props.onUpdateSessionNote) return;
+    setSavingSessionNote(true);
+    const saved = await props.onUpdateSessionNote(props.item.id, sessionNoteDraft());
+    setSavingSessionNote(false);
+    if (saved) setEditingSessionNote(false);
   }
 
   function recordSelectedKey(keyLabel: string) {
-    const currentNote = editingSessionNote() ? sessionNoteDraft() : (props.item.sessionNote ?? '')
-    const nextNote = appendKeyToSessionNote(currentNote, keyLabel)
-    setSessionNoteDraft(nextNote)
-    setEditingSessionNote(true)
+    const currentNote = editingSessionNote() ? sessionNoteDraft() : (props.item.sessionNote ?? '');
+    const nextNote = appendKeyToSessionNote(currentNote, keyLabel);
+    setSessionNoteDraft(nextNote);
+    setEditingSessionNote(true);
     queueMicrotask(() => {
-      sessionNoteElement?.focus()
-      sessionNoteElement?.setSelectionRange(nextNote.length, nextNote.length)
-    })
+      sessionNoteElement?.focus();
+      sessionNoteElement?.setSelectionRange(nextNote.length, nextNote.length);
+    });
   }
 
   function recordSelectedRepertoireChild(title: string) {
-    const currentNote = editingSessionNote() ? sessionNoteDraft() : (props.item.sessionNote ?? '')
-    const nextNote = appendRepertoireChildToSessionNote(currentNote, title)
-    setSessionNoteDraft(nextNote)
-    setEditingSessionNote(true)
+    const currentNote = editingSessionNote() ? sessionNoteDraft() : (props.item.sessionNote ?? '');
+    const nextNote = appendRepertoireChildToSessionNote(currentNote, title);
+    setSessionNoteDraft(nextNote);
+    setEditingSessionNote(true);
     queueMicrotask(() => {
-      sessionNoteElement?.focus()
-      sessionNoteElement?.setSelectionRange(nextNote.length, nextNote.length)
-    })
+      sessionNoteElement?.focus();
+      sessionNoteElement?.setSelectionRange(nextNote.length, nextNote.length);
+    });
   }
 
   if (isSection) {
@@ -262,7 +262,7 @@ function PracticePlanOutlineItem(props: PracticePlanOutlineProps & { item: Pract
           </div>
         </Show>
       </section>
-    )
+    );
   }
 
   return (
@@ -395,7 +395,7 @@ function PracticePlanOutlineItem(props: PracticePlanOutlineProps & { item: Pract
                 maxlength="2000"
                 value={sessionNoteDraft()}
                 ref={(element) => {
-                  sessionNoteElement = element
+                  sessionNoteElement = element;
                 }}
                 onInput={(event) => setSessionNoteDraft(event.currentTarget.value)}
               />
@@ -442,5 +442,5 @@ function PracticePlanOutlineItem(props: PracticePlanOutlineProps & { item: Pract
         </div>
       </Show>
     </article>
-  )
+  );
 }

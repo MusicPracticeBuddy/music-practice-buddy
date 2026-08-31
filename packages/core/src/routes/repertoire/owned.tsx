@@ -1,48 +1,48 @@
-import { For, Show, createSignal } from 'solid-js'
-import { Link, createFileRoute, useRouter } from '@tanstack/solid-router'
+import { For, Show, createSignal } from 'solid-js';
+import { Link, createFileRoute, useRouter } from '@tanstack/solid-router';
 import {
   addRepertoireToLibrary,
   getOwnedRepertoirePage,
   type OwnedRepertoireRow,
-} from '@/data/repertoire'
+} from '@/data/repertoire';
 
 export const Route = createFileRoute('/repertoire/owned')({
   loader: () => getOwnedRepertoirePage({ data: 1 }),
   component: OwnedRepertoire,
-})
+});
 
 function OwnedRepertoire() {
-  const initialPage = Route.useLoaderData()
-  const router = useRouter()
-  const [results, setResults] = createSignal(initialPage())
-  const [loading, setLoading] = createSignal(false)
-  const [addingId, setAddingId] = createSignal<string | null>(null)
-  const [addedIds, setAddedIds] = createSignal<string[]>([])
-  const [error, setError] = createSignal('')
+  const initialPage = Route.useLoaderData();
+  const router = useRouter();
+  const [results, setResults] = createSignal(initialPage());
+  const [loading, setLoading] = createSignal(false);
+  const [addingId, setAddingId] = createSignal<string | null>(null);
+  const [addedIds, setAddedIds] = createSignal<string[]>([]);
+  const [error, setError] = createSignal('');
 
   async function loadPage(page: number) {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError('');
     try {
-      setResults(await getOwnedRepertoirePage({ data: page }))
+      setResults(await getOwnedRepertoirePage({ data: page }));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Owned repertoire could not be loaded.')
+      setError(caught instanceof Error ? caught.message : 'Owned repertoire could not be loaded.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   async function addToLibrary(item: OwnedRepertoireRow) {
-    setAddingId(item.id)
-    setError('')
+    setAddingId(item.id);
+    setError('');
     try {
-      await addRepertoireToLibrary({ data: item.id })
-      setAddedIds((ids) => [...ids, item.id])
-      await router.invalidate({ sync: true })
+      await addRepertoireToLibrary({ data: item.id });
+      setAddedIds((ids) => [...ids, item.id]);
+      await router.invalidate({ sync: true });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'The repertoire could not be added.')
+      setError(caught instanceof Error ? caught.message : 'The repertoire could not be added.');
     } finally {
-      setAddingId(null)
+      setAddingId(null);
     }
   }
 
@@ -80,7 +80,7 @@ function OwnedRepertoire() {
         <div class="card-grid" classList={{ 'catalog-results-loading': loading() }}>
           <For each={results().items} fallback={<p class="library-empty">No owned repertoire.</p>}>
             {(item) => {
-              const inLibrary = () => item.inLibrary || addedIds().includes(item.id)
+              const inLibrary = () => item.inLibrary || addedIds().includes(item.id);
               return (
                 <article class="content-card">
                   <div class="card-topline">
@@ -111,7 +111,7 @@ function OwnedRepertoire() {
                     </Link>
                   </div>
                 </article>
-              )
+              );
             }}
           </For>
         </div>
@@ -141,5 +141,5 @@ function OwnedRepertoire() {
         </Show>
       </section>
     </main>
-  )
+  );
 }

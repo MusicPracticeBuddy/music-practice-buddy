@@ -1,13 +1,13 @@
-import { For, Show, createMemo, createSignal, createUniqueId } from 'solid-js'
-import type { InstrumentOption } from '@/data/repertoire'
-import { groupExpandedInstrumentOptions, groupInstrumentOptions } from '@/domain/instrument'
+import { For, Show, createMemo, createSignal, createUniqueId } from 'solid-js';
+import type { InstrumentOption } from '@/data/repertoire';
+import { groupExpandedInstrumentOptions, groupInstrumentOptions } from '@/domain/instrument';
 
 export function InstrumentSelect(props: {
-  id: string
-  instruments: InstrumentOption[]
-  value: string
-  onChange: (instrumentId: string) => void
-  label?: string
+  id: string;
+  instruments: InstrumentOption[];
+  value: string;
+  onChange: (instrumentId: string) => void;
+  label?: string;
 }) {
   return (
     <>
@@ -32,27 +32,27 @@ export function InstrumentSelect(props: {
         </For>
       </select>
     </>
-  )
+  );
 }
 
 export function InstrumentFilter(props: {
-  instruments: InstrumentOption[]
-  selectedIds: string[]
-  onChange: (instrumentIds: string[]) => void
+  instruments: InstrumentOption[];
+  selectedIds: string[];
+  onChange: (instrumentIds: string[]) => void;
 }) {
-  const [showAll, setShowAll] = createSignal(false)
-  const optionsId = `instrument-filter-options-${createUniqueId()}`
+  const [showAll, setShowAll] = createSignal(false);
+  const optionsId = `instrument-filter-options-${createUniqueId()}`;
   const preferredInstruments = createMemo(() =>
     props.instruments.filter((instrument) => instrument.isPreferred),
-  )
+  );
   const visibleInstruments = createMemo(() =>
     showAll() ? props.instruments : preferredInstruments(),
-  )
+  );
   const visibleGroups = createMemo(() =>
     showAll()
       ? groupExpandedInstrumentOptions(visibleInstruments())
       : groupInstrumentOptions(visibleInstruments()),
-  )
+  );
 
   return (
     <fieldset class="library-instrument-filter">
@@ -88,7 +88,7 @@ export function InstrumentFilter(props: {
                       <input
                         type="checkbox"
                         ref={(element) => {
-                          element.checked = props.selectedIds.includes(instrument.id)
+                          element.checked = props.selectedIds.includes(instrument.id);
                         }}
                         checked={props.selectedIds.includes(instrument.id)}
                         onChange={(event) =>
@@ -109,5 +109,5 @@ export function InstrumentFilter(props: {
         </Show>
       </div>
     </fieldset>
-  )
+  );
 }
