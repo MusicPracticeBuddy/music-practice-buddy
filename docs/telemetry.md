@@ -10,12 +10,13 @@ The built-in hooks report:
 - a page view after each completed client-side router render, reported to a server function with the
   URL path and stable route ID;
 - every TanStack server-function call, with its function name, HTTP method, duration, and outcome;
-- every PostgreSQL query made through the shared pool, including transaction clients, with its SQL
-  query name, operation, parameterized statement, duration, outcome, and trace ID.
+- every PostgreSQL query made through the shared pool, including transaction clients, through the
+  official PostgreSQL instrumentation, with a stable query name and bounded per-query metrics.
 
-Every event has a server-generated UTC ISO 8601 `timestamp`. For a page view it marks when the
-server accepted the report. For server-function and SQL events it marks when the operation began;
-`durationMs` records the elapsed time until completion.
+Every application event has a server-generated UTC ISO 8601 `timestamp`. For a page view it marks
+when the server accepted the report. For server-function events it marks when the operation began;
+`durationMs` records the elapsed time until completion. PostgreSQL span timing comes directly from
+the OpenTelemetry instrumentation.
 
 Every event also has a `serverVersion`. Set `SERVER_VERSION` in the deployed server environment to
 the release identifier, normally the Git commit hash supplied by CI/CD. If it is unset or blank, the
@@ -50,10 +51,10 @@ server runtime environment and restart the application. Events then appear in th
 a `[telemetry]` prefix. The option defaults to disabled; any value other than the exact string `true`
 uses the no-op provider.
 
-Timed events include `durationMs` and `outcome`; SQL events include a stable, kebab-case `queryName`
-such as `count-session-template`, plus parameterized statements but never their bound parameter
-values. Query-config names take precedence over generated names, so individual queries can opt into
-more domain-specific labels without changing the telemetry provider.
+Timed application events include `durationMs` and `outcome`. PostgreSQL spans and metrics include a
+stable, kebab-case `db.query.name` such as `count-session-template`. Query-config names take
+precedence over generated names, so individual queries can opt into more domain-specific labels.
+Bound query parameter values are not added to spans or metrics.
 
 Trace IDs are appropriate for logs, traces, and Prometheus exemplars. Do not use them as ordinary
 Prometheus metric labels: their unbounded cardinality would make the metric expensive. Use an
@@ -63,9 +64,8 @@ An OpenTelemetry implementation can translate the callbacks as follows:
 
 - `recordPageView` increments a page-view counter using `routeId` as a bounded attribute;
 - `startServerFunction` starts a server-function span and timer;
-- `startSqlQuery` starts a database span and timer;
-- each operation's `run` method makes its span current while the callback runs, allowing SQL spans to
-  inherit the active server-function span;
+- each operation's `run` method makes its span current while the callback runs, allowing automatic
+  child spans to inherit the active server-function span;
 - each operation's `end` method records its duration and success/error status, then ends its span.
 
 Provider methods should only create in-memory metric/span data. Exporting should happen in the
@@ -81,8 +81,11 @@ deployment project rather than this repository.
 The project includes TanStack Start's experimental, manual OpenTelemetry setup for Node. It is
 disabled by default. Set `OTEL_ENABLED=true` to initialize the OpenTelemetry Node SDK before the
 application server is imported. The integration enables the official Node auto-instrumentations and
-uses this project's provider hooks for page-view, server-function, and named SQL spans and metrics.
-Automatic PostgreSQL instrumentation is disabled to prevent duplicate SQL spans.
+uses this project's provider hooks for page-view and server-function spans and metrics. PostgreSQL
+spans and standard database metrics come from `@opentelemetry/instrumentation-pg`. Its request hook
+adds the stable application query name to each span, while a metrics-only pool wrapper retains
+bounded per-query call, duration, and outcome series for dashboards without creating duplicate SQL
+spans.
 
 The SDK uses standard OpenTelemetry environment variables for exporters and collector endpoints. A
 typical OTLP deployment sets `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_PROTOCOL`, and
