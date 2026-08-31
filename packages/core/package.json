@@ -8,12 +8,21 @@
   ],
   "type": "module",
   "exports": {
-    "./contracts": "./src/edition/index.ts",
     "./app/client": "./src/app/client.ts",
-    "./app/start": "./src/app/start.ts",
     "./app/server": "./src/app/server.ts",
+    "./app/start": "./src/app/start.ts",
+    "./contracts": "./src/edition/index.ts",
+    "./domain": "./src/domain/index.ts",
+    "./domain/*": "./src/domain/*.ts",
+    "./features/dashboard": "./src/features/dashboard/index.ts",
+    "./features/dashboard/server": "./src/features/dashboard/server.ts",
+    "./migrations/*": "./migrations/*",
+    "./routing": "./src/routing/index.ts",
     "./server/auth": "./src/server/auth.ts",
-    "./server/database": "./src/server/database.ts"
+    "./server/database": "./src/server/database.ts",
+    "./styles.css": "./src/styles.css",
+    "./ui/*": "./src/components/*.tsx",
+    "./package.json": "./package.json"
   },
   "dependencies": {
     "@kobalte/core": "^0.13.13",
@@ -22,6 +31,7 @@
     "@opentelemetry/resources": "^2.10.0",
     "@opentelemetry/sdk-node": "^0.221.0",
     "@opentelemetry/semantic-conventions": "^1.43.0",
+    "@tanstack/virtual-file-routes": "1.162.0",
     "@types/node": "^26.2.0",
     "@types/pg": "^8.23.1",
     "@types/sortablejs": "^1.15.9",

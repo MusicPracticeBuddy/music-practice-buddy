@@ -1,8 +1,3 @@
-import { physical, rootRoute } from '@tanstack/virtual-file-routes';
+import { createCoreRouteConfig } from '@music-practice-buddy/core/routing';
 
-const corePackage = 'node_modules/@music-practice-buddy/core/src';
-
-export const routes = rootRoute(`${corePackage}/routes/__root.tsx`, [
-  physical(`${corePackage}/routes`),
-  physical('apps/pro-proof/src/routes'),
-]);
+export const routes = createCoreRouteConfig(['apps/pro-proof/src/routes']);

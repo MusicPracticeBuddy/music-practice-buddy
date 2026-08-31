@@ -1,8 +1,24 @@
 # Music Practice Buddy core package
 
 This source package contains the reusable Music Practice Buddy routes, UI, domain logic, server
-functions, and core Flyway migrations. The Community and Pro-proof applications compile this source
-package as part of their TanStack Start builds.
+functions, and core Flyway migrations. Community and Pro applications compile the source package as
+part of their TanStack Start builds.
 
-Consumers may import the stable edition API from `@music-practice-buddy/core/contracts`. Other source
-paths are intentionally internal. Route composition is performed with TanStack virtual file routes.
+## Public exports
+
+- `@music-practice-buddy/core/contracts` — edition and contribution contracts.
+- `@music-practice-buddy/core/routing` — core virtual-route composition.
+- `@music-practice-buddy/core/app/client` — client application instrumentation.
+- `@music-practice-buddy/core/app/start` — shared TanStack Start setup.
+- `@music-practice-buddy/core/app/server` — server application initialization.
+- `@music-practice-buddy/core/domain` and `/domain/*` — framework-independent domain APIs.
+- `@music-practice-buddy/core/ui/*` — individually importable shared Solid components.
+- `@music-practice-buddy/core/features/dashboard` — dashboard UI and types.
+- `@music-practice-buddy/core/features/dashboard/server` — dashboard application service.
+- `@music-practice-buddy/core/server/auth` — authentication middleware and user types.
+- `@music-practice-buddy/core/server/database` — shared PostgreSQL pool for Pro server extensions.
+- `@music-practice-buddy/core/styles.css` — shared application stylesheet.
+- `@music-practice-buddy/core/migrations/*` — core Flyway migration assets.
+- `@music-practice-buddy/core/package.json` — package version and metadata.
+
+Paths not listed in the package export map are internal and may change without notice.
