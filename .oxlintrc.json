@@ -12,7 +12,6 @@
     "dist/**",
     ".output/**",
     "apps/community/src/routeTree.gen.ts",
-    "apps/pro-proof/src/routeTree.gen.ts",
     "db/cloudbeaver/data-sources.json"
   ]
 }

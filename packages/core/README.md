@@ -1,8 +1,8 @@
 # Music Practice Buddy core package
 
 This source package contains the reusable Music Practice Buddy routes, UI, domain logic, server
-functions, and core Flyway migrations. Community and Pro applications compile the source package as
-part of their TanStack Start builds.
+functions, and core Flyway migrations. Applications compile the source package as part of their
+TanStack Start builds.
 
 ## Public exports
 
@@ -16,7 +16,8 @@ part of their TanStack Start builds.
 - `@music-practice-buddy/core/features/dashboard` — dashboard UI and types.
 - `@music-practice-buddy/core/features/dashboard/server` — dashboard application service.
 - `@music-practice-buddy/core/server/auth` — authentication middleware and user types.
-- `@music-practice-buddy/core/server/database` — shared PostgreSQL pool for Pro server extensions.
+- `@music-practice-buddy/core/server/database` — shared PostgreSQL pool for downstream server
+  extensions.
 - `@music-practice-buddy/core/styles.css` — shared application stylesheet.
 - `@music-practice-buddy/core/migrations/*` — core Flyway migration assets.
 - `@music-practice-buddy/core/package.json` — package version and metadata.

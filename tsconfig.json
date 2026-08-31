@@ -11,8 +11,7 @@
     "tests",
     "rsbuild.config.ts",
     "vitest.config.ts",
-    "vitest.integration.config.ts",
-    "config"
+    "vitest.integration.config.ts"
   ],
-  "exclude": ["apps/pro-proof", "dist", "node_modules"]
+  "exclude": ["dist", "node_modules"]
 }
