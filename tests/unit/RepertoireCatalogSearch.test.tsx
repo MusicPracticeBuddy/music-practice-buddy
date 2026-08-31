@@ -15,7 +15,7 @@ vi.mock('@tanstack/solid-router', () => ({
   useRouter: () => ({ invalidate: mocks.invalidate }),
 }))
 
-vi.mock('../../src/data/repertoire', () => ({
+vi.mock('../../packages/core/src/data/repertoire', () => ({
   addRepertoireToLibrary: mocks.addToLibrary,
   getPublicRepertoireCatalogPage: mocks.searchCatalog,
   searchComposerNames: mocks.searchComposerNames,

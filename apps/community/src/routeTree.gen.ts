@@ -8,34 +8,34 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as ExercisesRouteImport } from './routes/exercises'
-import { Route as LibraryRouteImport } from './routes/library'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as RepertoireRouteImport } from './routes/repertoire'
-import { Route as SessionsRouteImport } from './routes/sessions'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as TemplatesRouteImport } from './routes/templates'
-import { Route as ExercisesExerciseIdRouteImport } from './routes/exercises/$exerciseId'
-import { Route as ExercisesNewRouteImport } from './routes/exercises/new'
-import { Route as ExercisesOwnedRouteImport } from './routes/exercises/owned'
-import { Route as ExercisesSearchRouteImport } from './routes/exercises/search'
-import { Route as RepertoireRepertoireIdRouteImport } from './routes/repertoire/$repertoireId'
-import { Route as RepertoireOwnedRouteImport } from './routes/repertoire/owned'
-import { Route as RepertoireSearchRouteImport } from './routes/repertoire/search'
-import { Route as SessionsIndexRouteImport } from './routes/sessions/index'
-import { Route as SessionsSessionIdRouteImport } from './routes/sessions/$sessionId'
-import { Route as SessionsNewRouteImport } from './routes/sessions/new'
-import { Route as TemplatesIndexRouteImport } from './routes/templates/index'
-import { Route as TemplatesTemplateIdRouteImport } from './routes/templates/$templateId'
-import { Route as TemplatesNewRouteImport } from './routes/templates/new'
-import { Route as ExercisesExerciseIdEditRouteImport } from './routes/exercises/$exerciseId_.edit'
-import { Route as RepertoireRepertoireIdEditRouteImport } from './routes/repertoire/$repertoireId_.edit'
-import { Route as SessionsSessionIdEditRouteImport } from './routes/sessions/$sessionId_.edit'
-import { Route as TemplatesTemplateIdEditRouteImport } from './routes/templates/$templateId_.edit'
-import { Route as RepertoireRepertoireIdChildrenNewRouteImport } from './routes/repertoire/$repertoireId_.children.new'
-import { Route as RepertoireRepertoireIdExcerptsNewRouteImport } from './routes/repertoire/$repertoireId_.excerpts.new'
+import { Route as rootRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/__root'
+import { Route as IndexRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/index'
+import { Route as ExercisesRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/exercises'
+import { Route as LibraryRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/library'
+import { Route as LoginRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/login'
+import { Route as RepertoireRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/repertoire'
+import { Route as SessionsRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/sessions'
+import { Route as SettingsRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/settings'
+import { Route as TemplatesRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/templates'
+import { Route as ExercisesExerciseIdRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/exercises/$exerciseId'
+import { Route as ExercisesNewRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/exercises/new'
+import { Route as ExercisesOwnedRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/exercises/owned'
+import { Route as ExercisesSearchRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/exercises/search'
+import { Route as RepertoireRepertoireIdRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/repertoire/$repertoireId'
+import { Route as RepertoireOwnedRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/repertoire/owned'
+import { Route as RepertoireSearchRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/repertoire/search'
+import { Route as SessionsIndexRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/sessions/index'
+import { Route as SessionsSessionIdRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/sessions/$sessionId'
+import { Route as SessionsNewRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/sessions/new'
+import { Route as TemplatesIndexRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/templates/index'
+import { Route as TemplatesTemplateIdRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/templates/$templateId'
+import { Route as TemplatesNewRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/templates/new'
+import { Route as ExercisesExerciseId_DoteditRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/exercises/$exerciseId_.edit'
+import { Route as RepertoireRepertoireId_DoteditRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/repertoire/$repertoireId_.edit'
+import { Route as SessionsSessionId_DoteditRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/sessions/$sessionId_.edit'
+import { Route as TemplatesTemplateId_DoteditRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/templates/$templateId_.edit'
+import { Route as RepertoireRepertoireId_DotchildrenDotnewRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/repertoire/$repertoireId_.children.new'
+import { Route as RepertoireRepertoireId_DotexcerptsDotnewRouteImport } from './../../../node_modules/@music-practice-buddy/core/src/routes/repertoire/$repertoireId_.excerpts.new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -142,35 +142,38 @@ const TemplatesNewRoute = TemplatesNewRouteImport.update({
   path: '/new',
   getParentRoute: () => TemplatesRoute,
 } as any)
-const ExercisesExerciseIdEditRoute = ExercisesExerciseIdEditRouteImport.update({
-  id: '/$exerciseId_/edit',
-  path: '/$exerciseId/edit',
-  getParentRoute: () => ExercisesRoute,
-} as any)
-const RepertoireRepertoireIdEditRoute =
-  RepertoireRepertoireIdEditRouteImport.update({
+const ExercisesExerciseId_DoteditRoute =
+  ExercisesExerciseId_DoteditRouteImport.update({
+    id: '/$exerciseId_/edit',
+    path: '/$exerciseId/edit',
+    getParentRoute: () => ExercisesRoute,
+  } as any)
+const RepertoireRepertoireId_DoteditRoute =
+  RepertoireRepertoireId_DoteditRouteImport.update({
     id: '/$repertoireId_/edit',
     path: '/$repertoireId/edit',
     getParentRoute: () => RepertoireRoute,
   } as any)
-const SessionsSessionIdEditRoute = SessionsSessionIdEditRouteImport.update({
-  id: '/$sessionId_/edit',
-  path: '/$sessionId/edit',
-  getParentRoute: () => SessionsRoute,
-} as any)
-const TemplatesTemplateIdEditRoute = TemplatesTemplateIdEditRouteImport.update({
-  id: '/$templateId_/edit',
-  path: '/$templateId/edit',
-  getParentRoute: () => TemplatesRoute,
-} as any)
-const RepertoireRepertoireIdChildrenNewRoute =
-  RepertoireRepertoireIdChildrenNewRouteImport.update({
+const SessionsSessionId_DoteditRoute =
+  SessionsSessionId_DoteditRouteImport.update({
+    id: '/$sessionId_/edit',
+    path: '/$sessionId/edit',
+    getParentRoute: () => SessionsRoute,
+  } as any)
+const TemplatesTemplateId_DoteditRoute =
+  TemplatesTemplateId_DoteditRouteImport.update({
+    id: '/$templateId_/edit',
+    path: '/$templateId/edit',
+    getParentRoute: () => TemplatesRoute,
+  } as any)
+const RepertoireRepertoireId_DotchildrenDotnewRoute =
+  RepertoireRepertoireId_DotchildrenDotnewRouteImport.update({
     id: '/$repertoireId_/children/new',
     path: '/$repertoireId/children/new',
     getParentRoute: () => RepertoireRoute,
   } as any)
-const RepertoireRepertoireIdExcerptsNewRoute =
-  RepertoireRepertoireIdExcerptsNewRouteImport.update({
+const RepertoireRepertoireId_DotexcerptsDotnewRoute =
+  RepertoireRepertoireId_DotexcerptsDotnewRouteImport.update({
     id: '/$repertoireId_/excerpts/new',
     path: '/$repertoireId/excerpts/new',
     getParentRoute: () => RepertoireRoute,
@@ -198,12 +201,12 @@ export interface FileRoutesByFullPath {
   '/templates/new': typeof TemplatesNewRoute
   '/sessions/': typeof SessionsIndexRoute
   '/templates/': typeof TemplatesIndexRoute
-  '/exercises/$exerciseId/edit': typeof ExercisesExerciseIdEditRoute
-  '/repertoire/$repertoireId/edit': typeof RepertoireRepertoireIdEditRoute
-  '/sessions/$sessionId/edit': typeof SessionsSessionIdEditRoute
-  '/templates/$templateId/edit': typeof TemplatesTemplateIdEditRoute
-  '/repertoire/$repertoireId/children/new': typeof RepertoireRepertoireIdChildrenNewRoute
-  '/repertoire/$repertoireId/excerpts/new': typeof RepertoireRepertoireIdExcerptsNewRoute
+  '/exercises/$exerciseId/edit': typeof ExercisesExerciseId_DoteditRoute
+  '/repertoire/$repertoireId/edit': typeof RepertoireRepertoireId_DoteditRoute
+  '/sessions/$sessionId/edit': typeof SessionsSessionId_DoteditRoute
+  '/templates/$templateId/edit': typeof TemplatesTemplateId_DoteditRoute
+  '/repertoire/$repertoireId/children/new': typeof RepertoireRepertoireId_DotchildrenDotnewRoute
+  '/repertoire/$repertoireId/excerpts/new': typeof RepertoireRepertoireId_DotexcerptsDotnewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -225,12 +228,12 @@ export interface FileRoutesByTo {
   '/templates/new': typeof TemplatesNewRoute
   '/sessions': typeof SessionsIndexRoute
   '/templates': typeof TemplatesIndexRoute
-  '/exercises/$exerciseId/edit': typeof ExercisesExerciseIdEditRoute
-  '/repertoire/$repertoireId/edit': typeof RepertoireRepertoireIdEditRoute
-  '/sessions/$sessionId/edit': typeof SessionsSessionIdEditRoute
-  '/templates/$templateId/edit': typeof TemplatesTemplateIdEditRoute
-  '/repertoire/$repertoireId/children/new': typeof RepertoireRepertoireIdChildrenNewRoute
-  '/repertoire/$repertoireId/excerpts/new': typeof RepertoireRepertoireIdExcerptsNewRoute
+  '/exercises/$exerciseId/edit': typeof ExercisesExerciseId_DoteditRoute
+  '/repertoire/$repertoireId/edit': typeof RepertoireRepertoireId_DoteditRoute
+  '/sessions/$sessionId/edit': typeof SessionsSessionId_DoteditRoute
+  '/templates/$templateId/edit': typeof TemplatesTemplateId_DoteditRoute
+  '/repertoire/$repertoireId/children/new': typeof RepertoireRepertoireId_DotchildrenDotnewRoute
+  '/repertoire/$repertoireId/excerpts/new': typeof RepertoireRepertoireId_DotexcerptsDotnewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -255,12 +258,12 @@ export interface FileRoutesById {
   '/templates/new': typeof TemplatesNewRoute
   '/sessions/': typeof SessionsIndexRoute
   '/templates/': typeof TemplatesIndexRoute
-  '/exercises/$exerciseId_/edit': typeof ExercisesExerciseIdEditRoute
-  '/repertoire/$repertoireId_/edit': typeof RepertoireRepertoireIdEditRoute
-  '/sessions/$sessionId_/edit': typeof SessionsSessionIdEditRoute
-  '/templates/$templateId_/edit': typeof TemplatesTemplateIdEditRoute
-  '/repertoire/$repertoireId_/children/new': typeof RepertoireRepertoireIdChildrenNewRoute
-  '/repertoire/$repertoireId_/excerpts/new': typeof RepertoireRepertoireIdExcerptsNewRoute
+  '/exercises/$exerciseId_/edit': typeof ExercisesExerciseId_DoteditRoute
+  '/repertoire/$repertoireId_/edit': typeof RepertoireRepertoireId_DoteditRoute
+  '/sessions/$sessionId_/edit': typeof SessionsSessionId_DoteditRoute
+  '/templates/$templateId_/edit': typeof TemplatesTemplateId_DoteditRoute
+  '/repertoire/$repertoireId_/children/new': typeof RepertoireRepertoireId_DotchildrenDotnewRoute
+  '/repertoire/$repertoireId_/excerpts/new': typeof RepertoireRepertoireId_DotexcerptsDotnewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -514,42 +517,42 @@ declare module '@tanstack/solid-router' {
       id: '/exercises/$exerciseId_/edit'
       path: '/$exerciseId/edit'
       fullPath: '/exercises/$exerciseId/edit'
-      preLoaderRoute: typeof ExercisesExerciseIdEditRouteImport
+      preLoaderRoute: typeof ExercisesExerciseId_DoteditRouteImport
       parentRoute: typeof ExercisesRoute
     }
     '/repertoire/$repertoireId_/edit': {
       id: '/repertoire/$repertoireId_/edit'
       path: '/$repertoireId/edit'
       fullPath: '/repertoire/$repertoireId/edit'
-      preLoaderRoute: typeof RepertoireRepertoireIdEditRouteImport
+      preLoaderRoute: typeof RepertoireRepertoireId_DoteditRouteImport
       parentRoute: typeof RepertoireRoute
     }
     '/sessions/$sessionId_/edit': {
       id: '/sessions/$sessionId_/edit'
       path: '/$sessionId/edit'
       fullPath: '/sessions/$sessionId/edit'
-      preLoaderRoute: typeof SessionsSessionIdEditRouteImport
+      preLoaderRoute: typeof SessionsSessionId_DoteditRouteImport
       parentRoute: typeof SessionsRoute
     }
     '/templates/$templateId_/edit': {
       id: '/templates/$templateId_/edit'
       path: '/$templateId/edit'
       fullPath: '/templates/$templateId/edit'
-      preLoaderRoute: typeof TemplatesTemplateIdEditRouteImport
+      preLoaderRoute: typeof TemplatesTemplateId_DoteditRouteImport
       parentRoute: typeof TemplatesRoute
     }
     '/repertoire/$repertoireId_/children/new': {
       id: '/repertoire/$repertoireId_/children/new'
       path: '/$repertoireId/children/new'
       fullPath: '/repertoire/$repertoireId/children/new'
-      preLoaderRoute: typeof RepertoireRepertoireIdChildrenNewRouteImport
+      preLoaderRoute: typeof RepertoireRepertoireId_DotchildrenDotnewRouteImport
       parentRoute: typeof RepertoireRoute
     }
     '/repertoire/$repertoireId_/excerpts/new': {
       id: '/repertoire/$repertoireId_/excerpts/new'
       path: '/$repertoireId/excerpts/new'
       fullPath: '/repertoire/$repertoireId/excerpts/new'
-      preLoaderRoute: typeof RepertoireRepertoireIdExcerptsNewRouteImport
+      preLoaderRoute: typeof RepertoireRepertoireId_DotexcerptsDotnewRouteImport
       parentRoute: typeof RepertoireRoute
     }
   }
@@ -560,7 +563,7 @@ interface ExercisesRouteChildren {
   ExercisesNewRoute: typeof ExercisesNewRoute
   ExercisesOwnedRoute: typeof ExercisesOwnedRoute
   ExercisesSearchRoute: typeof ExercisesSearchRoute
-  ExercisesExerciseIdEditRoute: typeof ExercisesExerciseIdEditRoute
+  ExercisesExerciseId_DoteditRoute: typeof ExercisesExerciseId_DoteditRoute
 }
 
 const ExercisesRouteChildren: ExercisesRouteChildren = {
@@ -568,7 +571,7 @@ const ExercisesRouteChildren: ExercisesRouteChildren = {
   ExercisesNewRoute: ExercisesNewRoute,
   ExercisesOwnedRoute: ExercisesOwnedRoute,
   ExercisesSearchRoute: ExercisesSearchRoute,
-  ExercisesExerciseIdEditRoute: ExercisesExerciseIdEditRoute,
+  ExercisesExerciseId_DoteditRoute: ExercisesExerciseId_DoteditRoute,
 }
 
 const ExercisesRouteWithChildren = ExercisesRoute._addFileChildren(
@@ -579,20 +582,20 @@ interface RepertoireRouteChildren {
   RepertoireRepertoireIdRoute: typeof RepertoireRepertoireIdRoute
   RepertoireOwnedRoute: typeof RepertoireOwnedRoute
   RepertoireSearchRoute: typeof RepertoireSearchRoute
-  RepertoireRepertoireIdEditRoute: typeof RepertoireRepertoireIdEditRoute
-  RepertoireRepertoireIdChildrenNewRoute: typeof RepertoireRepertoireIdChildrenNewRoute
-  RepertoireRepertoireIdExcerptsNewRoute: typeof RepertoireRepertoireIdExcerptsNewRoute
+  RepertoireRepertoireId_DoteditRoute: typeof RepertoireRepertoireId_DoteditRoute
+  RepertoireRepertoireId_DotchildrenDotnewRoute: typeof RepertoireRepertoireId_DotchildrenDotnewRoute
+  RepertoireRepertoireId_DotexcerptsDotnewRoute: typeof RepertoireRepertoireId_DotexcerptsDotnewRoute
 }
 
 const RepertoireRouteChildren: RepertoireRouteChildren = {
   RepertoireRepertoireIdRoute: RepertoireRepertoireIdRoute,
   RepertoireOwnedRoute: RepertoireOwnedRoute,
   RepertoireSearchRoute: RepertoireSearchRoute,
-  RepertoireRepertoireIdEditRoute: RepertoireRepertoireIdEditRoute,
-  RepertoireRepertoireIdChildrenNewRoute:
-    RepertoireRepertoireIdChildrenNewRoute,
-  RepertoireRepertoireIdExcerptsNewRoute:
-    RepertoireRepertoireIdExcerptsNewRoute,
+  RepertoireRepertoireId_DoteditRoute: RepertoireRepertoireId_DoteditRoute,
+  RepertoireRepertoireId_DotchildrenDotnewRoute:
+    RepertoireRepertoireId_DotchildrenDotnewRoute,
+  RepertoireRepertoireId_DotexcerptsDotnewRoute:
+    RepertoireRepertoireId_DotexcerptsDotnewRoute,
 }
 
 const RepertoireRouteWithChildren = RepertoireRoute._addFileChildren(
@@ -603,14 +606,14 @@ interface SessionsRouteChildren {
   SessionsSessionIdRoute: typeof SessionsSessionIdRoute
   SessionsNewRoute: typeof SessionsNewRoute
   SessionsIndexRoute: typeof SessionsIndexRoute
-  SessionsSessionIdEditRoute: typeof SessionsSessionIdEditRoute
+  SessionsSessionId_DoteditRoute: typeof SessionsSessionId_DoteditRoute
 }
 
 const SessionsRouteChildren: SessionsRouteChildren = {
   SessionsSessionIdRoute: SessionsSessionIdRoute,
   SessionsNewRoute: SessionsNewRoute,
   SessionsIndexRoute: SessionsIndexRoute,
-  SessionsSessionIdEditRoute: SessionsSessionIdEditRoute,
+  SessionsSessionId_DoteditRoute: SessionsSessionId_DoteditRoute,
 }
 
 const SessionsRouteWithChildren = SessionsRoute._addFileChildren(
@@ -621,14 +624,14 @@ interface TemplatesRouteChildren {
   TemplatesTemplateIdRoute: typeof TemplatesTemplateIdRoute
   TemplatesNewRoute: typeof TemplatesNewRoute
   TemplatesIndexRoute: typeof TemplatesIndexRoute
-  TemplatesTemplateIdEditRoute: typeof TemplatesTemplateIdEditRoute
+  TemplatesTemplateId_DoteditRoute: typeof TemplatesTemplateId_DoteditRoute
 }
 
 const TemplatesRouteChildren: TemplatesRouteChildren = {
   TemplatesTemplateIdRoute: TemplatesTemplateIdRoute,
   TemplatesNewRoute: TemplatesNewRoute,
   TemplatesIndexRoute: TemplatesIndexRoute,
-  TemplatesTemplateIdEditRoute: TemplatesTemplateIdEditRoute,
+  TemplatesTemplateId_DoteditRoute: TemplatesTemplateId_DoteditRoute,
 }
 
 const TemplatesRouteWithChildren = TemplatesRoute._addFileChildren(

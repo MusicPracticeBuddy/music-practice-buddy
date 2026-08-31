@@ -17,25 +17,25 @@ vi.mock('@tanstack/solid-router', () => ({
   ),
 }))
 
-vi.mock('../../src/components/DeleteConfirmationDialog', () => ({
+vi.mock('../../packages/core/src/components/DeleteConfirmationDialog', () => ({
   DeleteConfirmationDialog: () => null,
 }))
 
-vi.mock('../../src/components/SwipeToDelete', () => ({
+vi.mock('../../packages/core/src/components/SwipeToDelete', () => ({
   SwipeToDelete: (props: { children: JSX.Element }) => <>{props.children}</>,
 }))
 
-vi.mock('../../src/components/InstrumentFields', () => ({
+vi.mock('../../packages/core/src/components/InstrumentFields', () => ({
   InstrumentFilter: () => null,
 }))
 
-vi.mock('../../src/data/sessions', () => ({
+vi.mock('../../packages/core/src/data/sessions', () => ({
   deletePlannedSession: vi.fn(),
   EMPTY_SESSION_SEARCH: { instrumentIds: [], page: 1 },
   getSessionsPage: vi.fn(),
 }))
 
-vi.mock('../../src/data/repertoire', () => ({
+vi.mock('../../packages/core/src/data/repertoire', () => ({
   getInstruments: vi.fn(),
 }))
 

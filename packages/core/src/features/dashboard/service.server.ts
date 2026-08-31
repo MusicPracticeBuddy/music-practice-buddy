@@ -1,8 +1,6 @@
-import { createServerFn } from '@tanstack/solid-start'
-import { authMiddleware } from '@/auth/middleware'
-import { pool } from '@/data/db'
+import type { Pool } from 'pg'
 
-type DashboardData = {
+export type DashboardData = {
   counts: {
     repertoire: number
     exercises: number
@@ -18,19 +16,19 @@ type DashboardData = {
   } | null
 }
 
-export const getDashboard = createServerFn({ method: 'GET' })
-  .middleware([authMiddleware])
-  .handler(async ({ context }): Promise<DashboardData> => {
-    const musicianId = context.user.musicianId
-    const [summary, nextSession] = await Promise.all([
-      pool.query<{
-        repertoire: number
-        exercises: number
-        sessions: number
-        completed_sessions: number
-        minutes_practiced: number
-      }>(
-        `
+export async function getDashboardForMusician(
+  database: Pool,
+  musicianId: string,
+): Promise<DashboardData> {
+  const [summary, nextSession] = await Promise.all([
+    database.query<{
+      repertoire: number
+      exercises: number
+      sessions: number
+      completed_sessions: number
+      minutes_practiced: number
+    }>(
+      `
         WITH RECURSIVE repertoire_access AS (
           SELECT id, owner_musician_id, visibility
           FROM repertoire
@@ -64,15 +62,15 @@ export const getDashboard = createServerFn({ method: 'GET' })
             WHERE musician_id = $1 AND ended_at IS NOT NULL AND started_at IS NOT NULL
           ), 0) AS minutes_practiced
       `,
-        [musicianId],
-      ),
-      pool.query<{
-        id: string
-        template_name: string
-        status: string
-        assigned_date: string | null
-      }>(
-        `
+      [musicianId],
+    ),
+    database.query<{
+      id: string
+      template_name: string
+      status: string
+      assigned_date: string | null
+    }>(
+      `
         SELECT s.id::text, COALESCE(st.name, 'Open practice') AS template_name,
                s.status::text, to_char(s.assigned_date, 'YYYY-MM-DD') AS assigned_date
         FROM session s
@@ -82,28 +80,28 @@ export const getDashboard = createServerFn({ method: 'GET' })
           s.assigned_date NULLS LAST
         LIMIT 1
       `,
-        [musicianId],
-      ),
-    ])
+      [musicianId],
+    ),
+  ])
 
-    const totals = summary.rows[0]
-    const next = nextSession.rows[0]
+  const totals = summary.rows[0]!
+  const next = nextSession.rows[0]
 
-    return {
-      counts: {
-        repertoire: totals.repertoire,
-        exercises: totals.exercises,
-        sessions: totals.sessions,
-        completedSessions: totals.completed_sessions,
-      },
-      minutesPracticed: totals.minutes_practiced,
-      nextSession: next
-        ? {
-            id: next.id,
-            templateName: next.template_name,
-            status: next.status,
-            assignedDate: next.assigned_date,
-          }
-        : null,
-    }
-  })
+  return {
+    counts: {
+      repertoire: totals.repertoire,
+      exercises: totals.exercises,
+      sessions: totals.sessions,
+      completedSessions: totals.completed_sessions,
+    },
+    minutesPracticed: totals.minutes_practiced,
+    nextSession: next
+      ? {
+          id: next.id,
+          templateName: next.template_name,
+          status: next.status,
+          assignedDate: next.assigned_date,
+        }
+      : null,
+  }
+}

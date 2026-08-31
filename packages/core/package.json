@@ -1,0 +1,38 @@
+{
+  "name": "@music-practice-buddy/core",
+  "version": "1.0.0",
+  "files": [
+    "src",
+    "migrations",
+    "README.md"
+  ],
+  "type": "module",
+  "exports": {
+    "./contracts": "./src/edition/index.ts",
+    "./app/client": "./src/app/client.ts",
+    "./app/start": "./src/app/start.ts",
+    "./app/server": "./src/app/server.ts",
+    "./server/auth": "./src/server/auth.ts",
+    "./server/database": "./src/server/database.ts"
+  },
+  "dependencies": {
+    "@kobalte/core": "^0.13.13",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/auto-instrumentations-node": "^0.79.0",
+    "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/sdk-node": "^0.221.0",
+    "@opentelemetry/semantic-conventions": "^1.43.0",
+    "@types/node": "^26.2.0",
+    "@types/pg": "^8.23.1",
+    "@types/sortablejs": "^1.15.9",
+    "abc-notation-transposition": "^1.0.6",
+    "abcjs": "^6.7.0",
+    "pg": "^8.23.0",
+    "sortablejs": "^1.15.7"
+  },
+  "peerDependencies": {
+    "@tanstack/solid-router": "^1.170.0",
+    "@tanstack/solid-start": "^1.168.0",
+    "solid-js": "^1.9.0"
+  }
+}

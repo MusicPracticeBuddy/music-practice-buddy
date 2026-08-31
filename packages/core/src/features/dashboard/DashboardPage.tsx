@@ -1,11 +1,13 @@
-import { Show } from 'solid-js'
-import { createFileRoute, Link } from '@tanstack/solid-router'
-import { getDashboard } from '@/data/dashboard'
+import { For, Show } from 'solid-js'
+import { Link } from '@tanstack/solid-router'
+import { Dynamic } from 'solid-js/web'
+import type { EditionContribution } from '@/edition/contracts'
+import type { DashboardData } from './service.server'
 
-export const Route = createFileRoute('/')({
-  loader: () => getDashboard(),
-  component: Dashboard,
-})
+type DashboardPageProps = Readonly<{
+  data: DashboardData
+  panels: readonly EditionContribution[]
+}>
 
 function formatSchedule(assignedDate: string | null) {
   if (!assignedDate) return 'No date assigned'
@@ -17,9 +19,7 @@ function formatSchedule(assignedDate: string | null) {
   }).format(new Date(year!, month! - 1, day))
 }
 
-function Dashboard() {
-  const data = Route.useLoaderData()
-
+export function DashboardPage(props: DashboardPageProps) {
   return (
     <main class="page">
       <section class="hero">
@@ -31,29 +31,29 @@ function Dashboard() {
       <section class="stat-grid" aria-label="Practice statistics">
         <Link class="stat-card" to="/library">
           <span>Repertoire</span>
-          <strong>{data().counts.repertoire}</strong>
+          <strong>{props.data.counts.repertoire}</strong>
           <small>pieces and excerpts</small>
         </Link>
         <Link class="stat-card" to="/library">
           <span>Exercises</span>
-          <strong>{data().counts.exercises}</strong>
+          <strong>{props.data.counts.exercises}</strong>
           <small>in the library</small>
         </Link>
         <Link class="stat-card" to="/sessions">
           <span>Practice time</span>
-          <strong>{data().minutesPracticed}</strong>
+          <strong>{props.data.minutesPracticed}</strong>
           <small>minutes completed</small>
         </Link>
         <Link class="stat-card" to="/sessions">
           <span>Sessions</span>
-          <strong>{data().counts.sessions}</strong>
-          <small>{data().counts.completedSessions} completed</small>
+          <strong>{props.data.counts.sessions}</strong>
+          <small>{props.data.counts.completedSessions} completed</small>
         </Link>
       </section>
 
       <section class="feature-card">
         <Show
-          when={data().nextSession}
+          when={props.data.nextSession}
           fallback={
             <div>
               <p class="eyebrow">Up next</p>
@@ -76,6 +76,10 @@ function Dashboard() {
           )}
         </Show>
       </section>
+
+      <For each={props.panels}>
+        {(contribution) => <Dynamic component={contribution.component} />}
+      </For>
     </main>
   )
 }

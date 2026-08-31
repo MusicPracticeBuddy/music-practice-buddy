@@ -2,6 +2,9 @@
   "name": "music-practice-buddy",
   "version": "1.0.0",
   "description": "Utilities to help with tracking practice sessions",
+  "workspaces": [
+    "packages/*"
+  ],
   "type": "module",
   "main": "index.js",
   "scripts": {
@@ -11,14 +14,21 @@
     "format:check": "oxfmt --check",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "npm run typecheck:community && npm run typecheck:pro-proof",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:all": "npm run test && npm run test:integration"
+    "test:all": "npm run test && npm run test:integration",
+    "dev:pro-proof": "rsbuild dev -c rsbuild.pro-proof.config.ts",
+    "build:pro-proof": "rsbuild build -c rsbuild.pro-proof.config.ts",
+    "typecheck:community": "tsc --noEmit -p tsconfig.json",
+    "typecheck:pro-proof": "tsc --noEmit -p apps/pro-proof/tsconfig.json",
+    "package:core": "mkdir -p artifacts && npm pack --workspace @music-practice-buddy/core --pack-destination artifacts",
+    "check:boundaries": "node scripts/check-core-boundary.mjs"
   },
   "dependencies": {
     "@kobalte/core": "^0.13.13",
+    "@music-practice-buddy/core": "1.0.0",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/auto-instrumentations-node": "^0.79.0",
     "@opentelemetry/resources": "^2.10.0",
@@ -38,6 +48,7 @@
     "@rsbuild/plugin-babel": "^2.1.0",
     "@rsbuild/plugin-solid": "^1.2.2",
     "@solidjs/testing-library": "^0.8.10",
+    "@tanstack/virtual-file-routes": "1.162.0",
     "@testcontainers/postgresql": "^12.1.0",
     "@types/node": "^26.2.0",
     "@types/pg": "^8.23.1",

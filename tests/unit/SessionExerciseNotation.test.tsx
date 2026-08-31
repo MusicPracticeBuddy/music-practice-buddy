@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library'
 
-vi.mock('../../src/components/ExerciseNotation', () => ({
+vi.mock('../../packages/core/src/components/ExerciseNotation', () => ({
   ExerciseNotation: (props: {
     clef?: string
     transpose?: {

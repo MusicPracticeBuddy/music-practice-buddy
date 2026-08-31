@@ -11,7 +11,9 @@ declare module 'vitest' {
 }
 
 async function applyMigrations(connectionUri: string) {
-  const migrationDirectory = fileURLToPath(new URL('../../db/migration/', import.meta.url))
+  const migrationDirectory = fileURLToPath(
+    new URL('../../packages/core/migrations/', import.meta.url),
+  )
   const migrationFiles = (await readdir(migrationDirectory))
     .map((name) => ({ name, version: Number(name.match(/^V(\d+)__/)?.[1]) }))
     .filter((file) => Number.isInteger(file.version))

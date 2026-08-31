@@ -38,7 +38,7 @@ services:
       - 'migrate'
 
     volumes:
-      - ./db/migration:/flyway/sql:ro
+      - ./packages/core/migrations:/flyway/sql:ro
 
   seed:
     image: postgres:17

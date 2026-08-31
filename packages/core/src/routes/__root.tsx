@@ -4,16 +4,17 @@ import {
   Link,
   Outlet,
   Scripts,
-  createRootRoute,
+  createRootRouteWithContext,
   redirect,
   useRouter,
 } from '@tanstack/solid-router'
-import { HydrationScript } from 'solid-js/web'
+import { Dynamic, HydrationScript } from 'solid-js/web'
 import type { AuthenticatedUser } from '@/auth/types'
 import { getCurrentUser, logout } from '@/data/auth'
+import type { MpbRouterContext } from '@/edition/contracts'
 import '@/styles.css'
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<MpbRouterContext>()({
   beforeLoad: async ({ location }) => {
     const user = await getCurrentUser()
     const isLogin = location.pathname === '/login'
@@ -61,13 +62,16 @@ function RootComponent() {
   return (
     <RootDocument>
       <Solid.Show when={context().user} fallback={<Outlet />}>
-        {(user) => <AuthenticatedShell user={user()} />}
+        {(user) => <AuthenticatedShell edition={context().edition} user={user()} />}
       </Solid.Show>
     </RootDocument>
   )
 }
 
-function AuthenticatedShell({ user }: Readonly<{ user: AuthenticatedUser }>) {
+function AuthenticatedShell({
+  edition,
+  user,
+}: Readonly<{ edition: MpbRouterContext['edition']; user: AuthenticatedUser }>) {
   const router = useRouter()
 
   async function signOut() {
@@ -108,6 +112,9 @@ function AuthenticatedShell({ user }: Readonly<{ user: AuthenticatedUser }>) {
           <Link to="/templates" activeProps={{ class: 'active' }}>
             Templates
           </Link>
+          <Solid.For each={edition.primaryNavigation}>
+            {(contribution) => <Dynamic component={contribution.component} />}
+          </Solid.For>
         </nav>
         <div class="user-menu">
           <span>{user.displayName}</span>

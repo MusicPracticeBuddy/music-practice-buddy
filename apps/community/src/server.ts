@@ -1,4 +1,4 @@
-import { initializeOpenTelemetry } from '@/telemetry/instrumentation.server'
+import { initializeOpenTelemetry } from '@music-practice-buddy/core/app/server'
 import type { Register } from '@tanstack/solid-router'
 import type { RequestHandler } from '@tanstack/solid-start/server'
 

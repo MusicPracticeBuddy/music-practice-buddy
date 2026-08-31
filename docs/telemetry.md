@@ -1,7 +1,7 @@
 # Telemetry extension points
 
 The application collects telemetry through the vendor-neutral `TelemetryProvider` interface in
-`src/telemetry/telemetry.ts`. The provider registry lives in `src/telemetry/provider.server.ts`, and
+`packages/core/src/telemetry/telemetry.ts`. The provider registry lives in `packages/core/src/telemetry/provider.server.ts`, and
 its default implementation is a no-op. This repository has no exporter, collector, or monitoring
 infrastructure dependency.
 

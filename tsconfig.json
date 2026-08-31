@@ -1,14 +1,18 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "jsx": "preserve",
-    "jsxImportSource": "solid-js",
-    "moduleResolution": "Bundler",
-    "module": "ESNext",
-    "target": "ES2022",
     "paths": {
-      "@/*": ["./src/*"]
-    },
-    "skipLibCheck": true,
-    "strictNullChecks": true
-  }
+      "@/*": ["./packages/core/src/*"]
+    }
+  },
+  "include": [
+    "apps/community/src",
+    "packages/core/src",
+    "tests",
+    "rsbuild.config.ts",
+    "vitest.config.ts",
+    "vitest.integration.config.ts",
+    "config"
+  ],
+  "exclude": ["apps/pro-proof", "dist", "node_modules"]
 }

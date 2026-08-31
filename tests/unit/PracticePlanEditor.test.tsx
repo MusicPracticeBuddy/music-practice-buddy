@@ -43,18 +43,18 @@ vi.mock('@tanstack/solid-router', () => ({
   useRouter: () => ({ invalidate: routerMock.invalidate }),
 }))
 
-vi.mock('../../src/data/sessionTemplates', () => ({
+vi.mock('../../packages/core/src/data/sessionTemplates', () => ({
   createSessionTemplate: vi.fn(),
   getTemplateLibrary: vi.fn(),
   updatePlannedSession: vi.fn(),
   updateSessionTemplate: vi.fn(),
 }))
 
-vi.mock('../../src/data/exercises', () => ({
+vi.mock('../../packages/core/src/data/exercises', () => ({
   createExercise: vi.fn(),
 }))
 
-vi.mock('../../src/data/repertoire', () => ({
+vi.mock('../../packages/core/src/data/repertoire', () => ({
   EMPTY_CATALOG_SEARCH: {
     query: '',
     composer: '',

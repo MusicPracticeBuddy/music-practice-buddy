@@ -22,12 +22,12 @@ vi.mock('@tanstack/solid-router', () => ({
   useRouter: () => ({ invalidate: vi.fn(async () => undefined) }),
 }))
 
-vi.mock('../../src/data/preferences', () => ({
+vi.mock('../../packages/core/src/data/preferences', () => ({
   getMusicianInstrumentIds: vi.fn(),
   updateMusicianInstrumentIds: vi.fn(),
 }))
 
-vi.mock('../../src/data/repertoire', () => ({
+vi.mock('../../packages/core/src/data/repertoire', () => ({
   getInstruments: vi.fn(),
 }))
 

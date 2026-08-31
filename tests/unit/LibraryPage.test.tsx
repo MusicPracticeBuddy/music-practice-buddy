@@ -50,23 +50,23 @@ vi.mock('@tanstack/solid-router', () => ({
   ),
 }))
 
-vi.mock('../../src/components/DeleteConfirmationDialog', () => ({
+vi.mock('../../packages/core/src/components/DeleteConfirmationDialog', () => ({
   DeleteConfirmationDialog: () => null,
 }))
 
-vi.mock('../../src/components/ExerciseNotation', () => ({
+vi.mock('../../packages/core/src/components/ExerciseNotation', () => ({
   ExerciseNotation: () => null,
 }))
 
-vi.mock('../../src/components/InstrumentFields', () => ({
+vi.mock('../../packages/core/src/components/InstrumentFields', () => ({
   InstrumentFilter: () => null,
 }))
 
-vi.mock('../../src/components/RepertoireLibraryNote', () => ({
+vi.mock('../../packages/core/src/components/RepertoireLibraryNote', () => ({
   RepertoireLibraryNote: () => null,
 }))
 
-vi.mock('../../src/data/exercises', () => ({
+vi.mock('../../packages/core/src/data/exercises', () => ({
   EMPTY_EXERCISE_LIBRARY_SEARCH: {
     query: '',
     visibility: 'ALL',
@@ -78,7 +78,7 @@ vi.mock('../../src/data/exercises', () => ({
   removeExerciseFromLibrary: vi.fn(),
 }))
 
-vi.mock('../../src/data/repertoire', () => ({
+vi.mock('../../packages/core/src/data/repertoire', () => ({
   EMPTY_REPERTOIRE_LIBRARY_SEARCH: {
     query: '',
     composer: '',

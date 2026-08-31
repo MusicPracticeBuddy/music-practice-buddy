@@ -21,12 +21,12 @@ vi.mock('@tanstack/solid-router', () => ({
   useRouter: () => ({ invalidate: mocks.invalidate }),
 }))
 
-vi.mock('../../src/data/exercises', () => ({
+vi.mock('../../packages/core/src/data/exercises', () => ({
   createExercise: vi.fn(),
   updateExercise: mocks.updateExercise,
 }))
 
-vi.mock('../../src/data/repertoire', () => ({
+vi.mock('../../packages/core/src/data/repertoire', () => ({
   createChildRepertoire: mocks.createChildRepertoire,
   createRepertoire: vi.fn(),
   searchComposerNames: mocks.searchComposerNames,
