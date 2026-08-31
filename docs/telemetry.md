@@ -9,14 +9,11 @@ The built-in hooks report:
 
 - a page view after each completed client-side router render, reported to a server function with the
   URL path and stable route ID;
-- every TanStack server-function call, with its function name, HTTP method, duration, and outcome;
-- every PostgreSQL query made through the shared pool, including transaction clients, through the
-  official PostgreSQL instrumentation, with a stable query name and bounded per-query metrics.
+- every TanStack server-function call, with its function name, HTTP method, duration, and outcome.
 
 Every application event has a server-generated UTC ISO 8601 `timestamp`. For a page view it marks
 when the server accepted the report. For server-function events it marks when the operation began;
-`durationMs` records the elapsed time until completion. PostgreSQL span timing comes directly from
-the OpenTelemetry instrumentation.
+`durationMs` records the elapsed time until completion.
 
 Every event also has a `serverVersion`. Set `SERVER_VERSION` in the deployed server environment to
 the release identifier, normally the Git commit hash supplied by CI/CD. If it is unset or blank, the
@@ -27,34 +24,28 @@ not need Git when `SERVER_VERSION` is supplied.
 Each browser API call receives a W3C-style 32-character trace ID. Navigations establish a client
 trace before route loading begins, so the page-view report, route-loader server functions, and their
 SQL queries share one ID. Other API calls receive one trace ID per call. Server-side async context
-propagates the ID to nested SQL queries without adding it to application function arguments.
-Client server-function calls also send a W3C `traceparent` header, allowing OpenTelemetry's inbound
-HTTP spans, TanStack spans, SQL spans, and metric exemplars to use that same trace ID.
+propagates the ID without adding it to application function arguments. Client server-function calls
+also send a W3C `traceparent` header, allowing a downstream tracing provider's inbound HTTP spans,
+application spans, database spans, and metric exemplars to use that same trace ID.
 The async context and provider registry use process-global symbols because TanStack can include the
 same telemetry modules in multiple server-function chunks; all chunks therefore share one active
 trace and provider instance.
 
 Query parameter values, authenticated-user details, headers, and response bodies are not reported.
-The SQL statement is useful as trace span data, but it should not be used directly as a Prometheus
-label. Use `operation` or a bounded statement fingerprint for metric labels to avoid high
-cardinality.
 
 ## Supplying an implementation
 
 A downstream application can implement `TelemetryProvider` and install it with
-`configureTelemetry(provider)` during server startup. The provider registry is a server-only module.
-No provider, OpenTelemetry SDK, exporter, metric, or span is created in the browser; browser code
-only reports completed navigations to the `reportPageView` server function.
+`configureTelemetry(provider)` from `@music-practice-buddy/core/app/server` during server startup.
+The provider registry is server-only. No provider, exporter, metric, or span is created in the
+browser; browser code only reports completed navigations to the `reportPageView` server function.
 
 To inspect telemetry without installing a provider, set `TELEMETRY_CONSOLE_ENABLED=true` in the
 server runtime environment and restart the application. Events then appear in the server output with
 a `[telemetry]` prefix. The option defaults to disabled; any value other than the exact string `true`
 uses the no-op provider.
 
-Timed application events include `durationMs` and `outcome`. PostgreSQL spans and metrics include a
-stable, kebab-case `db.query.name` such as `count-session-template`. Query-config names take
-precedence over generated names, so individual queries can opt into more domain-specific labels.
-Bound query parameter values are not added to spans or metrics.
+Timed application events include `durationMs` and `outcome`.
 
 Trace IDs are appropriate for logs, traces, and Prometheus exemplars. Do not use them as ordinary
 Prometheus metric labels: their unbounded cardinality would make the metric expensive. Use an
@@ -75,21 +66,3 @@ the callback's return value and errors. Call `resetTelemetry()` in tests that re
 
 Prometheus, Grafana, Tempo, exporters, and an OpenTelemetry Collector belong in the downstream
 deployment project rather than this repository.
-
-## Experimental OpenTelemetry integration
-
-The project includes TanStack Start's experimental, manual OpenTelemetry setup for Node. It is
-disabled by default. Set `OTEL_ENABLED=true` to initialize the OpenTelemetry Node SDK before the
-application server is imported. To keep the production dependency graph small, the integration
-registers only the instrumentations the application uses: `@opentelemetry/instrumentation-http` for
-inbound and outbound Node HTTP traffic and `@opentelemetry/instrumentation-pg` for PostgreSQL. The
-project's provider hooks add page-view and server-function spans and metrics. The PostgreSQL request
-hook adds the stable application query name to each span, while a metrics-only pool wrapper retains
-bounded per-query call, duration, and outcome series for dashboards without creating duplicate SQL
-spans.
-
-The SDK uses standard OpenTelemetry environment variables for exporters and collector endpoints. A
-typical OTLP deployment sets `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_PROTOCOL`, and
-optionally `OTEL_SERVICE_NAME`. `SERVER_VERSION` is attached as the `service.version` resource
-attribute. If OpenTelemetry is disabled, the existing no-op/optional-console provider behavior is
-unchanged.

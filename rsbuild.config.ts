@@ -9,13 +9,6 @@ const coreSource = fileURLToPath(
 );
 
 export default defineConfig({
-  environments: {
-    ssr: {
-      output: {
-        externals: [/^@opentelemetry\//],
-      },
-    },
-  },
   resolve: {
     alias: {
       '@': coreSource,

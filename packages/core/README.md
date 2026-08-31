@@ -10,7 +10,7 @@ TanStack Start builds.
 - `@music-practice-buddy/core/routing` — core virtual-route composition.
 - `@music-practice-buddy/core/app/client` — client application instrumentation.
 - `@music-practice-buddy/core/app/start` — shared TanStack Start setup.
-- `@music-practice-buddy/core/app/server` — server application initialization.
+- `@music-practice-buddy/core/app/server` — server telemetry provider registration and metadata.
 - `@music-practice-buddy/core/domain` and `/domain/*` — framework-independent domain APIs.
 - `@music-practice-buddy/core/ui/*` — individually importable shared Solid components.
 - `@music-practice-buddy/core/features/dashboard` — dashboard UI and types.

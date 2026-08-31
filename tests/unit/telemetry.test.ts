@@ -1,11 +1,4 @@
-import type { Span } from '@opentelemetry/api';
-import type { Pool, PoolClient } from 'pg';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  getPostgresQueryName,
-  instrumentPostgresPoolMetrics,
-  setPostgresQueryName,
-} from '@/telemetry/postgres';
 import {
   configureTelemetry,
   recordPageView,
@@ -141,88 +134,5 @@ describe('telemetry', () => {
     });
     expect(operation.run(() => 'result')).toBe('result');
     expect(() => operation.end('success')).not.toThrow();
-  });
-
-  it('generates stable PostgreSQL query names', () => {
-    expect(getPostgresQueryName({ text: 'SELECT * FROM musician WHERE id = $1' })).toBe(
-      'list-musician',
-    );
-    expect(getPostgresQueryName({ text: 'SELECT count(*) FROM session_template' })).toBe(
-      'count-session-template',
-    );
-    expect(getPostgresQueryName({ text: 'BEGIN' })).toBe('transaction-begin');
-    expect(getPostgresQueryName({ text: 'UPDATE session SET status = $1' })).toBe('update-session');
-  });
-
-  it('uses the request hook to preserve PostgreSQL query names', () => {
-    const span = {
-      setAttribute: vi.fn(),
-      updateName: vi.fn(),
-    } as unknown as Span;
-
-    setPostgresQueryName(span, {
-      query: {
-        name: 'get-musician-details',
-        text: 'SELECT * FROM musician WHERE id = $1',
-        values: ['private-id'],
-      },
-      connection: {},
-    });
-
-    expect(span.setAttribute).toHaveBeenCalledWith('db.query.name', 'get-musician-details');
-    expect(span.updateName).toHaveBeenCalledWith('sql get-musician-details');
-  });
-
-  it('records successful named-query metrics without parameter values', async () => {
-    let onConnect: ((client: PoolClient) => void) | undefined;
-    const pool = {
-      on: (_event: string, listener: (client: PoolClient) => void) => {
-        onConnect = listener;
-      },
-    } as unknown as Pool;
-    const client = {
-      query: vi.fn(async () => ({ rows: [], rowCount: 0 })),
-    } as unknown as PoolClient;
-    const record = vi.fn();
-
-    instrumentPostgresPoolMetrics(pool, { record });
-    onConnect!(client);
-    await client.query({
-      name: 'get-musician-details',
-      text: 'SELECT * FROM musician WHERE id = $1',
-      values: ['private-id'],
-    });
-
-    expect(record).toHaveBeenCalledOnce();
-    expect(record).toHaveBeenCalledWith(
-      'get-musician-details',
-      'SELECT',
-      'success',
-      expect.any(Number),
-    );
-    expect(JSON.stringify(record.mock.calls)).not.toContain('private-id');
-  });
-
-  it('records failed named-query metrics without changing the query error', async () => {
-    let onConnect: ((client: PoolClient) => void) | undefined;
-    const pool = {
-      on: (_event: string, listener: (client: PoolClient) => void) => {
-        onConnect = listener;
-      },
-    } as unknown as Pool;
-    const client = {
-      query: vi.fn(async () => {
-        throw new Error('database unavailable');
-      }),
-    } as unknown as PoolClient;
-    const record = vi.fn();
-
-    instrumentPostgresPoolMetrics(pool, { record });
-    onConnect!(client);
-
-    await expect(client.query('UPDATE session SET status = $1')).rejects.toThrow(
-      'database unavailable',
-    );
-    expect(record).toHaveBeenCalledWith('update-session', 'UPDATE', 'error', expect.any(Number));
   });
 });
