@@ -19,7 +19,11 @@ export const Route = createRootRouteWithContext<MpbRouterContext>()({
     const user = await getCurrentUser();
     const isLogin = location.pathname === '/login';
     if (!user && !isLogin) {
-      throw redirect({ to: '/login', search: { redirect: location.href }, replace: true });
+      throw redirect({
+        to: '/login',
+        search: { redirect: location.href, authError: undefined },
+        replace: true,
+      });
     }
     if (user && isLogin) throw redirect({ to: '/', replace: true });
     return { user };

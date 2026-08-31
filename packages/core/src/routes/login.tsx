@@ -1,3 +1,4 @@
+import { Dynamic } from 'solid-js/web';
 import { For, Show, createSignal } from 'solid-js';
 import { createFileRoute, useRouter } from '@tanstack/solid-router';
 import { createDevelopmentUser, developmentLogin, getLoginConfiguration } from '@/data/auth';
@@ -11,6 +12,7 @@ function safeRedirect(value: unknown) {
 export const Route = createFileRoute('/login')({
   validateSearch: (search: Record<string, unknown>) => ({
     redirect: safeRedirect(search.redirect),
+    authError: typeof search.authError === 'string' ? search.authError : undefined,
   }),
   loader: () => getLoginConfiguration(),
   component: LoginPage,
@@ -18,11 +20,20 @@ export const Route = createFileRoute('/login')({
 
 function LoginPage() {
   const configuration = Route.useLoaderData();
+  const context = Route.useRouteContext();
   const search = Route.useSearch();
   const router = useRouter();
   const [submitting, setSubmitting] = createSignal<string | null>(null);
   const [newUsername, setNewUsername] = createSignal('');
   const [error, setError] = createSignal('');
+
+  function authenticationError() {
+    const errorKey = search().authError;
+    if (!errorKey) return undefined;
+    return context()
+      .edition.loginProviders.map((provider) => provider.authenticationErrors[errorKey])
+      .find((message) => message !== undefined);
+  }
 
   async function login(username: string) {
     setSubmitting(username);
@@ -67,10 +78,35 @@ function LoginPage() {
         </div>
         <p class="eyebrow">Welcome back</p>
         <h1>Who’s practicing?</h1>
+        <Show when={authenticationError()}>
+          {(message) => (
+            <p class="form-error" role="alert">
+              {message()}
+            </p>
+          )}
+        </Show>
+        <Show when={context().edition.loginProviders.length > 0}>
+          <div class="login-provider-list">
+            <For each={context().edition.loginProviders}>
+              {(provider) => (
+                <Dynamic component={provider.component} redirect={search().redirect} />
+              )}
+            </For>
+          </div>
+        </Show>
         <Show
           when={configuration().developmentEnabled}
-          fallback={<p class="muted">Production sign-in providers have not been configured yet.</p>}
+          fallback={
+            <Show when={context().edition.loginProviders.length === 0}>
+              <p class="muted">Production sign-in providers have not been configured yet.</p>
+            </Show>
+          }
         >
+          <Show when={context().edition.loginProviders.length > 0}>
+            <div class="login-divider">
+              <span>or use a local test user</span>
+            </div>
+          </Show>
           <p class="muted">Choose a local test musician to continue.</p>
           <div class="development-user-list">
             <For each={configuration().users}>

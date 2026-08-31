@@ -5,7 +5,7 @@ export type AuthenticatedUser = {
 };
 
 export type ExternalIdentity = {
-  provider: 'google' | 'apple';
+  provider: string;
   providerUserId: string;
   email: string | null;
   displayName: string;
