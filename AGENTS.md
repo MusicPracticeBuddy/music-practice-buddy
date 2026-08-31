@@ -24,7 +24,7 @@ Music Practice Buddy is a TypeScript application for tracking music practice ses
 - Format supported files with `npm run format`; check formatting without writing with `npm run format:check`.
 - Lint the repository with `npm run lint`; apply safe automatic fixes with `npm run lint:fix`.
 - Type-check the project with `npm run typecheck`.
-- Start the local database stack with `docker compose up -d`.
+- Start PostgreSQL and apply migrations with `docker compose up -d`. Add `--profile seed` to include local seed data; the development container enables it automatically.
 - Inspect database service state with `docker compose ps` and logs with `docker compose logs <service>`.
 - Do not run `docker compose down -v` unless the user explicitly wants to delete local database data.
 

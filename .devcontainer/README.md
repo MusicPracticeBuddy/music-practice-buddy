@@ -21,6 +21,11 @@ The configuration uses safe local defaults for the database when `.env` is absen
 local `.env` override those defaults. The development login defaults to enabled in the container
 and can be changed with `AUTH_DEV_LOGIN_ENABLED` in `.env`.
 
+The seed service is optional in the base Compose configuration. The development container
+explicitly starts it and waits for it to complete before starting the app service. Outside the
+development container, `docker compose up -d` runs PostgreSQL and migrations without seed data;
+use `docker compose --profile seed up -d` when seed data is wanted.
+
 The container also has access to the host Docker daemon so the Testcontainers-based integration
 suite can run with `npm run test:integration`.
 

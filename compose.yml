@@ -43,6 +43,7 @@ services:
   seed:
     image: postgres:17
     container_name: music-practice-buddy-seed
+    profiles: ['seed']
 
     depends_on:
       flyway:

@@ -51,6 +51,8 @@ services:
       - migrate
 
   seed:
+    # Seed is profiled in the base Compose file but required by the devcontainer app.
+    profiles: !reset []
     environment:
       PGHOST: postgres
       PGPORT: 5432

@@ -3,7 +3,7 @@
   "dockerComposeFile": ["../compose.yml", "compose.yml"],
   "service": "app",
   "workspaceFolder": "/workspaces/music-practice-buddy",
-  "runServices": ["app"],
+  "runServices": ["app", "seed"],
   "shutdownAction": "stopCompose",
   "remoteUser": "node",
   "remoteEnv": {
