@@ -11,8 +11,7 @@ Music Practice Buddy is a TypeScript application for tracking music practice ses
 - `src/routeTree.gen.ts`: generated route tree; do not edit it by hand.
 - `db/migration/`: versioned Flyway schema migrations.
 - `db/test_data/`: local-development seed data.
-- `db/cloudbeaver/`: CloudBeaver connection template. The rendered `data-sources.json` is generated and ignored.
-- `compose.yml`: local PostgreSQL, Flyway, seed, and CloudBeaver services.
+- `compose.yml`: local PostgreSQL, Flyway, and seed services.
 - `rsbuild.config.ts`: application build and development-server configuration.
 - `.oxlintrc.json`: Oxlint rules, environments, and generated-file exclusions.
 - `.oxfmtrc.json`: Oxfmt style options and generated-file exclusions.
@@ -25,7 +24,7 @@ Music Practice Buddy is a TypeScript application for tracking music practice ses
 - Format supported files with `npm run format`; check formatting without writing with `npm run format:check`.
 - Lint the repository with `npm run lint`; apply safe automatic fixes with `npm run lint:fix`.
 - Type-check the project with `npm run typecheck`.
-- Start the local database stack with `docker compose up -d`. CloudBeaver is exposed on port 8978.
+- Start the local database stack with `docker compose up -d`.
 - Inspect database service state with `docker compose ps` and logs with `docker compose logs <service>`.
 - Do not run `docker compose down -v` unless the user explicitly wants to delete local database data.
 
@@ -45,13 +44,13 @@ Use scripts declared in `package.json` as the source of truth. Do not invent a t
 - Treat committed Flyway migrations as immutable once applied. Add a new migration named `V<next_version>__<description>.sql` for schema changes instead of rewriting migration history.
 - Write PostgreSQL-compatible SQL and preserve foreign-key, uniqueness, check-constraint, index, and delete-behavior semantics deliberately.
 - Update `db/test_data/test_data.sql` when a schema change affects local seed data. Keep the seed repeatable against a fresh migrated database.
-- Never put credentials or environment-specific values in migrations, seed files, or the CloudBeaver template.
+- Never put credentials or environment-specific values in migrations or seed files.
 
 ## Environment and secrets
 
 - `.env` is local-only. Do not display, commit, or replace its values.
 - When new environment variables are required, document their names and purpose without committing real credentials.
-- Preserve the existing `.gitignore` protections for environment files, dependencies, build artifacts, and rendered CloudBeaver configuration.
+- Preserve the existing `.gitignore` protections for environment files, dependencies, and build artifacts.
 
 ## Verification and handoff
 
