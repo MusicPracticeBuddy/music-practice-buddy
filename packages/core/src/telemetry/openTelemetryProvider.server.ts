@@ -11,7 +11,6 @@ import type {
   OperationOutcome,
   PageView,
   ServerFunctionCall,
-  SqlQuery,
   TelemetryOperation,
   TelemetryProvider,
 } from '@/telemetry/telemetry';
@@ -26,13 +25,6 @@ const serverFunctionCounter = meter.createCounter('music_practice.server_functio
 });
 const serverFunctionDuration = meter.createHistogram('music_practice.server_function.duration', {
   description: 'TanStack Start server-function duration',
-  unit: 'ms',
-});
-const sqlQueryCounter = meter.createCounter('music_practice.sql.calls', {
-  description: 'PostgreSQL query calls',
-});
-const sqlQueryDuration = meter.createHistogram('music_practice.sql.duration', {
-  description: 'PostgreSQL query duration',
   unit: 'ms',
 });
 
@@ -65,26 +57,6 @@ export const openTelemetryProvider: TelemetryProvider = {
       recordMetrics: (durationMs, attributes) => {
         serverFunctionCounter.add(1, attributes);
         serverFunctionDuration.record(durationMs, attributes);
-      },
-    }),
-  startSqlQuery: (query) =>
-    createTimedOperation({
-      span: tracer.startSpan(
-        `sql ${query.queryName}`,
-        {
-          kind: SpanKind.CLIENT,
-          attributes: sqlQueryAttributes(query),
-          startTime: new Date(query.timestamp),
-        },
-        context.active(),
-      ),
-      metricAttributes: {
-        'db.operation.name': query.operation,
-        'db.query.name': query.queryName,
-      },
-      recordMetrics: (durationMs, attributes) => {
-        sqlQueryCounter.add(1, attributes);
-        sqlQueryDuration.record(durationMs, attributes);
       },
     }),
 };
@@ -135,16 +107,5 @@ function serverFunctionAttributes(call: ServerFunctionCall): Attributes {
     'server.function.name': call.functionName,
     'server.function.method': call.method,
     'service.version': call.serverVersion,
-  };
-}
-
-function sqlQueryAttributes(query: SqlQuery): Attributes {
-  return {
-    'app.trace_id': query.traceId,
-    'db.operation.name': query.operation,
-    'db.query.name': query.queryName,
-    'db.query.text': query.statement,
-    'db.system.name': 'postgresql',
-    'service.version': query.serverVersion,
   };
 }

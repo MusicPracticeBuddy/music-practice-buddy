@@ -12,13 +12,6 @@ export type ServerFunctionCallData = {
   traceId: string;
 };
 
-export type SqlQueryData = {
-  queryName: string;
-  operation: string;
-  statement: string;
-  traceId: string;
-};
-
 export type TelemetryMetadata = {
   serverVersion: string;
   timestamp: string;
@@ -26,7 +19,6 @@ export type TelemetryMetadata = {
 
 export type PageView = PageViewData & TelemetryMetadata;
 export type ServerFunctionCall = ServerFunctionCallData & TelemetryMetadata;
-export type SqlQuery = SqlQueryData & TelemetryMetadata;
 
 /**
  * A provider can use run() to make a span current while the operation executes,
@@ -40,5 +32,4 @@ export interface TelemetryOperation {
 export interface TelemetryProvider {
   recordPageView(pageView: PageView): void;
   startServerFunction(call: ServerFunctionCall): TelemetryOperation;
-  startSqlQuery(query: SqlQuery): TelemetryOperation;
 }

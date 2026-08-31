@@ -2,8 +2,6 @@ import type {
   PageViewData,
   ServerFunctionCall,
   ServerFunctionCallData,
-  SqlQuery,
-  SqlQueryData,
   TelemetryOperation,
   TelemetryProvider,
 } from '@/telemetry/telemetry';
@@ -17,13 +15,11 @@ const noopOperation: TelemetryOperation = {
 const noopTelemetryProvider: TelemetryProvider = {
   recordPageView: () => undefined,
   startServerFunction: () => noopOperation,
-  startSqlQuery: () => noopOperation,
 };
 
 const consoleTelemetryProvider: TelemetryProvider = {
   recordPageView: (pageView) => logTelemetry('page_view', pageView),
   startServerFunction: (call) => createConsoleOperation('server_function', call),
-  startSqlQuery: (query) => createConsoleOperation('sql_query', query),
 };
 
 const providerKey = Symbol.for('music-practice.telemetry.provider');
@@ -45,10 +41,6 @@ export function recordPageView(pageView: PageViewData): void {
 
 export function startServerFunction(call: ServerFunctionCallData): TelemetryOperation {
   return startOperation(() => getProvider().startServerFunction(withTelemetryMetadata(call)));
-}
-
-export function startSqlQuery(query: SqlQueryData): TelemetryOperation {
-  return startOperation(() => getProvider().startSqlQuery(withTelemetryMetadata(query)));
 }
 
 function getProvider(): TelemetryProvider {
@@ -89,8 +81,8 @@ function safelyRun(callback: () => void): void {
 }
 
 function createConsoleOperation(
-  type: 'server_function' | 'sql_query',
-  attributes: ServerFunctionCall | SqlQuery,
+  type: 'server_function',
+  attributes: ServerFunctionCall,
 ): TelemetryOperation {
   const startedAt = performance.now();
   return {

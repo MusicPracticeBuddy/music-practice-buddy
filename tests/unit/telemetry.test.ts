@@ -1,6 +1,6 @@
+import type { Span } from '@opentelemetry/api';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Pool, PoolClient } from 'pg';
-import { instrumentPostgresPool } from '@/telemetry/postgres';
+import { getPostgresQueryName, setPostgresQueryName } from '@/telemetry/postgres';
 import {
   configureTelemetry,
   recordPageView,
@@ -13,7 +13,6 @@ import {
   type TelemetryProvider,
 } from '@/telemetry/telemetry';
 import { createTraceParent } from '@/telemetry/trace';
-import { runWithTraceId } from '@/telemetry/traceContext.server';
 
 const TRACE_ID = '0123456789abcdef0123456789abcdef';
 const originalConsoleTelemetrySetting = process.env.TELEMETRY_CONSOLE_ENABLED;
@@ -27,21 +26,11 @@ function createOperation() {
   return { operation, outcomes };
 }
 
-function createProvider() {
-  const sqlOperations: Array<{
-    query: Parameters<TelemetryProvider['startSqlQuery']>[0];
-    outcomes: OperationOutcome[];
-  }> = [];
-  const provider: TelemetryProvider = {
+function createProvider(): TelemetryProvider {
+  return {
     recordPageView: vi.fn(),
     startServerFunction: vi.fn(() => createOperation().operation),
-    startSqlQuery: vi.fn((query) => {
-      const { operation, outcomes } = createOperation();
-      sqlOperations.push({ query, outcomes });
-      return operation;
-    }),
   };
-  return { provider, sqlOperations };
 }
 
 afterEach(() => {
@@ -117,7 +106,7 @@ describe('telemetry', () => {
       },
       end: vi.fn(),
     };
-    const { provider } = createProvider();
+    const provider = createProvider();
     provider.startServerFunction = vi.fn(() => operation);
     configureTelemetry(provider);
 
@@ -134,7 +123,7 @@ describe('telemetry', () => {
   });
 
   it('does not let provider start or end failures escape into application code', () => {
-    const { provider } = createProvider();
+    const provider = createProvider();
     provider.startServerFunction = vi.fn(() => {
       throw new Error('exporter unavailable');
     });
@@ -149,144 +138,33 @@ describe('telemetry', () => {
     expect(() => operation.end('success')).not.toThrow();
   });
 
-  it('records successful PostgreSQL queries without query parameters', async () => {
-    const { provider, sqlOperations } = createProvider();
-    configureTelemetry(provider);
-
-    let onConnect: ((client: PoolClient) => void) | undefined;
-    const pool = {
-      on: (_event: string, listener: (client: PoolClient) => void) => {
-        onConnect = listener;
-      },
-    } as unknown as Pool;
-    const client = {
-      query: vi.fn(async () => ({ rows: [], rowCount: 0 })),
-    } as unknown as PoolClient;
-
-    instrumentPostgresPool(pool);
-    onConnect!(client);
-    await client.query('SELECT * FROM musician WHERE id = $1', ['private-id']);
-
-    expect(sqlOperations).toEqual([
-      {
-        query: {
-          queryName: 'list-musician',
-          operation: 'SELECT',
-          statement: 'SELECT * FROM musician WHERE id = $1',
-          traceId: expect.stringMatching(/^[0-9a-f]{32}$/),
-          serverVersion: expect.any(String),
-          timestamp: expect.any(String),
-        },
-        outcomes: ['success'],
-      },
-    ]);
-    expect(JSON.stringify(sqlOperations)).not.toContain('private-id');
-  });
-
-  it('records rejected PostgreSQL queries as errors', async () => {
-    const { provider, sqlOperations } = createProvider();
-    configureTelemetry(provider);
-
-    let onConnect: ((client: PoolClient) => void) | undefined;
-    const pool = {
-      on: (_event: string, listener: (client: PoolClient) => void) => {
-        onConnect = listener;
-      },
-    } as unknown as Pool;
-    const client = {
-      query: vi.fn(async () => {
-        throw new Error('database unavailable');
-      }),
-    } as unknown as PoolClient;
-
-    instrumentPostgresPool(pool);
-    onConnect!(client);
-    await expect(client.query('UPDATE session SET status = $1')).rejects.toThrow(
-      'database unavailable',
+  it('generates stable PostgreSQL query names', () => {
+    expect(getPostgresQueryName({ text: 'SELECT * FROM musician WHERE id = $1' })).toBe(
+      'list-musician',
     );
-
-    expect(sqlOperations[0]).toEqual({
-      query: {
-        queryName: 'update-session',
-        operation: 'UPDATE',
-        statement: 'UPDATE session SET status = $1',
-        traceId: expect.stringMatching(/^[0-9a-f]{32}$/),
-        serverVersion: expect.any(String),
-        timestamp: expect.any(String),
-      },
-      outcomes: ['error'],
-    });
-  });
-
-  it('generates stable names for aggregate and transaction queries', async () => {
-    const { provider, sqlOperations } = createProvider();
-    configureTelemetry(provider);
-
-    let onConnect: ((client: PoolClient) => void) | undefined;
-    const pool = {
-      on: (_event: string, listener: (client: PoolClient) => void) => {
-        onConnect = listener;
-      },
-    } as unknown as Pool;
-    const client = {
-      query: vi.fn(async () => ({ rows: [], rowCount: 0 })),
-    } as unknown as PoolClient;
-
-    instrumentPostgresPool(pool);
-    onConnect!(client);
-    await client.query('SELECT count(*) FROM session_template');
-    await client.query('BEGIN');
-
-    expect(sqlOperations.map(({ query }) => query.queryName)).toEqual([
+    expect(getPostgresQueryName({ text: 'SELECT count(*) FROM session_template' })).toBe(
       'count-session-template',
-      'transaction-begin',
-    ]);
+    );
+    expect(getPostgresQueryName({ text: 'BEGIN' })).toBe('transaction-begin');
+    expect(getPostgresQueryName({ text: 'UPDATE session SET status = $1' })).toBe('update-session');
   });
 
-  it('prefers an explicit PostgreSQL query-config name', async () => {
-    const { provider, sqlOperations } = createProvider();
-    configureTelemetry(provider);
+  it('uses the request hook to preserve PostgreSQL query names', () => {
+    const span = {
+      setAttribute: vi.fn(),
+      updateName: vi.fn(),
+    } as unknown as Span;
 
-    let onConnect: ((client: PoolClient) => void) | undefined;
-    const pool = {
-      on: (_event: string, listener: (client: PoolClient) => void) => {
-        onConnect = listener;
+    setPostgresQueryName(span, {
+      query: {
+        name: 'get-musician-details',
+        text: 'SELECT * FROM musician WHERE id = $1',
+        values: ['private-id'],
       },
-    } as unknown as Pool;
-    const client = {
-      query: vi.fn(async () => ({ rows: [], rowCount: 0 })),
-    } as unknown as PoolClient;
-
-    instrumentPostgresPool(pool);
-    onConnect!(client);
-    await client.query({
-      name: 'get-musician-details',
-      text: 'SELECT * FROM musician WHERE id = $1',
-      values: ['private-id'],
+      connection: {},
     });
 
-    expect(sqlOperations[0]!.query.queryName).toBe('get-musician-details');
-    expect(JSON.stringify(sqlOperations)).not.toContain('private-id');
-  });
-
-  it('propagates the active server trace ID to SQL queries', async () => {
-    const { provider, sqlOperations } = createProvider();
-    configureTelemetry(provider);
-
-    let onConnect: ((client: PoolClient) => void) | undefined;
-    const pool = {
-      on: (_event: string, listener: (client: PoolClient) => void) => {
-        onConnect = listener;
-      },
-    } as unknown as Pool;
-    const client = {
-      query: vi.fn(async () => ({ rows: [], rowCount: 0 })),
-    } as unknown as PoolClient;
-
-    instrumentPostgresPool(pool);
-    onConnect!(client);
-    await runWithTraceId(TRACE_ID, () => client.query('SELECT * FROM session'));
-
-    expect(sqlOperations[0]!.query.traceId).toBe(TRACE_ID);
+    expect(span.setAttribute).toHaveBeenCalledWith('db.query.name', 'get-musician-details');
+    expect(span.updateName).toHaveBeenCalledWith('sql get-musician-details');
   });
 });
