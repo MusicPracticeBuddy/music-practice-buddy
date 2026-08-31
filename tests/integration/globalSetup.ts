@@ -17,6 +17,8 @@ async function applyMigrations(connectionUri: string) {
   const migrationFiles = (await readdir(migrationDirectory))
     .map((name) => ({ name, version: Number(name.match(/^V(\d+)__/)?.[1]) }))
     .filter((file) => Number.isInteger(file.version))
+    // This array was created by the preceding map/filter chain, so mutation is local.
+    // oxlint-disable-next-line unicorn/no-array-sort
     .sort((left, right) => left.version - right.version);
 
   const client = new Client({ connectionString: connectionUri });
