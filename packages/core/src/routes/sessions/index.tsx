@@ -60,6 +60,7 @@ function Sessions() {
   const initialPage = Route.useLoaderData();
   const [sessions, setSessions] = createSignal(initialPage().page);
   const [instrumentIds, setInstrumentIds] = createSignal<string[]>([]);
+  const [filtersExpanded, setFiltersExpanded] = createSignal(false);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal('');
 
@@ -108,26 +109,43 @@ function Sessions() {
         </p>
       </Show>
 
-      <div class="library-filter-bar" role="search" aria-label="Filter sessions">
-        <InstrumentFilter
-          instruments={initialPage().instruments}
-          selectedIds={instrumentIds()}
-          onChange={(ids) => {
-            setInstrumentIds(ids);
-            void loadPage(1);
-          }}
-        />
-        <button
-          class="text-button library-filter-clear"
-          type="button"
-          onClick={() => {
-            setInstrumentIds([]);
-            void loadPage(1);
-          }}
+      <button
+        class="secondary-button session-filter-toggle"
+        type="button"
+        aria-expanded={filtersExpanded()}
+        aria-controls="session-filters"
+        onClick={() => setFiltersExpanded((expanded) => !expanded)}
+      >
+        Filter my sessions
+      </button>
+
+      <Show when={filtersExpanded()}>
+        <div
+          id="session-filters"
+          class="library-filter-bar"
+          role="search"
+          aria-label="Filter sessions"
         >
-          Clear filters
-        </button>
-      </div>
+          <InstrumentFilter
+            instruments={initialPage().instruments}
+            selectedIds={instrumentIds()}
+            onChange={(ids) => {
+              setInstrumentIds(ids);
+              void loadPage(1);
+            }}
+          />
+          <button
+            class="text-button library-filter-clear"
+            type="button"
+            onClick={() => {
+              setInstrumentIds([]);
+              void loadPage(1);
+            }}
+          >
+            Clear filters
+          </button>
+        </div>
+      </Show>
 
       <section
         class="session-table"

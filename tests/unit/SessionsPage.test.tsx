@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@solidjs/testing-library';
+import { cleanup, fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 import { createSignal, type Accessor, type JSX } from 'solid-js';
 import type { SessionPage } from '@/data/sessions';
 
@@ -78,6 +78,13 @@ describe('Sessions page', () => {
     });
     loaderData = data;
     render(() => <Sessions />);
+
+    const filterToggle = screen.getByRole('button', { name: 'Filter my sessions' });
+    expect(filterToggle.getAttribute('aria-expanded')).toBe('false');
+    expect(document.querySelector('#session-filters')).toBeNull();
+    fireEvent.click(filterToggle);
+    expect(filterToggle.getAttribute('aria-expanded')).toBe('true');
+    expect(document.querySelector('#session-filters')).not.toBeNull();
 
     expect(screen.getByText('Existing session')).toBeTruthy();
     expect(screen.getByText('1 sessions')).toBeTruthy();

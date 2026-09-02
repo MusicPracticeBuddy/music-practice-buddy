@@ -479,6 +479,10 @@ h1 {
   background: var(--paper);
 }
 
+.session-filter-toggle {
+  margin-bottom: 16px;
+}
+
 .library-filter-bar > label > span {
   display: block;
   margin-bottom: 6px;
