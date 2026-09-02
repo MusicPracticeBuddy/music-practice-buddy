@@ -7,7 +7,8 @@
   "shutdownAction": "stopCompose",
   "remoteUser": "node",
   "remoteEnv": {
-    "CODEX_HOME": "/home/node/.codex"
+    "CODEX_HOME": "/home/node/.codex",
+    "MPB_HOST_WORKSPACE": "${localWorkspaceFolder}"
   },
   "mounts": [
     "source=${localEnv:HOME}/.codex,target=/home/node/.codex,type=bind,consistency=cached"

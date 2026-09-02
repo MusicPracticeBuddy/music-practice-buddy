@@ -38,7 +38,7 @@ services:
       - 'migrate'
 
     volumes:
-      - ./packages/core/migrations:/flyway/sql:ro
+      - ${MPB_HOST_WORKSPACE:-.}/packages/core/migrations:/flyway/sql:ro
 
   seed:
     image: postgres:17
@@ -57,7 +57,7 @@ services:
       PGDATABASE: ${POSTGRES_DB}
 
     volumes:
-      - ./db/test_data/test_data.sql:/seed/test_data.sql:ro
+      - ${MPB_HOST_WORKSPACE:-.}/db/test_data/test_data.sql:/seed/test_data.sql:ro
 
     command:
       - psql

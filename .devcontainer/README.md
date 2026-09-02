@@ -29,6 +29,10 @@ use `docker compose --profile seed up -d` when seed data is wanted.
 The container also has access to the host Docker daemon so the Testcontainers-based integration
 suite can run with `npm run test:integration`.
 
+`MPB_HOST_WORKSPACE` is set to the repository's host path in the container environment. The base
+Compose file uses it for the migration and seed bind mounts because those paths are resolved by
+the host Docker daemon, even when `docker compose` is run from inside the development container.
+
 ## Codex
 
 The host's `~/.codex` directory is mounted read-write at `/home/node/.codex`, and the official Codex
