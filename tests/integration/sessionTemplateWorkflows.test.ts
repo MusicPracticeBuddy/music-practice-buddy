@@ -222,7 +222,7 @@ describe('library item persistence', () => {
     expect(secondPage.items).toHaveLength(2);
     expect(
       await getPublicExerciseCatalogPage({
-        data: { ...EMPTY_EXERCISE_CATALOG_SEARCH, notationFormat: 'abc' },
+        data: { ...EMPTY_EXERCISE_CATALOG_SEARCH, hasNotation: true },
       }),
     ).toMatchObject({ total: 13 });
 
@@ -329,7 +329,7 @@ describe('library item persistence', () => {
         data: {
           ...EMPTY_EXERCISE_LIBRARY_SEARCH,
           visibility: 'PUBLIC',
-          notationFormat: 'abc',
+          hasNotation: true,
         },
       }),
     ).toMatchObject({ total: 1, items: [expect.objectContaining({ name: 'Arpeggio workout' })] });

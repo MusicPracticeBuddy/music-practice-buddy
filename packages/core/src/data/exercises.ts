@@ -28,7 +28,7 @@ export type ExerciseLibraryPage = {
 export type ExerciseLibrarySearchInput = {
   query: string;
   visibility: 'ALL' | Visibility;
-  notationFormat: 'ALL' | ExerciseNotationFormat;
+  hasNotation: boolean;
   instrumentIds: string[];
   page: number;
 };
@@ -46,7 +46,7 @@ export type ExerciseCatalogRow = {
 
 export type ExerciseCatalogSearchInput = {
   query: string;
-  notationFormat: 'ALL' | ExerciseNotationFormat;
+  hasNotation: boolean;
   instrumentIds: string[];
   page: number;
 };
@@ -82,14 +82,14 @@ export const EXERCISE_CATALOG_PAGE_SIZE = 25;
 export const EMPTY_EXERCISE_LIBRARY_SEARCH: ExerciseLibrarySearchInput = {
   query: '',
   visibility: 'ALL',
-  notationFormat: 'ALL',
+  hasNotation: false,
   instrumentIds: [],
   page: 1,
 };
 
 export const EMPTY_EXERCISE_CATALOG_SEARCH: ExerciseCatalogSearchInput = {
   query: '',
-  notationFormat: 'ALL',
+  hasNotation: false,
   instrumentIds: [],
   page: 1,
 };
@@ -210,9 +210,7 @@ export const getExerciseLibraryPage = createServerFn({ method: 'GET' })
     ) {
       throw new Error('Invalid visibility filter');
     }
-    if (input.notationFormat !== 'ALL' && !isExerciseNotationFormat(input.notationFormat)) {
-      throw new Error('Invalid notation format filter');
-    }
+    if (typeof input.hasNotation !== 'boolean') throw new Error('Invalid notation filter');
     if (!Number.isInteger(input.page) || input.page < 1) throw new Error('Invalid page');
     return { ...input, query, instrumentIds: validateInstrumentIds(input.instrumentIds) };
   })
@@ -238,9 +236,7 @@ export const getExerciseLibraryPage = createServerFn({ method: 'GET' })
     if (data.visibility !== 'ALL') {
       conditions.push(`exercise.visibility = ${parameter(data.visibility)}::visibility_type`);
     }
-    if (data.notationFormat !== 'ALL') {
-      conditions.push(`exercise.notation_format = ${parameter(data.notationFormat)}`);
-    }
+    if (data.hasNotation) conditions.push(`exercise.notation_format <> 'text'`);
     if (data.instrumentIds.length > 0) {
       conditions.push(`exercise.instrument_id = ANY(${parameter(data.instrumentIds)}::bigint[])`);
     }
@@ -302,9 +298,7 @@ export const getPublicExerciseCatalogPage = createServerFn({ method: 'GET' })
   .validator((input: ExerciseCatalogSearchInput) => {
     const query = input.query.trim();
     if (query.length > 200) throw new Error('Search text is too long');
-    if (input.notationFormat !== 'ALL' && !isExerciseNotationFormat(input.notationFormat)) {
-      throw new Error('Invalid notation format filter');
-    }
+    if (typeof input.hasNotation !== 'boolean') throw new Error('Invalid notation filter');
     if (!Number.isInteger(input.page) || input.page < 1) throw new Error('Invalid page');
     return { ...input, query, instrumentIds: validateInstrumentIds(input.instrumentIds) };
   })
@@ -323,9 +317,7 @@ export const getPublicExerciseCatalogPage = createServerFn({ method: 'GET' })
         ${fuzzyValue ? `OR CAST(${fuzzyValue} AS text) <<% CAST(exercise.name AS text)` : ''}
       )`);
     }
-    if (data.notationFormat !== 'ALL') {
-      conditions.push(`exercise.notation_format = ${parameter(data.notationFormat)}`);
-    }
+    if (data.hasNotation) conditions.push(`exercise.notation_format <> 'text'`);
     if (data.instrumentIds.length > 0) {
       conditions.push(`exercise.instrument_id = ANY(${parameter(data.instrumentIds)}::bigint[])`);
     }

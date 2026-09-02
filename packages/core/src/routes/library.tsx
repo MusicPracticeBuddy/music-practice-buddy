@@ -49,8 +49,7 @@ function Library() {
   const [exerciseQuery, setExerciseQuery] = createSignal('');
   const [exerciseVisibility, setExerciseVisibility] =
     createSignal<ExerciseLibrarySearchInput['visibility']>('ALL');
-  const [notationFormat, setNotationFormat] =
-    createSignal<ExerciseLibrarySearchInput['notationFormat']>('ALL');
+  const [hasNotation, setHasNotation] = createSignal(false);
   let repertoireTimer: ReturnType<typeof setTimeout> | undefined;
   let exerciseTimer: ReturnType<typeof setTimeout> | undefined;
   let repertoireRequestId = 0;
@@ -68,7 +67,7 @@ function Library() {
     const exerciseFiltersAreDefault =
       exerciseQuery() === '' &&
       exerciseVisibility() === 'ALL' &&
-      notationFormat() === 'ALL' &&
+      !hasNotation() &&
       exerciseInstrumentIds().length === 0;
     if (exerciseFiltersAreDefault) setExercises(refreshed.exercises);
   });
@@ -87,7 +86,7 @@ function Library() {
     return {
       query: exerciseQuery(),
       visibility: exerciseVisibility(),
-      notationFormat: notationFormat(),
+      hasNotation: hasNotation(),
       instrumentIds: exerciseInstrumentIds(),
       page,
     };
@@ -339,22 +338,16 @@ function Library() {
                 }}
               />
             </label>
-            <label>
-              <span>Notation</span>
-              <select
-                class="text-input"
-                value={notationFormat()}
+            <label class="checkbox-field library-checkbox-filter">
+              <input
+                type="checkbox"
+                checked={hasNotation()}
                 onChange={(event) => {
-                  setNotationFormat(
-                    event.currentTarget.value as ExerciseLibrarySearchInput['notationFormat'],
-                  );
+                  setHasNotation(event.currentTarget.checked);
                   queueExerciseSearch();
                 }}
-              >
-                <option value="ALL">All formats</option>
-                <option value="text">Text</option>
-                <option value="abc">ABC notation</option>
-              </select>
+              />
+              <span>Has notation</span>
             </label>
             <InstrumentFilter
               instruments={data().instruments}
@@ -386,7 +379,7 @@ function Library() {
               type="button"
               onClick={() => {
                 setExerciseQuery('');
-                setNotationFormat('ALL');
+                setHasNotation(false);
                 setExerciseVisibility('ALL');
                 setExerciseInstrumentIds([]);
                 queueExerciseSearch();

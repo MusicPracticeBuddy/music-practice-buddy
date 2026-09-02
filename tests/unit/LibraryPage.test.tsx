@@ -70,7 +70,7 @@ vi.mock('../../packages/core/src/data/exercises', () => ({
   EMPTY_EXERCISE_LIBRARY_SEARCH: {
     query: '',
     visibility: 'ALL',
-    notationFormat: 'ALL',
+    hasNotation: false,
     instrumentIds: [],
     page: 1,
   },

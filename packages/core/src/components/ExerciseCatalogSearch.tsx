@@ -17,8 +17,7 @@ export function ExerciseCatalogSearch(props: {
 }) {
   const router = useRouter();
   const [query, setQuery] = createSignal('');
-  const [notationFormat, setNotationFormat] =
-    createSignal<ExerciseCatalogSearchInput['notationFormat']>('ALL');
+  const [hasNotation, setHasNotation] = createSignal(false);
   const [results, setResults] = createSignal(props.initialPage);
   const [instrumentIds, setInstrumentIds] = createSignal(props.initialInstrumentIds);
   const [loading, setLoading] = createSignal(false);
@@ -31,7 +30,7 @@ export function ExerciseCatalogSearch(props: {
   function searchInput(page: number): ExerciseCatalogSearchInput {
     return {
       query: query(),
-      notationFormat: notationFormat(),
+      hasNotation: hasNotation(),
       instrumentIds: instrumentIds(),
       page,
     };
@@ -96,24 +95,18 @@ export function ExerciseCatalogSearch(props: {
           }}
         />
 
-        <label class="field-label" for="exercise-catalog-notation">
-          Notation format
+        <label class="checkbox-field" for="exercise-catalog-notation">
+          <input
+            id="exercise-catalog-notation"
+            type="checkbox"
+            checked={hasNotation()}
+            onChange={(event) => {
+              setHasNotation(event.currentTarget.checked);
+              queueSearch();
+            }}
+          />
+          <span>Has notation</span>
         </label>
-        <select
-          id="exercise-catalog-notation"
-          class="text-input"
-          value={notationFormat()}
-          onChange={(event) => {
-            setNotationFormat(
-              event.currentTarget.value as ExerciseCatalogSearchInput['notationFormat'],
-            );
-            queueSearch();
-          }}
-        >
-          <option value="ALL">All formats</option>
-          <option value="text">Text</option>
-          <option value="abc">ABC notation</option>
-        </select>
 
         <InstrumentFilter
           instruments={props.instruments}
@@ -129,7 +122,7 @@ export function ExerciseCatalogSearch(props: {
           type="button"
           onClick={() => {
             setQuery('');
-            setNotationFormat('ALL');
+            setHasNotation(false);
             setInstrumentIds([]);
             queueSearch();
           }}
