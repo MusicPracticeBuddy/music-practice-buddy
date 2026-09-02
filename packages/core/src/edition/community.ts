@@ -4,7 +4,6 @@ export const communityEdition: MpbEdition = {
   id: 'community',
   displayName: 'Music Practice Buddy',
   loginProviders: [],
-  publicRoutes: [],
   primaryNavigation: [],
   dashboardPanels: [],
 };

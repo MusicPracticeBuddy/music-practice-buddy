@@ -1,6 +1,5 @@
 export {
   createSession,
-  getAuthenticatedUser,
   resolveOrCreateExternalIdentity,
   revokeCurrentSession,
 } from '@/auth/server';
