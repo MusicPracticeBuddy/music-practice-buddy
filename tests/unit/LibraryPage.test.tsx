@@ -1,41 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@solidjs/testing-library';
+import { cleanup, fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 import { createSignal, type Accessor, type JSX } from 'solid-js';
 
 type LibraryLoaderData = {
-  repertoire: {
-    items: Array<{
-      id: string;
-      title: string;
-      instrument: string | null;
-      visibility: 'PRIVATE';
-      composer: string;
-      parentTitle: string | null;
-      measureRange: string | null;
-      libraryNotes: string | null;
-    }>;
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-  };
-  exercises: {
-    items: Array<{
-      id: string;
-      name: string;
-      visibility: 'PRIVATE';
-      notation: string | null;
-      notationFormat: 'text';
-      instrumentName: string | null;
-      copiedFrom: null;
-    }>;
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-  };
   instruments: [];
-  instrumentIds: [];
 };
 
 let loaderData: Accessor<LibraryLoaderData>;
@@ -92,67 +60,96 @@ vi.mock('../../packages/core/src/data/repertoire', () => ({
 }));
 
 import { Route } from '@/routes/library';
+import { getExerciseLibraryPage } from '@/data/exercises';
+import { getRepertoireLibraryPage } from '@/data/repertoire';
 
 const Library = (Route as unknown as { component: () => JSX.Element }).component;
 
-function libraryData(repertoireTitle: string, exerciseName: string): LibraryLoaderData {
-  return {
-    repertoire: {
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+
+describe('Library page', () => {
+  it('lazy-loads each collapsed section only when first expanded', async () => {
+    vi.mocked(getRepertoireLibraryPage).mockResolvedValue({
       items: [
         {
           id: 'repertoire-1',
-          title: repertoireTitle,
+          title: 'Loaded repertoire',
           instrument: null,
           visibility: 'PRIVATE',
           composer: 'Composer',
           parentTitle: null,
           measureRange: null,
           libraryNotes: null,
+          status: 'ACTIVE',
+          owner: 'Musician',
+          ownerId: '1',
+          resourceType: null,
+          resourceUrl: null,
+          systemOwned: false,
+          canEdit: true,
+          canManage: true,
+          canUse: true,
         },
       ],
       page: 1,
       pageSize: 20,
       total: 1,
       totalPages: 1,
-    },
-    exercises: {
+    });
+    vi.mocked(getExerciseLibraryPage).mockResolvedValue({
       items: [
         {
           id: 'exercise-1',
-          name: exerciseName,
+          name: 'Loaded exercise',
           visibility: 'PRIVATE',
           notation: null,
           notationFormat: 'text',
           instrumentName: null,
+          instrumentId: null,
           copiedFrom: null,
+          owner: 'Musician',
+          ownerId: '1',
+          canEdit: true,
+          canManage: true,
+          canUse: true,
         },
       ],
       page: 1,
       pageSize: 20,
       total: 1,
       totalPages: 1,
-    },
-    instruments: [],
-    instrumentIds: [],
-  };
-}
-
-afterEach(cleanup);
-
-describe('Library page', () => {
-  it('updates both rendered lists when loader data refreshes', async () => {
-    const [data, setData] = createSignal(libraryData('Existing repertoire', 'Existing exercise'));
+    });
+    const [data] = createSignal<LibraryLoaderData>({ instruments: [] });
     loaderData = data;
     render(() => <Library />);
 
-    expect(screen.getByText('Existing repertoire')).toBeTruthy();
-    expect(screen.getByText('Existing exercise')).toBeTruthy();
+    expect(getRepertoireLibraryPage).not.toHaveBeenCalled();
+    expect(getExerciseLibraryPage).not.toHaveBeenCalled();
+    expect(screen.queryByRole('search')).toBeNull();
+    expect(screen.queryByText('Owned repertoire')).toBeNull();
+    expect(screen.queryByText('Find repertoire')).toBeNull();
+    expect(screen.queryByText('Owned exercises')).toBeNull();
+    expect(screen.queryByText('+ Create exercise')).toBeNull();
+    expect(screen.queryByText('Find exercises')).toBeNull();
 
-    setData(libraryData('Refreshed repertoire', 'Created exercise'));
+    fireEvent.click(screen.getByRole('button', { name: 'Expand repertoire' }));
+    expect(screen.getByText('Owned repertoire')).toBeTruthy();
+    expect(screen.getByText('Find repertoire')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('Loaded repertoire')).toBeTruthy());
+    expect(getExerciseLibraryPage).not.toHaveBeenCalled();
 
-    await waitFor(() => {
-      expect(screen.getByText('Refreshed repertoire')).toBeTruthy();
-      expect(screen.getByText('Created exercise')).toBeTruthy();
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse repertoire' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expand repertoire' }));
+    expect(getRepertoireLibraryPage).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand exercises' }));
+    expect(screen.getByText('Owned exercises')).toBeTruthy();
+    expect(screen.getByText('+ Create exercise')).toBeTruthy();
+    expect(screen.getByText('Find exercises')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('Loaded exercise')).toBeTruthy());
+    expect(getExerciseLibraryPage).toHaveBeenCalledTimes(1);
   });
 });
