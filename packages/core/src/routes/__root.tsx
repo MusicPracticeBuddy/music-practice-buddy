@@ -28,7 +28,7 @@ export const Route = createRootRouteWithContext<MpbRouterContext>()({
         replace: true,
       });
     }
-    if (user && isLogin) throw redirect({ to: '/', replace: true });
+    if (user && isLogin) throw redirect({ to: '/sessions', replace: true });
     return { developmentLoginEnabled, user };
   },
   head: () => ({
@@ -56,8 +56,8 @@ function NotFoundPage() {
         <p class="eyebrow">404 · Page not found</p>
         <h1>That page missed the beat.</h1>
         <p class="lede">The page you’re looking for doesn’t exist or may have moved.</p>
-        <Link class="primary-button" to="/">
-          Back to overview
+        <Link class="primary-button" to="/sessions">
+          Back to sessions
         </Link>
       </section>
     </main>
@@ -108,7 +108,7 @@ function AuthenticatedShell({
   return (
     <div class="app-shell">
       <header class="site-header">
-        <Link class="brand" to="/">
+        <Link class="brand" to="/sessions">
           <span class="brand-mark" aria-hidden="true">
             ♩
           </span>
@@ -118,14 +118,11 @@ function AuthenticatedShell({
           </span>
         </Link>
         <nav aria-label="Primary navigation">
-          <Link to="/" activeOptions={{ exact: true }} activeProps={{ class: 'active' }}>
-            Overview
+          <Link to="/sessions" activeProps={{ class: 'active' }}>
+            Sessions
           </Link>
           <Link to="/library" activeProps={{ class: 'active' }}>
             My Library
-          </Link>
-          <Link to="/sessions" activeProps={{ class: 'active' }}>
-            Sessions
           </Link>
           <Link to="/templates" activeProps={{ class: 'active' }}>
             Templates

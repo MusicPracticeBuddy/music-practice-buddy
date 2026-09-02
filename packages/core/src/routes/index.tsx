@@ -1,14 +1,7 @@
-import { createFileRoute } from '@tanstack/solid-router';
-import { getDashboard } from '@/data/dashboard';
-import { DashboardPage } from '@/features/dashboard/DashboardPage';
+import { createFileRoute, redirect } from '@tanstack/solid-router';
 
 export const Route = createFileRoute('/')({
-  loader: () => getDashboard(),
-  component: DashboardRoute,
+  beforeLoad: () => {
+    throw redirect({ to: '/sessions', replace: true });
+  },
 });
-
-function DashboardRoute() {
-  const data = Route.useLoaderData();
-  const context = Route.useRouteContext();
-  return <DashboardPage data={data()} panels={context().edition.dashboardPanels} />;
-}
