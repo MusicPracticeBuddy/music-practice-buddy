@@ -169,7 +169,7 @@ function Library() {
   return (
     <main class="page">
       <header class="page-header library-page-header">
-          <h1>My Library</h1>
+        <h1>My Library</h1>
       </header>
 
       <div class="library-sections">

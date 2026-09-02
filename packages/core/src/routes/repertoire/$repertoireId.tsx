@@ -63,11 +63,11 @@ function RepertoireDetail() {
               Edit
             </Link>
             <DeleteConfirmationDialog
-              triggerLabel='Delete'
-              title='Delete this repertoire?'
+              triggerLabel="Delete"
+              title="Delete this repertoire?"
               itemName={repertoire().title}
               description="This also removes it from your library. Historical session entries will remain."
-              confirmLabel='Delete'
+              confirmLabel="Delete"
               onConfirm={async () => {
                 await deleteRepertoire({ data: repertoire().id });
                 await router.invalidate({ sync: true });

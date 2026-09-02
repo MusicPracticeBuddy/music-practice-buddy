@@ -279,10 +279,7 @@ export function RepertoireCatalogSearch(props: {
                 <article class="catalog-result-card">
                   <div class="catalog-result-summary">
                     <div>
-                      <Link
-                        to="/repertoire/$repertoireId"
-                        params={{ repertoireId: item.id }}
-                      >
+                      <Link to="/repertoire/$repertoireId" params={{ repertoireId: item.id }}>
                         <h3>{item.title}</h3>
                       </Link>
                       <Show when={item.ownedByUser && !inLibrary()}>

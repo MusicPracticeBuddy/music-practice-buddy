@@ -167,10 +167,7 @@ export function ExerciseCatalogSearch(props: {
                           <span class="tag">{exercise.instrumentName}</span>
                         </Show>
                       </div>
-                      <Link
-                        to="/exercises/$exerciseId"
-                        params={{ exerciseId: exercise.id }}
-                      >
+                      <Link to="/exercises/$exerciseId" params={{ exerciseId: exercise.id }}>
                         <h3>{exercise.name}</h3>
                       </Link>
                       <Show when={exercise.copiedFrom}>
