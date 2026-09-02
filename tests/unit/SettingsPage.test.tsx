@@ -38,7 +38,7 @@ const Settings = (Route as unknown as { component: () => JSX.Element }).componen
 afterEach(cleanup);
 
 describe('Settings page', () => {
-  it('duplicates My Instruments in their families with shared checkbox state', () => {
+  it('uses the shared instrument selector inline', () => {
     const [data] = createSignal<LoaderData>({
       instruments: [
         { id: '1', name: 'Violin', family: 'STRING', isPreferred: true },
@@ -49,23 +49,13 @@ describe('Settings page', () => {
     loaderData = data;
     render(() => <Settings />);
 
-    expect(screen.getAllByRole('checkbox', { name: /Violin/ })).toHaveLength(1);
-    expect(screen.queryByRole('checkbox', { name: /Trumpet/ })).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Show all instruments' }));
-    const violinCheckboxes = screen.getAllByRole('checkbox', { name: /Violin/ });
-    expect(violinCheckboxes).toHaveLength(2);
-    expect(violinCheckboxes.every((checkbox) => (checkbox as HTMLInputElement).checked)).toBe(true);
-
-    fireEvent.click(violinCheckboxes[1]!);
-    const familyViolin = screen.getByRole('checkbox', { name: /Violin/ }) as HTMLInputElement;
-    expect(familyViolin.checked).toBe(false);
-
-    fireEvent.click(familyViolin);
-    expect(
-      screen
-        .getAllByRole('checkbox', { name: /Violin/ })
-        .every((checkbox) => (checkbox as HTMLInputElement).checked),
-    ).toBe(true);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Select instruments/ })).toBeNull();
+    const violins = screen.getAllByRole('checkbox', { name: /Violin/ }) as HTMLInputElement[];
+    expect(violins).toHaveLength(2);
+    expect(violins.every((violin) => violin.checked)).toBe(true);
+    expect(screen.getByRole('checkbox', { name: /Trumpet/ })).toBeTruthy();
+    fireEvent.click(violins[1]!);
+    expect(violins.every((violin) => !violin.checked)).toBe(true);
   });
 });

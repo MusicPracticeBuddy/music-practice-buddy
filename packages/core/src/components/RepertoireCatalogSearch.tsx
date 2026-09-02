@@ -1,5 +1,6 @@
-import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js';
+import { For, Show, createSignal, onCleanup } from 'solid-js';
 import { useRouter } from '@tanstack/solid-router';
+import { InstrumentFilter } from '@/components/InstrumentFields';
 import {
   addRepertoireToLibrary,
   searchComposerNames,
@@ -11,7 +12,6 @@ import {
   type InstrumentOption,
   getPublicRepertoireCatalogPage,
 } from '@/data/repertoire';
-import { groupExpandedInstrumentOptions, groupInstrumentOptions } from '@/domain/instrument';
 
 export function RepertoireCatalogSearch(props: {
   initialPage: CatalogSearchPage;
@@ -23,8 +23,6 @@ export function RepertoireCatalogSearch(props: {
   const [composerQuery, setComposerQuery] = createSignal('');
   const [composerSuggestions, setComposerSuggestions] = createSignal<ComposerNameSuggestion[]>([]);
   const [acceptedComposerName, setAcceptedComposerName] = createSignal('');
-  const [instrumentQuery, setInstrumentQuery] = createSignal('');
-  const [showAllInstruments, setShowAllInstruments] = createSignal(false);
   const [selectedInstrumentIds, setSelectedInstrumentIds] = createSignal<string[]>(
     props.initialInstrumentIds ?? [],
   );
@@ -41,23 +39,6 @@ export function RepertoireCatalogSearch(props: {
   let composerSearchTimer: ReturnType<typeof setTimeout> | undefined;
   let requestId = 0;
   let composerRequestId = 0;
-
-  const visibleInstruments = createMemo(() => {
-    const search = instrumentQuery().trim().toLocaleLowerCase();
-    const available = showAllInstruments()
-      ? props.instruments
-      : props.instruments.filter((instrument) => instrument.isPreferred);
-    return search
-      ? available.filter((instrument) =>
-          `${instrument.name} ${instrument.family}`.toLocaleLowerCase().includes(search),
-        )
-      : available;
-  });
-  const visibleInstrumentGroups = createMemo(() =>
-    showAllInstruments()
-      ? groupExpandedInstrumentOptions(visibleInstruments())
-      : groupInstrumentOptions(visibleInstruments()),
-  );
 
   function searchInput(page: number): CatalogSearchInput {
     return {
@@ -132,20 +113,11 @@ export function RepertoireCatalogSearch(props: {
     clearTimeout(composerSearchTimer);
   });
 
-  function toggleInstrument(id: string, checked: boolean) {
-    setSelectedInstrumentIds((ids) =>
-      checked ? [...ids, id] : ids.filter((candidate) => candidate !== id),
-    );
-    queueSearch();
-  }
-
   function clearFilters() {
     setQuery('');
     setComposerQuery('');
     setComposerSuggestions([]);
     setAcceptedComposerName('');
-    setInstrumentQuery('');
-    setShowAllInstruments(false);
     setSelectedInstrumentIds([]);
     setInstrumentMatch('ANY');
     setYearFrom('');
@@ -262,65 +234,14 @@ export function RepertoireCatalogSearch(props: {
               Match all
             </label>
           </div>
-          <button
-            class="instrument-list-toggle"
-            type="button"
-            aria-expanded={showAllInstruments()}
-            aria-controls="catalog-instrument-options"
-            onClick={() => {
-              setShowAllInstruments((expanded) => !expanded);
-              setInstrumentQuery('');
+          <InstrumentFilter
+            instruments={props.instruments}
+            selectedIds={selectedInstrumentIds()}
+            onChange={(ids) => {
+              setSelectedInstrumentIds(ids);
+              queueSearch();
             }}
-          >
-            {showAllInstruments() ? 'Show only My Instruments' : 'Show all instruments'}
-          </button>
-          <Show when={showAllInstruments()}>
-            <input
-              class="text-input instrument-list-search"
-              type="search"
-              value={instrumentQuery()}
-              aria-label="Search instruments"
-              placeholder="Search instruments…"
-              onInput={(event) => setInstrumentQuery(event.currentTarget.value)}
-            />
-          </Show>
-          <div id="catalog-instrument-options" class="catalog-instrument-options">
-            <p class="instrument-list-scope">
-              {showAllInstruments() ? 'All instruments' : 'My Instruments'}
-            </p>
-            <Show
-              when={visibleInstrumentGroups().length > 0}
-              fallback={
-                <p class="instrument-list-empty">
-                  {showAllInstruments()
-                    ? 'No instruments match your search.'
-                    : 'No instruments selected in My Instruments.'}
-                </p>
-              }
-            >
-              <For each={visibleInstrumentGroups()}>
-                {(group) => (
-                  <div class="instrument-option-group">
-                    <p>{group.label}</p>
-                    <For each={group.instruments}>
-                      {(instrument) => (
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={selectedInstrumentIds().includes(instrument.id)}
-                            onChange={(event) =>
-                              toggleInstrument(instrument.id, event.currentTarget.checked)
-                            }
-                          />
-                          <span>{instrument.name}</span>
-                        </label>
-                      )}
-                    </For>
-                  </div>
-                )}
-              </For>
-            </Show>
-          </div>
+          />
         </fieldset>
 
         <button class="text-button" type="button" onClick={clearFilters}>

@@ -168,12 +168,7 @@ describe('RepertoireCatalogSearch', () => {
     };
     renderSearch(matchingPage(initialInput), initialInput.instrumentIds);
 
-    expect((screen.getByRole('checkbox', { name: /Piano/ }) as HTMLInputElement).checked).toBe(
-      true,
-    );
-    expect(screen.queryByRole('checkbox', { name: /Violin/ })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Show all instruments' }));
-    expect(screen.getAllByRole('checkbox', { name: /Piano/ })).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Select instruments (1)' }));
     expect(
       screen
         .getAllByRole('checkbox', { name: /Piano/ })
@@ -182,6 +177,7 @@ describe('RepertoireCatalogSearch', () => {
     expect((screen.getByRole('checkbox', { name: /Violin/ }) as HTMLInputElement).checked).toBe(
       false,
     );
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     fireEvent.click(screen.getByRole('button', { name: 'Clear all filters' }));
     await waitFor(() => expect(screen.getByText('3 matching works')).toBeTruthy());
   });
@@ -189,9 +185,10 @@ describe('RepertoireCatalogSearch', () => {
   it('supports matching any or all selected instruments', async () => {
     renderSearch();
 
-    fireEvent.click(screen.getByRole('checkbox', { name: /Piano/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Show all instruments' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select instruments' }));
+    fireEvent.click(screen.getAllByRole('checkbox', { name: /Piano/ })[0]!);
     fireEvent.click(screen.getByRole('checkbox', { name: /Violin/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() => expect(screen.getByText('3 matching works')).toBeTruthy());
 
     fireEvent.click(screen.getByRole('radio', { name: 'Match all' }));

@@ -22,17 +22,12 @@ import {
 
 export const Route = createFileRoute('/library')({
   loader: async () => {
-    const instruments = await getInstruments();
-    const instrumentIds = instruments
-      .filter((instrument) => instrument.isPreferred)
-      .map((instrument) => instrument.id);
-    const [exercises, repertoire] = await Promise.all([
+    const [instruments, exercises, repertoire] = await Promise.all([
+      getInstruments(),
       getExerciseLibraryPage({ data: EMPTY_EXERCISE_LIBRARY_SEARCH }),
-      getRepertoireLibraryPage({
-        data: { ...EMPTY_REPERTOIRE_LIBRARY_SEARCH, instrumentIds },
-      }),
+      getRepertoireLibraryPage({ data: EMPTY_REPERTOIRE_LIBRARY_SEARCH }),
     ]);
-    return { repertoire, exercises, instruments, instrumentIds };
+    return { repertoire, exercises, instruments, instrumentIds: [] };
   },
   component: Library,
 });
@@ -63,13 +58,11 @@ function Library() {
 
   createEffect(() => {
     const refreshed = data();
-    const defaultRepertoireInstrumentIds = refreshed.instrumentIds;
     const repertoireFiltersAreDefault =
       repertoireQuery() === '' &&
       composer() === '' &&
       repertoireVisibility() === 'ALL' &&
-      instrumentIds().length === defaultRepertoireInstrumentIds.length &&
-      instrumentIds().every((id, index) => id === defaultRepertoireInstrumentIds[index]);
+      instrumentIds().length === 0;
     if (repertoireFiltersAreDefault) setRepertoire(refreshed.repertoire);
 
     const exerciseFiltersAreDefault =
