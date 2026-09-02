@@ -42,6 +42,9 @@ function TemplateDetail() {
           </p>
         </div>
         <div class="header-actions">
+          <Link class="primary-button" to="/sessions/new" search={{ template: template().id }}>
+            Use template
+          </Link>
           <Show when={template().canEdit}>
             <Link
               class="secondary-button"
@@ -51,9 +54,6 @@ function TemplateDetail() {
               Edit template
             </Link>
           </Show>
-          <Link class="primary-button" to="/sessions/new" search={{ template: template().id }}>
-            Use template
-          </Link>
           <Show when={template().canManage}>
             <DeleteConfirmationDialog
               triggerLabel="Delete template"

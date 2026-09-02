@@ -1,10 +1,7 @@
 import { For, Show, createEffect, createSignal } from 'solid-js';
 import { Link, createFileRoute } from '@tanstack/solid-router';
-import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog';
-import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { InstrumentFilter } from '@/components/InstrumentFields';
 import {
-  deleteSessionTemplate,
   EMPTY_SESSION_TEMPLATE_SEARCH,
   getSessionTemplatesPage,
   type SessionTemplateSummary,
@@ -113,15 +110,7 @@ function Templates() {
           aria-busy={loading()}
         >
           <For each={templates().items}>
-            {(template) => (
-              <TemplateListItem
-                template={template}
-                onDelete={async () => {
-                  await deleteSessionTemplate({ data: template.id });
-                  await loadPage(templates().page);
-                }}
-              />
-            )}
+            {(template) => <TemplateListItem template={template} />}
           </For>
         </section>
       </Show>
@@ -153,68 +142,39 @@ function Templates() {
   );
 }
 
-function TemplateListItem(props: {
-  template: SessionTemplateSummary;
-  onDelete: () => Promise<void>;
-}) {
-  const [deleteOpen, setDeleteOpen] = createSignal(false);
-
+function TemplateListItem(props: { template: SessionTemplateSummary }) {
   return (
-    <SwipeToDelete onDeleteRequest={() => props.template.canManage && setDeleteOpen(true)}>
-      <article class="template-list-row">
-        <div>
-          <h2>
-            <Link
-              to="/templates/$templateId"
-              params={{ templateId: props.template.id }}
-              draggable={false}
-            >
-              {props.template.name}
-            </Link>
-          </h2>
-          <p>
-            {props.template.itemCount} practice {props.template.itemCount === 1 ? 'item' : 'items'}
-            {' · '}
-            {props.template.visibility.toLowerCase()}
-            <Show when={props.template.instrumentName}>
-              {' · '}
-              {props.template.instrumentName}
-            </Show>
-          </p>
-        </div>
-        <div class="header-actions">
-          <Show when={props.template.canEdit}>
-            <Link
-              class="secondary-button"
-              to="/templates/$templateId/edit"
-              params={{ templateId: props.template.id }}
-              draggable={false}
-            >
-              Edit
-            </Link>
-          </Show>
+    <article class="template-list-row">
+      <div>
+        <h2>
           <Link
-            class="secondary-button"
-            to="/sessions/new"
-            search={{ template: props.template.id }}
+            to="/templates/$templateId"
+            params={{ templateId: props.template.id }}
             draggable={false}
           >
-            Use template
+            {props.template.name}
           </Link>
-          <Show when={props.template.canManage}>
-            <DeleteConfirmationDialog
-              triggerLabel="Delete"
-              title="Delete this template?"
-              itemName={props.template.name}
-              description="This permanently deletes the template. Existing sessions created from it will remain."
-              confirmLabel="Delete template"
-              open={deleteOpen()}
-              onOpenChange={setDeleteOpen}
-              onConfirm={props.onDelete}
-            />
+        </h2>
+        <p>
+          {props.template.itemCount} practice {props.template.itemCount === 1 ? 'item' : 'items'}
+          {' · '}
+          {props.template.visibility.toLowerCase()}
+          <Show when={props.template.instrumentName}>
+            {' · '}
+            {props.template.instrumentName}
           </Show>
-        </div>
-      </article>
-    </SwipeToDelete>
+        </p>
+      </div>
+      <div class="header-actions">
+        <Link
+          class="secondary-button"
+          to="/sessions/new"
+          search={{ template: props.template.id }}
+          draggable={false}
+        >
+          Use template
+        </Link>
+      </div>
+    </article>
   );
 }

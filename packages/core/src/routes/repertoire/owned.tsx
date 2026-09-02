@@ -84,8 +84,8 @@ function OwnedRepertoire() {
               return (
                 <article class="content-card">
                   <div class="card-topline">
-                    <span class="tag">{item.visibility.toLowerCase()}</span>
-                    <span>{item.status.toLowerCase()}</span>
+                    {/* todo show instrument as a tag, if available */}
+                    <span>{item.visibility.toLowerCase()}</span>
                   </div>
                   <h2>{item.title}</h2>
                   <p class="muted">{item.composer}</p>

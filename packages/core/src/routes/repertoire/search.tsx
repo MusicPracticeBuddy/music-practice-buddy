@@ -37,7 +37,7 @@ function SearchRepertoire() {
           <p class="lede">
             {creating()
               ? 'Add a work that is not yet available in the public catalog.'
-              : 'Search public works and repertoire you own but have not added to your library.'}
+              : 'Find public repertoire to add to your library.'}
           </p>
         </div>
         <Show
@@ -49,7 +49,7 @@ function SearchRepertoire() {
           }
         >
           <Link class="secondary-button" to="/library">
-            Cancel
+            Return to My Library
           </Link>
         </Show>
       </header>
@@ -77,11 +77,10 @@ function SearchRepertoire() {
         />
         <div class="catalog-create-fallback">
           <div>
-            <h2>Create a catalog entry</h2>
-            <p>Create a new repertoire item and choose whether to share it publicly.</p>
+            <h2>Can’t find what you need?</h2>
           </div>
           <button class="secondary-button" type="button" onClick={() => setCreating(true)}>
-            Can’t find what you need?
+            Create a new repertoire item.
           </button>
         </div>
       </Show>

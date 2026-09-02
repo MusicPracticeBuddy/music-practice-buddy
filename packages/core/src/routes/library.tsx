@@ -169,11 +169,7 @@ function Library() {
   return (
     <main class="page">
       <header class="page-header library-page-header">
-        <div>
-          <p class="eyebrow">Music and technique</p>
           <h1>My Library</h1>
-          <p class="lede">Your repertoire and exercises, together in one place.</p>
-        </div>
       </header>
 
       <div class="library-sections">
@@ -184,7 +180,6 @@ function Library() {
         >
           <header class="library-section-header">
             <div>
-              <p class="eyebrow">Music library</p>
               <button
                 class="section-disclosure"
                 type="button"
@@ -357,7 +352,6 @@ function Library() {
         >
           <header class="library-section-header">
             <div>
-              <p class="eyebrow">Technique library</p>
               <button
                 class="section-disclosure"
                 type="button"
@@ -542,11 +536,10 @@ function ExerciseLibraryCard(props: {
       <span class="list-number">{String(props.number).padStart(2, '0')}</span>
       <div class="list-main">
         <div class="card-topline">
-          <span class="tag">{props.exercise.visibility.toLowerCase()}</span>
-          <span>{props.exercise.notationFormat}</span>
           <Show when={props.exercise.instrumentName}>
-            <span>{props.exercise.instrumentName}</span>
+            <span class="tag">{props.exercise.instrumentName}</span>
           </Show>
+          <span>{props.exercise.visibility.toLowerCase()}</span>
         </div>
         <h2>
           <Link to="/exercises/$exerciseId" params={{ exerciseId: props.exercise.id }}>
@@ -574,15 +567,8 @@ function ExerciseLibraryCard(props: {
         </Show>
         {props.exercise.copiedFrom && <small>Adapted from {props.exercise.copiedFrom}</small>}
         <div class="library-section-actions exercise-library-actions">
-          <Link
-            class="text-link"
-            to="/exercises/$exerciseId"
-            params={{ exerciseId: props.exercise.id }}
-          >
-            View details →
-          </Link>
           <DeleteConfirmationDialog
-            triggerLabel="Remove"
+            triggerLabel="Remove from My Library"
             title="Remove from My Library?"
             itemName={props.exercise.name}
             description="This removes the library entry. The exercise and your practice history remain available."
@@ -619,15 +605,8 @@ function RepertoireCard(props: { piece: RepertoireRow; onRemove: () => Promise<v
       />
 
       <div class="library-section-actions">
-        <Link
-          class="text-link"
-          to="/repertoire/$repertoireId"
-          params={{ repertoireId: props.piece.id }}
-        >
-          View details →
-        </Link>
         <DeleteConfirmationDialog
-          triggerLabel="Remove"
+          triggerLabel="Remove from My Library"
           title="Remove from My Library?"
           itemName={props.piece.title}
           description="This removes the library entry and its note. The repertoire and your practice history remain available."

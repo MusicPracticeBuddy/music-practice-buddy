@@ -103,8 +103,8 @@ function OwnedExercises() {
               return (
                 <article class="content-card">
                   <div class="card-topline">
-                    <span class="tag">{exercise.visibility.toLowerCase()}</span>
-                    <span>{exercise.notationFormat}</span>
+                    {/* <span class="tag">todo fill with instrument, if available</span> */}
+                    <span>{exercise.visibility.toLowerCase()}</span>
                   </div>
                   <h2>
                     <Link to="/exercises/$exerciseId" params={{ exerciseId: exercise.id }}>
@@ -138,13 +138,6 @@ function OwnedExercises() {
                         onConfirm={() => removeFromLibrary(exercise)}
                       />
                     </Show>
-                    <Link
-                      class="secondary-button"
-                      to="/exercises/$exerciseId"
-                      params={{ exerciseId: exercise.id }}
-                    >
-                      View
-                    </Link>
                     <Link
                       class="secondary-button"
                       to="/exercises/$exerciseId/edit"

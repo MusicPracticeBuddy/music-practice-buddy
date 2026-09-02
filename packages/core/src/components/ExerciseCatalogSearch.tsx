@@ -163,25 +163,21 @@ export function ExerciseCatalogSearch(props: {
                   <div class="catalog-result-summary">
                     <div>
                       <div class="card-topline">
-                        <span class="tag">{exercise.notationFormat}</span>
                         <Show when={exercise.instrumentName}>
-                          <span>{exercise.instrumentName}</span>
+                          <span class="tag">{exercise.instrumentName}</span>
                         </Show>
-                        <span>By {exercise.owner}</span>
                       </div>
-                      <h3>{exercise.name}</h3>
+                      <Link
+                        to="/exercises/$exerciseId"
+                        params={{ exerciseId: exercise.id }}
+                      >
+                        <h3>{exercise.name}</h3>
+                      </Link>
                       <Show when={exercise.copiedFrom}>
                         <small>Adapted from {exercise.copiedFrom}</small>
                       </Show>
                     </div>
                     <div class="catalog-result-actions">
-                      <Link
-                        class="secondary-button"
-                        to="/exercises/$exerciseId"
-                        params={{ exerciseId: exercise.id }}
-                      >
-                        View
-                      </Link>
                       <button
                         class={inLibrary() ? 'secondary-button' : 'primary-button'}
                         type="button"

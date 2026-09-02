@@ -21,16 +21,11 @@ vi.mock('../../packages/core/src/components/DeleteConfirmationDialog', () => ({
   DeleteConfirmationDialog: () => null,
 }));
 
-vi.mock('../../packages/core/src/components/SwipeToDelete', () => ({
-  SwipeToDelete: (props: { children: JSX.Element }) => <>{props.children}</>,
-}));
-
 vi.mock('../../packages/core/src/components/InstrumentFields', () => ({
   InstrumentFilter: () => null,
 }));
 
 vi.mock('../../packages/core/src/data/sessionTemplates', () => ({
-  deleteSessionTemplate: vi.fn(),
   EMPTY_SESSION_TEMPLATE_SEARCH: { instrumentIds: [], page: 1 },
   getSessionTemplatesPage: vi.fn(),
 }));

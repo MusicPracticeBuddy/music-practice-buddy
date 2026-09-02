@@ -1,5 +1,5 @@
 import { For, Show, createSignal, onCleanup } from 'solid-js';
-import { useRouter } from '@tanstack/solid-router';
+import { Link, useRouter } from '@tanstack/solid-router';
 import { InstrumentFilter } from '@/components/InstrumentFields';
 import {
   addRepertoireToLibrary,
@@ -279,7 +279,12 @@ export function RepertoireCatalogSearch(props: {
                 <article class="catalog-result-card">
                   <div class="catalog-result-summary">
                     <div>
-                      <h3>{item.title}</h3>
+                      <Link
+                        to="/repertoire/$repertoireId"
+                        params={{ repertoireId: item.id }}
+                      >
+                        <h3>{item.title}</h3>
+                      </Link>
                       <Show when={item.ownedByUser && !inLibrary()}>
                         <span class="tag catalog-owned-tag">Owned by you · Not in My Library</span>
                       </Show>

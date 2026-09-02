@@ -60,14 +60,14 @@ function RepertoireDetail() {
               to="/repertoire/$repertoireId/edit"
               params={{ repertoireId: repertoire().id }}
             >
-              {repertoire().parent ? 'Edit child item' : 'Edit repertoire'}
+              Edit
             </Link>
             <DeleteConfirmationDialog
-              triggerLabel={repertoire().parent ? 'Delete child item' : 'Delete repertoire'}
-              title={repertoire().parent ? 'Delete this child item?' : 'Delete this repertoire?'}
+              triggerLabel='Delete'
+              title='Delete this repertoire?'
               itemName={repertoire().title}
-              description="This removes the repertoire from your library. Historical session entries will remain."
-              confirmLabel={repertoire().parent ? 'Delete child item' : 'Delete repertoire'}
+              description="This also removes it from your library. Historical session entries will remain."
+              confirmLabel='Delete'
               onConfirm={async () => {
                 await deleteRepertoire({ data: repertoire().id });
                 await router.invalidate({ sync: true });
@@ -89,7 +89,7 @@ function RepertoireDetail() {
       <Show when={repertoire().parent}>
         {(parent) => (
           <p class="parent-record">
-            Part of{' '}
+            From{' '}
             <Link to="/repertoire/$repertoireId" params={{ repertoireId: parent().id }}>
               {parent().title}
             </Link>
