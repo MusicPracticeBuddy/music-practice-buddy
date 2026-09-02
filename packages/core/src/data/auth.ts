@@ -1,10 +1,10 @@
 import { createServerFn } from '@tanstack/solid-start';
 import {
   createSession,
-  getAuthenticatedUser,
   isDevelopmentLoginEnabled,
-  revokeCurrentSession,
+  revokeCurrentSession as revokeLegacySession,
 } from '@/auth/server';
+import { getAuthenticatedUser, revokeCurrentSession } from '@/auth/provider';
 import { pool } from '@/data/db';
 import type { AuthenticatedUser } from '@/auth/types';
 
@@ -83,7 +83,7 @@ export const developmentLogin = createServerFn({ method: 'POST' })
     );
     const user = result.rows[0];
     if (!user) throw new Error('Development user not found');
-    await revokeCurrentSession();
+    await revokeLegacySession();
     await createSession(user.musicianId);
     return user;
   });
@@ -126,7 +126,7 @@ export const createDevelopmentUser = createServerFn({ method: 'POST' })
       client.release();
     }
 
-    await revokeCurrentSession();
+    await revokeLegacySession();
     await createSession(user.musicianId);
     return user;
   });

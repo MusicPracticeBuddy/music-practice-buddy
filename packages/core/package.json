@@ -19,6 +19,7 @@
     "./migrations/*": "./migrations/*",
     "./routing": "./src/routing/index.ts",
     "./server/auth": "./src/server/auth.ts",
+    "./server/auth-provider": "./src/server/auth-provider.ts",
     "./server/external-auth": "./src/server/external-auth.ts",
     "./server/database": "./src/server/database.ts",
     "./styles.css": "./src/styles.css",

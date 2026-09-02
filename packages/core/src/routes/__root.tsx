@@ -15,10 +15,12 @@ import type { MpbRouterContext } from '@/edition/contracts';
 import '@/styles.css';
 
 export const Route = createRootRouteWithContext<MpbRouterContext>()({
-  beforeLoad: async ({ location }) => {
+  beforeLoad: async ({ context, location }) => {
     const user = await getCurrentUser();
     const isLogin = location.pathname === '/login';
-    if (!user && !isLogin) {
+    const isPublicRoute =
+      isLogin || context.edition.publicRoutes?.includes(location.pathname) === true;
+    if (!user && !isPublicRoute) {
       throw redirect({
         to: '/login',
         search: { redirect: location.href, authError: undefined },

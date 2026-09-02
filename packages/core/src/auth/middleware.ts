@@ -1,6 +1,6 @@
 import { createMiddleware } from '@tanstack/solid-start';
 import { setResponseHeader } from '@tanstack/solid-start/server';
-import { getAuthenticatedUser } from '@/auth/server';
+import { getAuthenticatedUser } from '@/auth/provider';
 
 export const authMiddleware = createMiddleware({ type: 'function' }).server(async ({ next }) => {
   const user = await getAuthenticatedUser();

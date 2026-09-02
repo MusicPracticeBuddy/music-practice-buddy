@@ -19,6 +19,7 @@ export type MpbEdition = Readonly<{
   id: string;
   displayName: string;
   loginProviders: readonly LoginProviderContribution[];
+  publicRoutes?: readonly string[];
   primaryNavigation: readonly EditionContribution[];
   dashboardPanels: readonly EditionContribution[];
 }>;
