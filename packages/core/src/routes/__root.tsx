@@ -10,13 +10,16 @@ import {
 } from '@tanstack/solid-router';
 import { Dynamic, HydrationScript } from 'solid-js/web';
 import type { AuthenticatedUser } from '@/auth/types';
-import { getCurrentUser, logout } from '@/data/auth';
+import { getCurrentUser, getDevelopmentLoginEnabled, logout } from '@/data/auth';
 import type { MpbRouterContext } from '@/edition/contracts';
 import '@/styles.css';
 
 export const Route = createRootRouteWithContext<MpbRouterContext>()({
   beforeLoad: async ({ context, location }) => {
-    const user = await getCurrentUser();
+    const [user, developmentLoginEnabled] = await Promise.all([
+      getCurrentUser(),
+      getDevelopmentLoginEnabled(),
+    ]);
     const isLogin = location.pathname === '/login';
     const isPublicRoute =
       isLogin || context.edition.publicRoutes?.includes(location.pathname) === true;
@@ -28,7 +31,7 @@ export const Route = createRootRouteWithContext<MpbRouterContext>()({
       });
     }
     if (user && isLogin) throw redirect({ to: '/', replace: true });
-    return { user };
+    return { developmentLoginEnabled, user };
   },
   head: () => ({
     meta: [
@@ -68,16 +71,27 @@ function RootComponent() {
   return (
     <RootDocument>
       <Solid.Show when={context().user} fallback={<Outlet />}>
-        {(user) => <AuthenticatedShell edition={context().edition} user={user()} />}
+        {(user) => (
+          <AuthenticatedShell
+            developmentLoginEnabled={context().developmentLoginEnabled}
+            edition={context().edition}
+            user={user()}
+          />
+        )}
       </Solid.Show>
     </RootDocument>
   );
 }
 
 function AuthenticatedShell({
+  developmentLoginEnabled,
   edition,
   user,
-}: Readonly<{ edition: MpbRouterContext['edition']; user: AuthenticatedUser }>) {
+}: Readonly<{
+  developmentLoginEnabled: boolean;
+  edition: MpbRouterContext['edition'];
+  user: AuthenticatedUser;
+}>) {
   const router = useRouter();
 
   async function signOut() {
@@ -127,9 +141,11 @@ function AuthenticatedShell({
           <Link to="/settings" activeProps={{ class: 'active' }}>
             Settings
           </Link>
-          <button type="button" onClick={switchUser}>
-            Switch user
-          </button>
+          <Solid.Show when={developmentLoginEnabled}>
+            <button type="button" onClick={switchUser}>
+              Switch user
+            </button>
+          </Solid.Show>
           <button type="button" onClick={signOut}>
             Log out
           </button>

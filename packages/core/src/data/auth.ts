@@ -36,6 +36,10 @@ export const getCurrentUser = createServerFn({ method: 'GET' }).handler(
   async (): Promise<AuthenticatedUser | null> => getAuthenticatedUser(),
 );
 
+export const getDevelopmentLoginEnabled = createServerFn({ method: 'GET' }).handler(() =>
+  isDevelopmentLoginEnabled(),
+);
+
 export const getLoginConfiguration = createServerFn({ method: 'GET' }).handler(
   async (): Promise<LoginConfiguration> => {
     if (!isDevelopmentLoginEnabled()) return { developmentEnabled: false, users: [] };
