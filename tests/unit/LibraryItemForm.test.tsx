@@ -229,7 +229,7 @@ describe('LibraryItemForm', () => {
     );
   });
 
-  it('keeps excerpt measure bounds in sync and rejects an inverted range', () => {
+  it('keeps excerpt measure bounds in sync and rejects an inverted range', async () => {
     render(() => (
       <LibraryItemForm
         kind="repertoire"
@@ -249,8 +249,10 @@ describe('LibraryItemForm', () => {
     expect(end.min).toBe('25');
     fireEvent.submit(screen.getByRole('button', { name: 'Create repertoire' }).closest('form')!);
 
-    expect(screen.getByRole('alert').textContent).toContain(
-      'Starting measure cannot be after ending measure.',
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toContain(
+        'Starting measure cannot be after ending measure.',
+      ),
     );
     expect(mocks.createChildRepertoire).not.toHaveBeenCalled();
   });

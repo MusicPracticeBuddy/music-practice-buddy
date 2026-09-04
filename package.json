@@ -26,6 +26,7 @@
   "dependencies": {
     "@kobalte/core": "^0.13.13",
     "@music-practice-buddy/core": "0.0.0",
+    "@tanstack/solid-form": "^1.33.5",
     "@tanstack/solid-query": "^5.102.8",
     "@tanstack/solid-router": "^1.170.30",
     "@tanstack/solid-start": "^1.168.47",

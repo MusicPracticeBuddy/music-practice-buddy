@@ -1,4 +1,14 @@
-import { For, Index, Show, createEffect, createSignal, onCleanup, type JSX } from 'solid-js';
+import {
+  For,
+  Index,
+  Show,
+  createEffect,
+  createSignal,
+  onCleanup,
+  untrack,
+  type JSX,
+} from 'solid-js';
+import { createForm } from '@tanstack/solid-form';
 import { Link, useNavigate, useRouter } from '@tanstack/solid-router';
 import { ExerciseNotation } from '@/components/ExerciseNotation';
 import { InstrumentSelect } from '@/components/InstrumentFields';
@@ -55,36 +65,92 @@ function errorMessage(caught: unknown) {
   return caught instanceof Error ? caught.message : 'The library item could not be saved.';
 }
 
+type LibraryItemFormValues = {
+  name: string;
+  compositionYear: string;
+  startMeasure: string;
+  endMeasure: string;
+  notation: string;
+  notationFormat: ExerciseNotationFormat;
+  visibility: 'PRIVATE' | 'PUBLIC';
+  instrumentId: string;
+  credits: RepertoireCreditInput[];
+  instruments: RepertoireInstrumentInput[];
+  resources: RepertoireResourceInput[];
+};
+
+function defaultValues(props: LibraryItemFormProps): LibraryItemFormValues {
+  return {
+    name: props.name ?? '',
+    compositionYear: props.compositionYear?.toString() ?? '',
+    startMeasure: props.startMeasure?.toString() ?? '',
+    endMeasure: props.endMeasure?.toString() ?? '',
+    notation: props.notation ?? '',
+    notationFormat: props.notationFormat ?? EXERCISE_NOTATION_FORMAT.TEXT,
+    visibility: props.visibility ?? 'PRIVATE',
+    instrumentId: props.instrumentId ?? '',
+    credits: props.credits ?? [],
+    instruments: props.instruments ?? [],
+    resources: props.resources ?? [],
+  };
+}
+
 export function LibraryItemForm(props: LibraryItemFormProps) {
   const navigate = useNavigate();
   const router = useRouter();
   const editing = () => props.id !== undefined;
   const label = () => (props.kind === 'exercise' ? 'exercise' : 'repertoire');
-  const [name, setName] = createSignal(props.name ?? '');
-  const [compositionYear, setCompositionYear] = createSignal(
-    props.compositionYear?.toString() ?? '',
-  );
-  const [startMeasure, setStartMeasure] = createSignal(props.startMeasure?.toString() ?? '');
-  const [endMeasure, setEndMeasure] = createSignal(props.endMeasure?.toString() ?? '');
-  const [notation, setNotation] = createSignal(props.notation ?? '');
-  const [notationFormat, setNotationFormat] = createSignal<ExerciseNotationFormat>(
-    props.notationFormat ?? EXERCISE_NOTATION_FORMAT.TEXT,
-  );
-  const [visibility, setVisibility] = createSignal<'PRIVATE' | 'PUBLIC'>(
-    props.visibility ?? 'PRIVATE',
-  );
-  const [instrumentId, setInstrumentId] = createSignal(props.instrumentId ?? '');
-  const [credits, setCredits] = createSignal<RepertoireCreditInput[]>(props.credits ?? []);
-  const [instruments, setInstruments] = createSignal<RepertoireInstrumentInput[]>(
-    props.instruments ?? [],
-  );
-  const [resources, setResources] = createSignal<RepertoireResourceInput[]>(props.resources ?? []);
+  const formApi = createForm(() => ({
+    defaultValues: defaultValues(props),
+    validators: {
+      onSubmit: ({ value }) =>
+        props.kind === 'repertoire' &&
+        props.isExcerpt &&
+        value.startMeasure !== '' &&
+        value.endMeasure !== '' &&
+        Number(value.startMeasure) > Number(value.endMeasure)
+          ? 'Starting measure cannot be after ending measure.'
+          : undefined,
+    },
+    onSubmit: ({ value }) => save(value),
+  }));
+  const formValues = formApi.useSelector((state) => state.values);
+  const isSubmitting = formApi.useSelector((state) => state.isSubmitting);
+  const submitErrors = formApi.useSelector((state) => state.errors);
+  const validationError = () => submitErrors().find((item) => typeof item === 'string') ?? '';
+  const value = <Key extends keyof LibraryItemFormValues>(key: Key) => formValues()[key];
+  const name = () => value('name');
+  const compositionYear = () => value('compositionYear');
+  const startMeasure = () => value('startMeasure');
+  const endMeasure = () => value('endMeasure');
+  const notation = () => value('notation');
+  const notationFormat = () => value('notationFormat');
+  const visibility = () => value('visibility');
+  const instrumentId = () => value('instrumentId');
+  const credits = () => value('credits');
+  const instruments = () => value('instruments');
+  const resources = () => value('resources');
+  const setName = (next: string) => formApi.setFieldValue('name', next);
+  const setCompositionYear = (next: string) => formApi.setFieldValue('compositionYear', next);
+  const setStartMeasure = (next: string) => formApi.setFieldValue('startMeasure', next);
+  const setEndMeasure = (next: string) => formApi.setFieldValue('endMeasure', next);
+  const setNotation = (next: string) => formApi.setFieldValue('notation', next);
+  const setNotationFormat = (next: ExerciseNotationFormat) =>
+    formApi.setFieldValue('notationFormat', next);
+  const setVisibility = (next: 'PRIVATE' | 'PUBLIC') => formApi.setFieldValue('visibility', next);
+  const setInstrumentId = (next: string) => formApi.setFieldValue('instrumentId', next);
+  const setCredits = (update: (items: RepertoireCreditInput[]) => RepertoireCreditInput[]) =>
+    formApi.setFieldValue('credits', update(credits()));
+  const setInstruments = (
+    update: (items: RepertoireInstrumentInput[]) => RepertoireInstrumentInput[],
+  ) => formApi.setFieldValue('instruments', update(instruments()));
+  const setResources = (update: (items: RepertoireResourceInput[]) => RepertoireResourceInput[]) =>
+    formApi.setFieldValue('resources', update(resources()));
   const [composerSuggestions, setComposerSuggestions] = createSignal<ComposerNameSuggestion[]>([]);
   const [activeComposerIndex, setActiveComposerIndex] = createSignal<number | null>(null);
   const [acceptedComposerNames, setAcceptedComposerNames] = createSignal<Record<number, string>>(
     {},
   );
-  const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal('');
   let composerSearchTimer: ReturnType<typeof setTimeout> | undefined;
   let composerSearchRequest = 0;
@@ -131,41 +197,20 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
   }
 
   createEffect(() => {
-    setName(props.name ?? '');
-    setCompositionYear(props.compositionYear?.toString() ?? '');
-    setStartMeasure(props.startMeasure?.toString() ?? '');
-    setEndMeasure(props.endMeasure?.toString() ?? '');
-    setNotation(props.notation ?? '');
-    setNotationFormat(props.notationFormat ?? EXERCISE_NOTATION_FORMAT.TEXT);
-    setVisibility(props.visibility ?? 'PRIVATE');
-    setInstrumentId(props.instrumentId ?? '');
-    setCredits(props.credits ?? []);
-    setInstruments(props.instruments ?? []);
-    setResources(props.resources ?? []);
+    const nextValues = defaultValues(props);
+    untrack(() => formApi.reset(nextValues));
   });
 
-  async function submit(event: SubmitEvent) {
-    event.preventDefault();
-    if (
-      props.kind === 'repertoire' &&
-      props.isExcerpt &&
-      startMeasure() !== '' &&
-      endMeasure() !== '' &&
-      Number(startMeasure()) > Number(endMeasure())
-    ) {
-      setError('Starting measure cannot be after ending measure.');
-      return;
-    }
-    setSaving(true);
+  async function save(values: LibraryItemFormValues) {
     setError('');
     try {
       if (props.kind === 'exercise') {
         const data: ExerciseInput = {
-          name: name(),
-          notation: notation(),
-          notationFormat: notationFormat(),
-          visibility: visibility(),
-          instrumentId: instrumentId() || null,
+          name: values.name,
+          notation: values.notation,
+          notationFormat: values.notationFormat,
+          visibility: values.visibility,
+          instrumentId: values.instrumentId || null,
         };
         const result = props.id
           ? await updateExercise({ data: { id: props.id, ...data } })
@@ -184,16 +229,16 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
         await navigate({ to: '/exercises/$exerciseId', params: { exerciseId: result.id } });
       } else {
         const data: RepertoireInput = {
-          title: name(),
-          compositionYear: compositionYear() ? Number(compositionYear()) : null,
-          visibility: visibility(),
-          credits: credits(),
-          instruments: instruments(),
-          resources: resources(),
+          title: values.name,
+          compositionYear: values.compositionYear ? Number(values.compositionYear) : null,
+          visibility: values.visibility,
+          credits: values.credits,
+          instruments: values.instruments,
+          resources: values.resources,
         };
         const measureRange = {
-          startMeasure: props.isExcerpt ? Number(startMeasure()) : null,
-          endMeasure: props.isExcerpt ? Number(endMeasure()) : null,
+          startMeasure: props.isExcerpt ? Number(values.startMeasure) : null,
+          endMeasure: props.isExcerpt ? Number(values.endMeasure) : null,
         };
         const result = props.id
           ? await updateRepertoire({ data: { id: props.id, ...data, ...measureRange } })
@@ -220,13 +265,18 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
       }
     } catch (caught) {
       setError(errorMessage(caught));
-    } finally {
-      setSaving(false);
     }
   }
 
   const form = (
-    <form classList={{ 'creation-form': !props.embedded }} onSubmit={submit}>
+    <form
+      classList={{ 'creation-form': !props.embedded }}
+      onSubmit={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void formApi.handleSubmit();
+      }}
+    >
       {props.beforeFields}
       <label class="field-label" for="library-item-name">
         {props.kind === 'exercise' ? 'Name' : 'Title'}
@@ -649,15 +699,15 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
 
       {props.afterFields}
 
-      <Show when={error()}>
+      <Show when={error() || validationError()}>
         <p class="form-error" role="alert">
-          {error()}
+          {error() || validationError()}
         </p>
       </Show>
       <div class="form-actions">
         {props.cancelAction}
-        <button class="primary-button" type="submit" disabled={saving()}>
-          {saving()
+        <button class="primary-button" type="submit" disabled={isSubmitting()}>
+          {isSubmitting()
             ? 'Saving…'
             : (props.submitLabel ?? (editing() ? `Save ${label()}` : `Create ${label()}`))}
         </button>
