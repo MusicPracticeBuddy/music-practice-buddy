@@ -9,7 +9,6 @@ import {
   createExercise,
   deleteExercise,
   getExerciseLibraryPage,
-  getExercises,
   getOwnedExercisePage,
   getPublicExerciseCatalogPage,
   removeExerciseFromLibrary,
@@ -25,10 +24,8 @@ import {
   createRepertoire,
   deleteRepertoire,
   getInstruments,
-  getPublicRepertoireCatalog,
   getPublicRepertoireCatalogPage,
   getOwnedRepertoirePage,
-  getRepertoire,
   getRepertoireDetail,
   getRepertoireLibraryPage,
   removeRepertoireFromLibrary,
@@ -44,7 +41,6 @@ import {
   EMPTY_SESSION_SEARCH,
   duplicatePracticeSession,
   getSessionDetail,
-  getSessions,
   getSessionsPage,
   removeRunningSessionItem,
   startPracticeSession,
@@ -448,7 +444,11 @@ describe('library item persistence', () => {
     );
     expect(row.rows[0]).toEqual({ name: 'Edited exercise', deleted: true });
     expect(reference.rows[0]?.count).toBe(1);
-    expect((await getExercises()).some((exercise) => exercise.id === created.id)).toBe(false);
+    expect(
+      (await getExerciseLibraryPage({ data: EMPTY_EXERCISE_LIBRARY_SEARCH })).items.some(
+        (exercise) => exercise.id === created.id,
+      ),
+    ).toBe(false);
   });
 
   it('creates, edits, and soft-deletes repertoire while preserving references', async () => {
@@ -544,7 +544,11 @@ describe('library item persistence', () => {
       deleted: true,
     });
     expect(reference.rows[0]?.count).toBe(1);
-    expect((await getRepertoire()).some((repertoire) => repertoire.id === created.id)).toBe(false);
+    expect(
+      (await getRepertoireLibraryPage({ data: EMPTY_REPERTOIRE_LIBRARY_SEARCH })).items.some(
+        (repertoire) => repertoire.id === created.id,
+      ),
+    ).toBe(false);
   });
 
   it('creates, edits, and deletes excerpt and measure-less child repertoire', async () => {
@@ -702,9 +706,9 @@ describe('library item persistence', () => {
     try {
       expect(await getRepertoireDetail({ data: parentId })).toMatchObject({ children: [] });
       expect(await getRepertoireDetail({ data: child.id })).toBeNull();
-      const catalogParent = (await getPublicRepertoireCatalog()).find(
-        (item) => item.id === parentId,
-      );
+      const catalogParent = (
+        await getPublicRepertoireCatalogPage({ data: EMPTY_CATALOG_SEARCH })
+      ).items.find((item) => item.id === parentId);
       expect(catalogParent).toMatchObject({ children: [] });
     } finally {
       process.env.TEST_AUTH_MUSICIAN_ID = '1';
@@ -929,9 +933,11 @@ describe('library item persistence', () => {
       canManage: false,
       canUse: true,
     });
-    expect((await getPublicRepertoireCatalog()).find((item) => item.id === id)).toMatchObject({
-      compositionYear: 1800,
-    });
+    expect(
+      (await getPublicRepertoireCatalogPage({ data: EMPTY_CATALOG_SEARCH })).items.find(
+        (item) => item.id === id,
+      ),
+    ).toMatchObject({ compositionYear: 1800 });
 
     await expect(
       updateRepertoire({
@@ -1466,7 +1472,9 @@ describe('session persistence', () => {
     expect(skippedItem?.startedAt).toBeNull();
     expect(skipped.status).toBe('IN_PROGRESS');
     expect(
-      (await getSessions()).find((session) => session.id === created.id)?.readyToFinalize,
+      (await getSessionsPage({ data: EMPTY_SESSION_SEARCH })).items.find(
+        (session) => session.id === created.id,
+      )?.readyToFinalize,
     ).toBe(true);
 
     const reset = await updateSessionProgress({
@@ -1482,7 +1490,9 @@ describe('session persistence', () => {
     expect(completed.status).toBe('COMPLETED');
     expect(completed.endedAt).not.toBeNull();
     expect(
-      (await getSessions()).find((session) => session.id === created.id)?.readyToFinalize,
+      (await getSessionsPage({ data: EMPTY_SESSION_SEARCH })).items.find(
+        (session) => session.id === created.id,
+      )?.readyToFinalize,
     ).toBe(false);
     await expect(
       updateSessionProgress({
@@ -1865,7 +1875,11 @@ describe('authorization boundaries', () => {
     expect((await getTemplateLibrary()).map((item) => item.id)).not.toContain(
       publicExercise.rows[0]!.id,
     );
-    expect((await getExercises()).map((item) => item.id)).not.toContain(publicExercise.rows[0]!.id);
+    expect(
+      (await getExerciseLibraryPage({ data: EMPTY_EXERCISE_LIBRARY_SEARCH })).items.map(
+        (item) => item.id,
+      ),
+    ).not.toContain(publicExercise.rows[0]!.id);
     await pool.query(
       `INSERT INTO musician_exercise_library (musician_id, exercise_id) VALUES ($1, $2)`,
       [process.env.TEST_AUTH_MUSICIAN_ID, publicExercise.rows[0]!.id],
@@ -1873,7 +1887,11 @@ describe('authorization boundaries', () => {
     expect((await getTemplateLibrary()).map((item) => item.id)).toContain(
       publicExercise.rows[0]!.id,
     );
-    expect((await getExercises()).map((item) => item.id)).toContain(publicExercise.rows[0]!.id);
+    expect(
+      (await getExerciseLibraryPage({ data: EMPTY_EXERCISE_LIBRARY_SEARCH })).items.map(
+        (item) => item.id,
+      ),
+    ).toContain(publicExercise.rows[0]!.id);
     expect((await getSessionTemplates()).map((template) => template.name)).toEqual([
       'Shared template',
     ]);
@@ -1884,9 +1902,11 @@ describe('authorization boundaries', () => {
 
     process.env.TEST_AUTH_MUSICIAN_ID = otherId;
     process.env.TEST_AUTH_IS_ADMIN = 'false';
-    expect((await getSessions()).map((session) => session.templateName)).toEqual([
-      'Hidden session',
-    ]);
+    expect(
+      (await getSessionsPage({ data: EMPTY_SESSION_SEARCH })).items.map(
+        (session) => session.templateName,
+      ),
+    ).toEqual(['Hidden session']);
   });
 
   it('keeps a session item snapshot after its public source becomes private', async () => {

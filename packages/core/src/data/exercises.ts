@@ -165,45 +165,6 @@ function catalogSubstringPattern(value: string) {
   return `%${value.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
 }
 
-export const getExercises = createServerFn({ method: 'GET' })
-  .middleware([authMiddleware])
-  .handler(async ({ context }): Promise<ExerciseRow[]> => {
-    const result = await pool.query<
-      Omit<ExerciseRow, keyof ResourceAccess> & { visibility: Visibility }
-    >(
-      `
-      SELECT
-        exercise.id::text,
-        COALESCE(exercise.name, 'Untitled exercise') AS name,
-        exercise.notation,
-        exercise.notation_format AS "notationFormat",
-        exercise.visibility::text,
-        musician.display_name AS owner,
-        exercise.musician_id::text AS "ownerId",
-        source.name AS "copiedFrom",
-        exercise.instrument_id::text AS "instrumentId",
-        instrument.name AS "instrumentName"
-      FROM exercise
-      JOIN musician_exercise_library library
-        ON library.exercise_id = exercise.id AND library.musician_id = $1
-      JOIN musician ON musician.id = exercise.musician_id
-      LEFT JOIN instrument ON instrument.id = exercise.instrument_id
-      LEFT JOIN exercise source ON source.id = exercise.copied_from_exercise_id
-        AND (source.musician_id = $1 OR source.visibility = 'PUBLIC')
-        AND source.deleted_at IS NULL
-      WHERE exercise.deleted_at IS NULL
-        AND (exercise.musician_id = $1 OR exercise.visibility = 'PUBLIC')
-      ORDER BY exercise.created_at, exercise.id
-    `,
-      [context.user.musicianId],
-    );
-
-    return result.rows.map((exercise) => ({
-      ...exercise,
-      ...resourceAccess(context.user, exercise.ownerId, exercise.visibility),
-    }));
-  });
-
 export const getExerciseLibraryPage = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .validator((input: ExerciseLibrarySearchInput) => {

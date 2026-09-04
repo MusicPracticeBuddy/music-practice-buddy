@@ -100,67 +100,6 @@ export type SessionProgressUpdate = {
   >;
 };
 
-export const getSessions = createServerFn({ method: 'GET' })
-  .middleware([authMiddleware])
-  .handler(async ({ context }): Promise<SessionRow[]> => {
-    const result = await pool.query<{
-      id: string;
-      templateName: string;
-      status: SessionStatus;
-      assignedDate: string | null;
-      assignedAt: Date | null;
-      startedAt: Date | null;
-      endedAt: Date | null;
-      durationMinutes: number | null;
-      itemCount: number;
-      readyToFinalize: boolean;
-      instrumentId: string | null;
-      instrumentName: string | null;
-    }>(
-      `
-      SELECT
-        session.id::text,
-        session.name AS "templateName",
-        session.status::text,
-        to_char(session.assigned_date, 'YYYY-MM-DD') AS "assignedDate",
-        session.assigned_at AS "assignedAt",
-        session.started_at AS "startedAt",
-        session.ended_at AS "endedAt",
-        CASE WHEN count(item.id) FILTER (
-          WHERE item.started_at IS NOT NULL AND item.ended_at IS NOT NULL
-        ) > 0 THEN round(sum(extract(epoch FROM (item.ended_at - item.started_at))) / 60)::int
-        ELSE NULL END AS "durationMinutes",
-        count(item.id)::int AS "itemCount",
-        (
-          session.status = 'IN_PROGRESS'
-          AND count(item.id) FILTER (
-            WHERE item.status NOT IN ('COMPLETE', 'SKIPPED')
-          ) = 0
-        ) AS "readyToFinalize"
-        ,session.instrument_id::text AS "instrumentId"
-        ,instrument.name AS "instrumentName"
-      FROM session
-      LEFT JOIN session_template template ON template.id = session.session_template_id
-      LEFT JOIN session_item item ON item.session_id = session.id AND item.type <> 'SECTION'
-      LEFT JOIN instrument ON instrument.id = session.instrument_id
-      WHERE session.musician_id = $1
-      GROUP BY session.id, template.name, instrument.name
-      ORDER BY COALESCE(
-        session.started_at,
-        session.assigned_date::timestamp AT TIME ZONE current_setting('TIMEZONE')
-      ) DESC NULLS LAST
-    `,
-      [context.user.musicianId],
-    );
-
-    return result.rows.map((row) => ({
-      ...row,
-      assignedAt: toIsoString(row.assignedAt),
-      startedAt: toIsoString(row.startedAt),
-      endedAt: toIsoString(row.endedAt),
-    }));
-  });
-
 export const getSessionsPage = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .validator((input: SessionSearchInput | number) => {
