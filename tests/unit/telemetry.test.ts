@@ -10,7 +10,7 @@ import {
   type TelemetryOperation,
   type TelemetryProvider,
 } from '@/telemetry/telemetry';
-import { createTraceParent } from '@/telemetry/trace';
+import { createTraceId, createTraceParent } from '@/telemetry/trace';
 
 const TRACE_ID = '0123456789abcdef0123456789abcdef';
 const originalConsoleTelemetrySetting = process.env.TELEMETRY_CONSOLE_ENABLED;
@@ -41,6 +41,15 @@ afterEach(() => {
 });
 
 describe('telemetry', () => {
+  it('creates a W3C trace ID without requiring crypto.randomUUID', () => {
+    const randomUuid = vi.spyOn(crypto, 'randomUUID').mockImplementation(() => {
+      throw new Error('randomUUID is unavailable');
+    });
+
+    expect(createTraceId()).toMatch(/^[0-9a-f]{32}$/);
+    expect(randomUuid).not.toHaveBeenCalled();
+  });
+
   it('creates a sampled W3C traceparent from the application trace ID', () => {
     expect(createTraceParent(TRACE_ID)).toMatch(
       /^00-0123456789abcdef0123456789abcdef-[0-9a-f]{16}-01$/,

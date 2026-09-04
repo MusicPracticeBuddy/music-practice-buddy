@@ -3,13 +3,18 @@ const clientPageTraceIdKey = Symbol.for('music-practice.telemetry.client-page-tr
 const globalRegistry = globalThis as unknown as Record<PropertyKey, unknown>;
 
 export function createTraceId(): string {
-  return crypto.randomUUID().replaceAll('-', '');
+  const traceIdBytes = crypto.getRandomValues(new Uint8Array(16));
+  return bytesToHex(traceIdBytes);
 }
 
 export function createTraceParent(traceId: string): string {
   const spanIdBytes = crypto.getRandomValues(new Uint8Array(8));
-  const spanId = Array.from(spanIdBytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  const spanId = bytesToHex(spanIdBytes);
   return `00-${traceId}-${spanId}-01`;
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 export function isTraceId(value: unknown): value is string {
