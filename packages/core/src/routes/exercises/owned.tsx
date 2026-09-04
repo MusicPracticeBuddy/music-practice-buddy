@@ -1,6 +1,6 @@
 import { For, Show, createSignal } from 'solid-js';
 import { Link, createFileRoute, useRouter } from '@tanstack/solid-router';
-import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog';
+import { ExerciseListRow } from '@/components/ExerciseListRow';
 import {
   addExerciseToLibrary,
   getOwnedExercisePage,
@@ -97,58 +97,25 @@ function OwnedExercises() {
           </Link>
         </header>
 
-        <div class="card-grid" classList={{ 'catalog-results-loading': loading() }}>
+        <div class="catalog-result-list" classList={{ 'catalog-results-loading': loading() }}>
           <For each={results().items} fallback={<p class="library-empty">No owned exercises.</p>}>
-            {(exercise) => {
-              return (
-                <article class="content-card">
-                  <div class="card-topline">
-                    {/* <span class="tag">todo fill with instrument, if available</span> */}
-                    <span>{exercise.visibility.toLowerCase()}</span>
-                  </div>
-                  <h2>
-                    <Link to="/exercises/$exerciseId" params={{ exerciseId: exercise.id }}>
-                      {exercise.name}
-                    </Link>
-                  </h2>
-                  <Show when={exercise.copiedFrom}>
-                    <p class="muted">Adapted from {exercise.copiedFrom}</p>
-                  </Show>
-                  <div class="library-section-actions">
-                    <Show
-                      when={exercise.inLibrary}
-                      fallback={
-                        <button
-                          class="primary-button"
-                          type="button"
-                          disabled={addingId() === exercise.id}
-                          onClick={() => void addToLibrary(exercise)}
-                        >
-                          {addingId() === exercise.id ? 'Adding…' : '+ Add to Library'}
-                        </button>
-                      }
-                    >
-                      <DeleteConfirmationDialog
-                        triggerLabel="Remove from Library"
-                        title="Remove from My Library?"
-                        itemName={exercise.name}
-                        description="This removes the library entry. The exercise and your practice history remain available."
-                        confirmLabel="Remove from My Library"
-                        pendingLabel="Removing…"
-                        onConfirm={() => removeFromLibrary(exercise)}
-                      />
-                    </Show>
-                    <Link
-                      class="secondary-button"
-                      to="/exercises/$exerciseId/edit"
-                      params={{ exerciseId: exercise.id }}
-                    >
-                      Edit
-                    </Link>
-                  </div>
-                </article>
-              );
-            }}
+            {(exercise) => (
+              <ExerciseListRow
+                item={exercise}
+                pending={addingId() === exercise.id}
+                onAdd={() => addToLibrary(exercise)}
+                onRemove={() => removeFromLibrary(exercise)}
+                actions={
+                  <Link
+                    class="secondary-button"
+                    to="/exercises/$exerciseId/edit"
+                    params={{ exerciseId: exercise.id }}
+                  >
+                    Edit
+                  </Link>
+                }
+              />
+            )}
           </For>
         </div>
 

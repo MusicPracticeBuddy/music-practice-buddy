@@ -1,4 +1,4 @@
-import { Show, createSignal } from 'solid-js';
+import { Show, createSignal, type JSX } from 'solid-js';
 import { Link } from '@tanstack/solid-router';
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog';
 import { ExerciseNotation } from '@/components/ExerciseNotation';
@@ -18,6 +18,7 @@ export type ExerciseListRowItem = {
 export function ExerciseListRow(props: {
   item: ExerciseListRowItem;
   pending?: boolean;
+  actions?: JSX.Element;
   onAdd?: () => Promise<void>;
   onRemove: () => Promise<void>;
 }) {
@@ -41,6 +42,7 @@ export function ExerciseListRow(props: {
           </Show>
         </div>
         <div class="catalog-result-actions">
+          {props.actions}
           <Show when={props.item.notation}>
             <button
               class="text-button exercise-notation-toggle"

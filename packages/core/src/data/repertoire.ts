@@ -118,9 +118,12 @@ export type CatalogRepertoireRow = {
 export type OwnedRepertoireRow = {
   id: string;
   title: string;
+  compositionYear: number | null;
   visibility: Visibility;
   status: string;
   composer: string;
+  instrument: string | null;
+  libraryNotes: string | null;
   inLibrary: boolean;
 };
 
@@ -612,6 +615,10 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
          SELECT
            repertoire.id::text,
            repertoire.title,
+           COALESCE(
+             repertoire.composition_year,
+             EXTRACT(YEAR FROM repertoire.publication_date)::integer
+           ) AS "compositionYear",
            repertoire.parent_repertoire_id::text AS "parentId",
            COALESCE(
              repertoire.composition_year,
@@ -874,6 +881,16 @@ export const getOwnedRepertoirePage = createServerFn({ method: 'GET' })
              JOIN person ON person.id = credit.person_id
              WHERE credit.repertoire_id = repertoire.id AND credit.role = 'COMPOSER'
            ), 'Unknown composer') AS composer,
+           (
+             SELECT string_agg(instrument.name, ', ' ORDER BY part.position NULLS LAST, instrument.name)
+             FROM repertoire_instrument part
+             JOIN instrument ON instrument.id = part.instrument_id
+             WHERE part.repertoire_id = repertoire.id
+           ) AS instrument,
+           (
+             SELECT library.notes FROM musician_repertoire_library library
+             WHERE library.repertoire_id = repertoire.id AND library.musician_id = $1
+           ) AS "libraryNotes",
            EXISTS (
              SELECT 1 FROM musician_repertoire_library library
              WHERE library.repertoire_id = repertoire.id AND library.musician_id = $1

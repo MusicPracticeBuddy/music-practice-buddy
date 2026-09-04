@@ -1,8 +1,10 @@
 import { For, Show, createSignal } from 'solid-js';
 import { Link, createFileRoute, useRouter } from '@tanstack/solid-router';
+import { RepertoireListRow } from '@/components/RepertoireListRow';
 import {
   addRepertoireToLibrary,
   getOwnedRepertoirePage,
+  removeRepertoireFromLibrary,
   type OwnedRepertoireRow,
 } from '@/data/repertoire';
 
@@ -17,7 +19,6 @@ function OwnedRepertoire() {
   const [results, setResults] = createSignal(initialPage());
   const [loading, setLoading] = createSignal(false);
   const [addingId, setAddingId] = createSignal<string | null>(null);
-  const [addedIds, setAddedIds] = createSignal<string[]>([]);
   const [error, setError] = createSignal('');
 
   async function loadPage(page: number) {
@@ -37,13 +38,26 @@ function OwnedRepertoire() {
     setError('');
     try {
       await addRepertoireToLibrary({ data: item.id });
-      setAddedIds((ids) => [...ids, item.id]);
+      setLibraryStatus(item.id, true);
       await router.invalidate({ sync: true });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The repertoire could not be added.');
     } finally {
       setAddingId(null);
     }
+  }
+
+  function setLibraryStatus(repertoireId: string, inLibrary: boolean) {
+    setResults((page) => ({
+      ...page,
+      items: page.items.map((item) => (item.id === repertoireId ? { ...item, inLibrary } : item)),
+    }));
+  }
+
+  async function removeFromLibrary(item: OwnedRepertoireRow) {
+    await removeRepertoireFromLibrary({ data: item.id });
+    setLibraryStatus(item.id, false);
+    await router.invalidate({ sync: true });
   }
 
   return (
@@ -77,42 +91,36 @@ function OwnedRepertoire() {
             <h2>{results().total} works</h2>
           </div>
         </header>
-        <div class="card-grid" classList={{ 'catalog-results-loading': loading() }}>
+        <div class="catalog-result-list" classList={{ 'catalog-results-loading': loading() }}>
           <For each={results().items} fallback={<p class="library-empty">No owned repertoire.</p>}>
-            {(item) => {
-              const inLibrary = () => item.inLibrary || addedIds().includes(item.id);
-              return (
-                <article class="content-card">
-                  <div class="card-topline">
-                    {/* todo show instrument as a tag, if available */}
-                    <span>{item.visibility.toLowerCase()}</span>
-                  </div>
-                  <h2>{item.title}</h2>
-                  <p class="muted">{item.composer}</p>
-                  <div class="library-section-actions">
-                    <button
-                      class={inLibrary() ? 'secondary-button' : 'primary-button'}
-                      type="button"
-                      disabled={inLibrary() || addingId() === item.id}
-                      onClick={() => void addToLibrary(item)}
-                    >
-                      {inLibrary()
-                        ? 'In My Library'
-                        : addingId() === item.id
-                          ? 'Adding…'
-                          : '+ Add to Library'}
-                    </button>
-                    <Link
-                      class="secondary-button"
-                      to="/repertoire/$repertoireId/edit"
-                      params={{ repertoireId: item.id }}
-                    >
-                      Edit
-                    </Link>
-                  </div>
-                </article>
-              );
-            }}
+            {(item) => (
+              <RepertoireListRow
+                item={{
+                  id: item.id,
+                  title: item.title,
+                  composer: item.composer,
+                  details: [
+                    item.instrument ?? 'Unscored',
+                    String(item.compositionYear ?? 'Year unknown'),
+                    item.visibility.toLowerCase(),
+                  ],
+                  inLibrary: item.inLibrary,
+                  libraryNotes: item.libraryNotes,
+                }}
+                pending={addingId() === item.id}
+                onAdd={() => addToLibrary(item)}
+                onRemove={() => removeFromLibrary(item)}
+                actions={
+                  <Link
+                    class="secondary-button"
+                    to="/repertoire/$repertoireId/edit"
+                    params={{ repertoireId: item.id }}
+                  >
+                    Edit
+                  </Link>
+                }
+              />
+            )}
           </For>
         </div>
 

@@ -64,8 +64,11 @@ export type ExerciseCatalogPage = {
 export type OwnedExerciseRow = {
   id: string;
   name: string;
+  notation: string | null;
   notationFormat: ExerciseNotationFormat;
   visibility: Visibility;
+  instrumentId: string | null;
+  instrumentName: string | null;
   copiedFrom: string | null;
   inLibrary: boolean;
 };
@@ -432,14 +435,18 @@ export const getOwnedExercisePage = createServerFn({ method: 'GET' })
         `SELECT
            exercise.id::text,
            COALESCE(exercise.name, 'Untitled exercise') AS name,
+           exercise.notation,
            exercise.notation_format AS "notationFormat",
            exercise.visibility::text,
+           exercise.instrument_id::text AS "instrumentId",
+           instrument.name AS "instrumentName",
            source.name AS "copiedFrom",
            EXISTS (
              SELECT 1 FROM musician_exercise_library library
              WHERE library.exercise_id = exercise.id AND library.musician_id = $1
            ) AS "inLibrary"
          FROM exercise
+         LEFT JOIN instrument ON instrument.id = exercise.instrument_id
          LEFT JOIN exercise source ON source.id = exercise.copied_from_exercise_id
            AND source.deleted_at IS NULL
            AND (source.musician_id = $1 OR source.visibility = 'PUBLIC')
