@@ -105,6 +105,7 @@ export type CatalogRepertoireRow = {
   id: string;
   title: string;
   compositionYear: number | null;
+  measureRange?: string | null;
   visibility: Visibility;
   composers: { id: string; name: string }[];
   instruments: { id: string; name: string }[];
@@ -616,6 +617,11 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
              repertoire.composition_year,
              EXTRACT(YEAR FROM repertoire.publication_date)::integer
            ) AS "compositionYear",
+           CASE
+             WHEN repertoire.start_measure IS NOT NULL THEN
+               'Measures ' || repertoire.start_measure || '–' || repertoire.end_measure
+             ELSE NULL
+           END AS "measureRange",
            COALESCE(repertoire.visibility, root.visibility)::text AS visibility,
            COALESCE((
              SELECT jsonb_agg(
@@ -714,6 +720,11 @@ export const getPublicRepertoireCatalog = createServerFn({ method: 'GET' })
            repertoire.composition_year,
            EXTRACT(YEAR FROM repertoire.publication_date)::integer
          ) AS "compositionYear",
+         CASE
+           WHEN repertoire.start_measure IS NOT NULL THEN
+             'Measures ' || repertoire.start_measure || '–' || repertoire.end_measure
+           ELSE NULL
+         END AS "measureRange",
          'PUBLIC'::text AS visibility,
          COALESCE(
            (
@@ -1167,6 +1178,11 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
                descendant.root_id::text AS "rootId",
                COALESCE(r.composition_year, EXTRACT(YEAR FROM r.publication_date)::integer)
                  AS "compositionYear",
+               CASE
+                 WHEN r.start_measure IS NOT NULL THEN
+                   'Measures ' || r.start_measure || '–' || r.end_measure
+                 ELSE NULL
+               END AS "measureRange",
                access.visibility::text AS visibility,
                COALESCE((
                  SELECT jsonb_agg(

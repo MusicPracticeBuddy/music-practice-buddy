@@ -306,6 +306,7 @@ export function RepertoireCatalogSearch(props: {
                         'Unscored',
                       String(item.compositionYear ?? 'Year unknown'),
                       item.visibility.toLowerCase(),
+                      ...(item.measureRange ? [item.measureRange] : []),
                     ],
                     inLibrary: inLibrary(),
                     libraryNotes: item.libraryNotes,
@@ -399,6 +400,7 @@ function CatalogChildren(props: {
                   item.instruments.map((instrument) => instrument.name).join(', ') || 'Unscored',
                   item.compositionYear === null ? 'Year unknown' : String(item.compositionYear),
                   item.visibility.toLowerCase(),
+                  ...(item.measureRange ? [item.measureRange] : []),
                 ],
                 inLibrary:
                   !props.removedIds.includes(item.id) &&
