@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@solidjs/testing-li
 import { createSignal, type JSX } from 'solid-js';
 import { QueryClient, QueryClientProvider } from '@tanstack/solid-query';
 import type { CatalogRepertoireRow, CatalogSearchInput } from '@/data/repertoire';
+import { repertoireKeys } from '@/data/repertoireQueries';
 
 const mocks = vi.hoisted(() => ({
   addToLibrary: vi.fn(async () => ({ id: '1' })),
@@ -94,7 +95,7 @@ function renderSearch(
         search={search()}
         onSearchChange={async (nextSearch) => {
           const nextPage = await mocks.searchCatalog({ data: nextSearch });
-          queryClient.setQueryData(['repertoire', 'catalog', nextSearch], nextPage);
+          queryClient.setQueryData(repertoireKeys.catalog(nextSearch), nextPage);
           setPage(nextPage);
           setSearch(nextSearch);
         }}

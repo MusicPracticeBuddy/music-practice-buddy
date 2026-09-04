@@ -1,5 +1,5 @@
 import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js';
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/solid-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query';
 import { useRouter } from '@tanstack/solid-router';
 import { InstrumentFilter } from '@/components/InstrumentFields';
 import { RepertoireListRow } from '@/components/RepertoireListRow';
@@ -12,18 +12,10 @@ import {
   type CatalogSearchInput,
   type CatalogSearchPage,
   type InstrumentOption,
-  getPublicRepertoireCatalogPage,
 } from '@/data/repertoire';
+import { repertoireCatalogQueryOptions } from '@/data/repertoireQueries';
 
 export type RepertoireCatalogSearchState = CatalogSearchInput;
-
-export function repertoireCatalogQueryOptions(search: RepertoireCatalogSearchState) {
-  return queryOptions({
-    queryKey: ['repertoire', 'catalog', search] as const,
-    queryFn: () => getPublicRepertoireCatalogPage({ data: search }),
-    staleTime: 30_000,
-  });
-}
 
 function updateLibraryState(
   items: CatalogRepertoireRow[],

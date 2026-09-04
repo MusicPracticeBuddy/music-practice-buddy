@@ -3,10 +3,10 @@ import { Link, createFileRoute, useNavigate } from '@tanstack/solid-router';
 import { LibraryItemForm } from '@/components/LibraryItemForm';
 import {
   RepertoireCatalogSearch,
-  repertoireCatalogQueryOptions,
   type RepertoireCatalogSearchState,
 } from '@/components/RepertoireCatalogSearch';
 import { getInstruments } from '@/data/repertoire';
+import { repertoireCatalogQueryOptions } from '@/data/repertoireQueries';
 import { getMusicianInstrumentIds } from '@/data/preferences';
 
 function optionalString(value: unknown) {

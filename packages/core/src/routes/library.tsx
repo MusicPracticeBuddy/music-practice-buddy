@@ -1,4 +1,5 @@
-import { For, Show, createSignal, onCleanup } from 'solid-js';
+import { For, Show, Suspense, createSignal, onCleanup } from 'solid-js';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query';
 import { Link, createFileRoute } from '@tanstack/solid-router';
 import { ExerciseListRow } from '@/components/ExerciseListRow';
 import { RepertoireListRow } from '@/components/RepertoireListRow';
@@ -13,12 +14,12 @@ import {
 import {
   addRepertoireToLibrary,
   getInstruments,
-  getRepertoireLibraryPage,
   removeRepertoireFromLibrary,
   type RepertoireLibrarySearchInput,
   type RepertoireLibraryPage,
   type CatalogRepertoireRow,
 } from '@/data/repertoire';
+import { repertoireKeys, repertoireLibraryQueryOptions } from '@/data/repertoireQueries';
 
 export const Route = createFileRoute('/library')({
   loader: async () => {
@@ -44,17 +45,12 @@ function Library() {
     total: 0,
     totalPages: 0,
   };
-  const [repertoire, setRepertoire] = createSignal(emptyRepertoirePage);
   const [exercises, setExercises] = createSignal(emptyExercisePage);
   const [repertoireExpanded, setRepertoireExpanded] = createSignal(false);
   const [exercisesExpanded, setExercisesExpanded] = createSignal(false);
-  const [repertoireLoaded, setRepertoireLoaded] = createSignal(false);
   const [exercisesLoaded, setExercisesLoaded] = createSignal(false);
-  const [repertoireLoading, setRepertoireLoading] = createSignal(false);
   const [exercisesLoading, setExercisesLoading] = createSignal(false);
-  const [repertoireError, setRepertoireError] = createSignal('');
   const [expandedRepertoireIds, setExpandedRepertoireIds] = createSignal<string[]>([]);
-  const [updatingRepertoireId, setUpdatingRepertoireId] = createSignal<string | null>(null);
   const [exerciseError, setExerciseError] = createSignal('');
   const [repertoireQuery, setRepertoireQuery] = createSignal('');
   const [composer, setComposer] = createSignal('');
@@ -62,13 +58,19 @@ function Library() {
   const [exerciseInstrumentIds, setExerciseInstrumentIds] = createSignal<string[]>([]);
   const [repertoireVisibility, setRepertoireVisibility] =
     createSignal<RepertoireLibrarySearchInput['visibility']>('ALL');
+  const [repertoireSearch, setRepertoireSearch] = createSignal<RepertoireLibrarySearchInput>({
+    query: '',
+    composer: '',
+    instrumentIds: [],
+    visibility: 'ALL',
+    page: 1,
+  });
   const [exerciseQuery, setExerciseQuery] = createSignal('');
   const [exerciseVisibility, setExerciseVisibility] =
     createSignal<ExerciseLibrarySearchInput['visibility']>('ALL');
   const [hasNotation, setHasNotation] = createSignal(false);
   let repertoireTimer: ReturnType<typeof setTimeout> | undefined;
   let exerciseTimer: ReturnType<typeof setTimeout> | undefined;
-  let repertoireRequestId = 0;
   let exerciseRequestId = 0;
 
   function repertoireSearchInput(page: number): RepertoireLibrarySearchInput {
@@ -91,30 +93,9 @@ function Library() {
     };
   }
 
-  async function loadRepertoirePage(page: number) {
+  function loadRepertoirePage(page: number) {
     clearTimeout(repertoireTimer);
-    const currentRequest = ++repertoireRequestId;
-    setRepertoireLoading(true);
-    setRepertoireError('');
-    try {
-      let result = await getRepertoireLibraryPage({ data: repertoireSearchInput(page) });
-      const lastPage = Math.max(1, result.totalPages);
-      if (result.page > lastPage) {
-        result = await getRepertoireLibraryPage({ data: repertoireSearchInput(lastPage) });
-      }
-      if (currentRequest === repertoireRequestId) {
-        setRepertoire(result);
-        setRepertoireLoaded(true);
-      }
-    } catch (caught) {
-      if (currentRequest === repertoireRequestId) {
-        setRepertoireError(
-          caught instanceof Error ? caught.message : 'Repertoire could not be loaded.',
-        );
-      }
-    } finally {
-      if (currentRequest === repertoireRequestId) setRepertoireLoading(false);
-    }
+    setRepertoireSearch(repertoireSearchInput(page));
   }
 
   async function loadExercisePage(page: number) {
@@ -141,8 +122,7 @@ function Library() {
 
   function queueRepertoireSearch(delay = 0) {
     clearTimeout(repertoireTimer);
-    repertoireRequestId += 1;
-    repertoireTimer = setTimeout(() => void loadRepertoirePage(1), delay);
+    repertoireTimer = setTimeout(() => loadRepertoirePage(1), delay);
   }
 
   function queueExerciseSearch(delay = 0) {
@@ -154,7 +134,6 @@ function Library() {
   function toggleRepertoire() {
     const expanded = !repertoireExpanded();
     setRepertoireExpanded(expanded);
-    if (expanded && !repertoireLoaded() && !repertoireLoading()) void loadRepertoirePage(1);
   }
 
   function toggleExercises() {
@@ -167,6 +146,39 @@ function Library() {
     clearTimeout(repertoireTimer);
     clearTimeout(exerciseTimer);
   });
+
+  const queryClient = useQueryClient();
+  const repertoireQueryResult = useQuery(() => ({
+    ...repertoireLibraryQueryOptions(repertoireSearch()),
+    enabled: repertoireExpanded(),
+    placeholderData: (previousData) => previousData ?? emptyRepertoirePage,
+  }));
+  const repertoire = () => repertoireQueryResult.data ?? emptyRepertoirePage;
+  const repertoireLoading = () => repertoireQueryResult.isFetching;
+  const repertoireError = () =>
+    repertoireQueryResult.error instanceof Error
+      ? repertoireQueryResult.error.message
+      : repertoireQueryResult.isError
+        ? 'Repertoire could not be loaded.'
+        : '';
+
+  const repertoireMutation = useMutation(() => ({
+    mutationFn: async (input: { id: string; add: boolean }) => {
+      if (input.add) await addRepertoireToLibrary({ data: input.id });
+      else await removeRepertoireFromLibrary({ data: input.id });
+      return input;
+    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: repertoireKeys.libraries(),
+      }),
+  }));
+  const updatingRepertoireId = () =>
+    repertoireMutation.isPending ? repertoireMutation.variables?.id : null;
+
+  async function updateRepertoireLibrary(id: string, add: boolean) {
+    await repertoireMutation.mutateAsync({ id, add });
+  }
 
   return (
     <main class="page">
@@ -293,130 +305,113 @@ function Library() {
                 </button>
               </div>
 
-              <Show when={repertoireError()}>
-                <p class="form-error" role="alert">
-                  {repertoireError()}
-                </p>
-              </Show>
+              <Suspense fallback={<p class="library-empty">Loading repertoire…</p>}>
+                <Show when={repertoireError() || repertoireMutation.error}>
+                  <p class="form-error" role="alert">
+                    {repertoireError() ||
+                      (repertoireMutation.error instanceof Error
+                        ? repertoireMutation.error.message
+                        : 'The repertoire library could not be updated.')}
+                  </p>
+                </Show>
 
-              <Show
-                when={repertoire().items.length > 0}
-                fallback={
-                  <Show when={!repertoireError()}>
-                    <p class="library-empty">
-                      {repertoireLoading()
-                        ? 'Loading repertoire…'
-                        : 'No repertoire items match these filters.'}
-                    </p>
-                  </Show>
-                }
-              >
-                <div
-                  class="catalog-result-list"
-                  classList={{ 'catalog-results-loading': repertoireLoading() }}
+                <Show
+                  when={repertoire().items.length > 0}
+                  fallback={
+                    <Show when={!repertoireError() && !repertoireMutation.error}>
+                      <p class="library-empty">
+                        {repertoireLoading()
+                          ? 'Loading repertoire…'
+                          : 'No repertoire items match these filters.'}
+                      </p>
+                    </Show>
+                  }
                 >
-                  <For each={repertoire().items}>
-                    {(piece) => {
-                      const expanded = () => expandedRepertoireIds().includes(piece.id);
-                      return (
-                        <RepertoireListRow
-                          item={{
-                            id: piece.id,
-                            title: piece.title,
-                            composer: piece.composer,
-                            details: [
-                              piece.instrument ?? 'Unscored',
-                              String(piece.compositionYear ?? 'Year unknown'),
-                              piece.visibility.toLowerCase(),
-                              ...(piece.measureRange ? [piece.measureRange] : []),
-                            ],
-                            inLibrary: true,
-                            libraryNotes: piece.libraryNotes,
-                          }}
-                          pending={updatingRepertoireId() === piece.id}
-                          actions={
-                            <Show when={(piece.children?.length ?? 0) > 0}>
-                              <button
-                                class="text-button catalog-expand-button"
-                                type="button"
-                                aria-expanded={expanded()}
-                                onClick={() =>
-                                  setExpandedRepertoireIds((ids) =>
-                                    expanded()
-                                      ? ids.filter((id) => id !== piece.id)
-                                      : [...ids, piece.id],
-                                  )
-                                }
-                              >
-                                {expanded() ? 'Hide' : 'Show'} {piece.children!.length}{' '}
-                                {piece.children!.length === 1 ? 'child' : 'children'}
-                              </button>
-                            </Show>
-                          }
-                          onRemove={async () => {
-                            setUpdatingRepertoireId(piece.id);
-                            try {
-                              await removeRepertoireFromLibrary({ data: piece.id });
-                              await loadRepertoirePage(repertoire().page);
-                            } finally {
-                              setUpdatingRepertoireId(null);
+                  <div
+                    class="catalog-result-list"
+                    classList={{ 'catalog-results-loading': repertoireLoading() }}
+                  >
+                    <For each={repertoire().items}>
+                      {(piece) => {
+                        const expanded = () => expandedRepertoireIds().includes(piece.id);
+                        return (
+                          <RepertoireListRow
+                            item={{
+                              id: piece.id,
+                              title: piece.title,
+                              composer: piece.composer,
+                              details: [
+                                piece.instrument ?? 'Unscored',
+                                String(piece.compositionYear ?? 'Year unknown'),
+                                piece.visibility.toLowerCase(),
+                                ...(piece.measureRange ? [piece.measureRange] : []),
+                              ],
+                              inLibrary: true,
+                              libraryNotes: piece.libraryNotes,
+                            }}
+                            pending={updatingRepertoireId() === piece.id}
+                            actions={
+                              <Show when={(piece.children?.length ?? 0) > 0}>
+                                <button
+                                  class="text-button catalog-expand-button"
+                                  type="button"
+                                  aria-expanded={expanded()}
+                                  onClick={() =>
+                                    setExpandedRepertoireIds((ids) =>
+                                      expanded()
+                                        ? ids.filter((id) => id !== piece.id)
+                                        : [...ids, piece.id],
+                                    )
+                                  }
+                                >
+                                  {expanded() ? 'Hide' : 'Show'} {piece.children!.length}{' '}
+                                  {piece.children!.length === 1 ? 'child' : 'children'}
+                                </button>
+                              </Show>
                             }
-                          }}
-                        >
-                          <Show when={expanded()}>
-                            <LibraryRepertoireChildren
-                              items={piece.children ?? []}
-                              updatingId={updatingRepertoireId()}
-                              onAdd={async (item) => {
-                                setUpdatingRepertoireId(item.id);
-                                try {
-                                  await addRepertoireToLibrary({ data: item.id });
-                                  await loadRepertoirePage(repertoire().page);
-                                } finally {
-                                  setUpdatingRepertoireId(null);
-                                }
-                              }}
-                              onRemove={async (item) => {
-                                setUpdatingRepertoireId(item.id);
-                                try {
-                                  await removeRepertoireFromLibrary({ data: item.id });
-                                  await loadRepertoirePage(repertoire().page);
-                                } finally {
-                                  setUpdatingRepertoireId(null);
-                                }
-                              }}
-                            />
-                          </Show>
-                        </RepertoireListRow>
-                      );
-                    }}
-                  </For>
-                </div>
-              </Show>
+                            onRemove={() => updateRepertoireLibrary(piece.id, false)}
+                          >
+                            <Show when={expanded()}>
+                              <LibraryRepertoireChildren
+                                items={piece.children ?? []}
+                                updatingId={updatingRepertoireId()}
+                                onAdd={(item) => updateRepertoireLibrary(item.id, true)}
+                                onRemove={(item) => updateRepertoireLibrary(item.id, false)}
+                              />
+                            </Show>
+                          </RepertoireListRow>
+                        );
+                      }}
+                    </For>
+                  </div>
+                </Show>
 
-              <Show when={repertoire().totalPages > 1}>
-                <nav class="catalog-pagination" aria-label="My Library repertoire pages">
-                  <button
-                    class="secondary-button"
-                    type="button"
-                    disabled={repertoireLoading() || repertoire().page === 1}
-                    onClick={() => void loadRepertoirePage(repertoire().page - 1)}
-                  >
-                    Previous
-                  </button>
-                  <span>
-                    Page {repertoire().page} of {repertoire().totalPages}
-                  </span>
-                  <button
-                    class="secondary-button"
-                    type="button"
-                    disabled={repertoireLoading() || repertoire().page === repertoire().totalPages}
-                    onClick={() => void loadRepertoirePage(repertoire().page + 1)}
-                  >
-                    Next
-                  </button>
-                </nav>
-              </Show>
+                <Show when={repertoire().totalPages > 1}>
+                  <nav class="catalog-pagination" aria-label="My Library repertoire pages">
+                    <button
+                      class="secondary-button"
+                      type="button"
+                      disabled={repertoireLoading() || repertoire().page === 1}
+                      onClick={() => loadRepertoirePage(repertoire().page - 1)}
+                    >
+                      Previous
+                    </button>
+                    <span>
+                      Page {repertoire().page} of {repertoire().totalPages}
+                    </span>
+                    <button
+                      class="secondary-button"
+                      type="button"
+                      disabled={
+                        repertoireLoading() || repertoire().page === repertoire().totalPages
+                      }
+                      onClick={() => loadRepertoirePage(repertoire().page + 1)}
+                    >
+                      Next
+                    </button>
+                  </nav>
+                </Show>
+              </Suspense>
             </div>
           </Show>
         </section>

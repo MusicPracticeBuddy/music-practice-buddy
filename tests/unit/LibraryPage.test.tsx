@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
-import { createSignal, type Accessor, type JSX } from 'solid-js';
+import { QueryClient, QueryClientProvider } from '@tanstack/solid-query';
+import { Suspense, createSignal, type Accessor, type JSX } from 'solid-js';
 
 type LibraryLoaderData = {
   instruments: [];
@@ -70,6 +71,19 @@ import { getExerciseLibraryPage } from '@/data/exercises';
 import { getRepertoireLibraryPage } from '@/data/repertoire';
 
 const Library = (Route as unknown as { component: () => JSX.Element }).component;
+
+function renderLibrary() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(() => (
+    <QueryClientProvider client={queryClient}>
+      <Suspense fallback={<p>Loading route…</p>}>
+        <Library />
+      </Suspense>
+    </QueryClientProvider>
+  ));
+}
 
 afterEach(() => {
   cleanup();
@@ -146,7 +160,7 @@ describe('Library page', () => {
       counts: { repertoire: 7, exercises: 11 },
     });
     loaderData = data;
-    render(() => <Library />);
+    renderLibrary();
 
     expect(screen.getByText('7 entries')).toBeTruthy();
     expect(screen.getByText('11 exercises')).toBeTruthy();
@@ -179,5 +193,12 @@ describe('Library page', () => {
     expect(screen.getByText('Find exercises')).toBeTruthy();
     await waitFor(() => expect(screen.getByText('Loaded exercise')).toBeTruthy());
     expect(getExerciseLibraryPage).toHaveBeenCalledTimes(1);
+
+    vi.mocked(getRepertoireLibraryPage).mockImplementationOnce(() => new Promise(() => {}));
+    const repertoireSearch = screen.getByPlaceholderText('Title or composer…');
+    repertoireSearch.focus();
+    fireEvent.input(repertoireSearch, { target: { value: 'Chopin' } });
+    await waitFor(() => expect(getRepertoireLibraryPage).toHaveBeenCalledTimes(2));
+    expect(document.activeElement).toBe(repertoireSearch);
   });
 });
