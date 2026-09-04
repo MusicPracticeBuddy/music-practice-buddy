@@ -668,6 +668,43 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
   if (props.embedded) return form;
 
   const repertoireChildLabel = () => (props.isExcerpt ? 'excerpt' : 'movement or piece');
+  const cancelLink = () => {
+    if (editing()) {
+      return props.kind === 'exercise' ? (
+        <Link
+          class="secondary-button"
+          to="/exercises/$exerciseId"
+          params={{ exerciseId: props.id! }}
+        >
+          Cancel
+        </Link>
+      ) : (
+        <Link
+          class="secondary-button"
+          to="/repertoire/$repertoireId"
+          params={{ repertoireId: props.id! }}
+        >
+          Cancel
+        </Link>
+      );
+    }
+    if (props.parentId) {
+      return (
+        <Link
+          class="secondary-button"
+          to="/repertoire/$repertoireId"
+          params={{ repertoireId: props.parentId }}
+        >
+          Cancel
+        </Link>
+      );
+    }
+    return (
+      <Link class="secondary-button" to="/library">
+        Cancel
+      </Link>
+    );
+  };
 
   return (
     <main class={`page form-page ${props.kind === 'repertoire' ? 'repertoire-form-page' : ''}`}>
@@ -683,24 +720,7 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
             {(parentName) => <p class="lede">Part of {parentName()}</p>}
           </Show>
         </div>
-        <Show
-          when={props.parentId}
-          fallback={
-            <Link class="secondary-button" to="/library">
-              Cancel
-            </Link>
-          }
-        >
-          {(parentId) => (
-            <Link
-              class="secondary-button"
-              to="/repertoire/$repertoireId"
-              params={{ repertoireId: parentId() }}
-            >
-              Cancel
-            </Link>
-          )}
-        </Show>
+        {cancelLink()}
       </header>
       {form}
     </main>
