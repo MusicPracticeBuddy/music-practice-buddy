@@ -203,12 +203,12 @@ describe('RepertoireCatalogSearch', () => {
   it('adds a public work and changes its action to remove', async () => {
     renderSearch();
 
-    const addButtons = screen.getAllByRole('button', { name: /Add .* to My Library/ });
+    const addButtons = screen.getAllByRole('button', { name: 'Add to My Library' });
     fireEvent.click(addButtons[0]!);
 
     await waitFor(() => {
       expect(mocks.addToLibrary).toHaveBeenCalledWith({ data: '1' });
-      expect(screen.getAllByRole('button', { name: '- Remove' })).toHaveLength(2);
+      expect(screen.getAllByRole('button', { name: 'Remove from My Library' })).toHaveLength(2);
     });
     expect(mocks.invalidate).toHaveBeenCalledWith({ sync: true });
   });
@@ -250,11 +250,11 @@ describe('RepertoireCatalogSearch', () => {
     renderSearch({ items: [parent], page: 1, pageSize: 25, total: 1, totalPages: 1 });
 
     fireEvent.click(screen.getByRole('button', { name: 'Show 1 child' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add First concerto to My Library' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Add to My Library' })[1]!);
 
     await waitFor(() => {
       expect(mocks.addToLibrary).toHaveBeenCalledWith({ data: '20' });
-      expect(screen.getByRole('button', { name: '- Remove' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Remove from My Library' })).toBeTruthy();
     });
   });
 });

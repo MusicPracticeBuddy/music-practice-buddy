@@ -3,6 +3,8 @@ import * as AlertDialog from '@kobalte/core/alert-dialog';
 
 export function DeleteConfirmationDialog(props: {
   triggerLabel: string;
+  triggerAriaLabel?: string;
+  triggerTooltip?: string;
   title: string;
   itemName: string;
   description: string;
@@ -40,7 +42,13 @@ export function DeleteConfirmationDialog(props: {
 
   return (
     <AlertDialog.Root open={props.open ?? internalOpen()} onOpenChange={handleOpenChange}>
-      <AlertDialog.Trigger class="danger-button">{props.triggerLabel}</AlertDialog.Trigger>
+      <AlertDialog.Trigger
+        class="danger-button"
+        aria-label={props.triggerAriaLabel}
+        title={props.triggerTooltip}
+      >
+        {props.triggerLabel}
+      </AlertDialog.Trigger>
       <AlertDialog.Portal>
         <AlertDialog.Overlay class="modal-backdrop" />
         <AlertDialog.Content class="editor-modal confirmation-modal">

@@ -71,6 +71,8 @@ function ExerciseDetail() {
               <button
                 class="primary-button"
                 type="button"
+                aria-label="Add to My Library"
+                title="Add to My Library"
                 disabled={updatingLibrary()}
                 onClick={() => void updateLibrary('add')}
               >
@@ -80,6 +82,8 @@ function ExerciseDetail() {
           >
             <DeleteConfirmationDialog
               triggerLabel="- Remove"
+              triggerAriaLabel="Remove from My Library"
+              triggerTooltip="Remove from My Library"
               title="Remove from My Library?"
               itemName={exercise().name}
               description="This removes the library entry. The exercise and your practice history remain available."

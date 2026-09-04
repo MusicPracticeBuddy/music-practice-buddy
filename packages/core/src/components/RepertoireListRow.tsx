@@ -41,7 +41,8 @@ export function RepertoireListRow(props: {
               <button
                 class="primary-button"
                 type="button"
-                aria-label={`Add ${props.item.title} to My Library`}
+                aria-label="Add to My Library"
+                title="Add to My Library"
                 disabled={props.pending}
                 onClick={() => void props.onAdd?.()}
               >
@@ -51,6 +52,8 @@ export function RepertoireListRow(props: {
           >
             <DeleteConfirmationDialog
               triggerLabel={props.pending ? 'Removing…' : '- Remove'}
+              triggerAriaLabel="Remove from My Library"
+              triggerTooltip="Remove from My Library"
               title="Remove from My Library?"
               itemName={props.item.title}
               description="This removes the library entry and its note. The repertoire and your practice history remain available."

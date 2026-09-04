@@ -88,6 +88,8 @@ function RepertoireDetail() {
               <button
                 class="primary-button"
                 type="button"
+                aria-label="Add to My Library"
+                title="Add to My Library"
                 disabled={updatingLibrary()}
                 onClick={() => void updateLibrary('add')}
               >
@@ -97,6 +99,8 @@ function RepertoireDetail() {
           >
             <DeleteConfirmationDialog
               triggerLabel="- Remove"
+              triggerAriaLabel="Remove from My Library"
+              triggerTooltip="Remove from My Library"
               title="Remove from My Library?"
               itemName={repertoire().title}
               description="This removes the library entry and its note. The repertoire and your practice history remain available."

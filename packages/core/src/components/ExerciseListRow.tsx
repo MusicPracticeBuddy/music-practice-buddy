@@ -60,7 +60,8 @@ export function ExerciseListRow(props: {
               <button
                 class="primary-button"
                 type="button"
-                aria-label={`Add ${props.item.name} to My Library`}
+                aria-label="Add to My Library"
+                title="Add to My Library"
                 disabled={props.pending}
                 onClick={() => void props.onAdd?.()}
               >
@@ -70,6 +71,8 @@ export function ExerciseListRow(props: {
           >
             <DeleteConfirmationDialog
               triggerLabel={props.pending ? 'Removing…' : '- Remove'}
+              triggerAriaLabel="Remove from My Library"
+              triggerTooltip="Remove from My Library"
               title="Remove from My Library?"
               itemName={props.item.name}
               description="This removes the library entry. The exercise and your practice history remain available."
