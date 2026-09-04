@@ -942,6 +942,11 @@ h1 {
   color: var(--muted);
 }
 
+.exercise-list-source {
+  display: block;
+  margin-top: 2px;
+}
+
 .catalog-result-card button {
   flex: 0 0 auto;
 }

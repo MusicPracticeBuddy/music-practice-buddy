@@ -36,7 +36,9 @@ export type ExerciseLibrarySearchInput = {
 export type ExerciseCatalogRow = {
   id: string;
   name: string;
+  notation: string | null;
   notationFormat: ExerciseNotationFormat;
+  visibility: Visibility;
   owner: string;
   copiedFrom: string | null;
   instrumentId: string | null;
@@ -335,7 +337,9 @@ export const getPublicExerciseCatalogPage = createServerFn({ method: 'GET' })
         `SELECT
            exercise.id::text,
            COALESCE(exercise.name, 'Untitled exercise') AS name,
+           exercise.notation,
            exercise.notation_format AS "notationFormat",
+           exercise.visibility::text,
            musician.display_name AS owner,
            source.name AS "copiedFrom",
            exercise.instrument_id::text AS "instrumentId",

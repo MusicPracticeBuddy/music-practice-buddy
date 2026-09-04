@@ -1,9 +1,11 @@
 import { For, Show, createSignal, onCleanup } from 'solid-js';
-import { Link, useRouter } from '@tanstack/solid-router';
+import { useRouter } from '@tanstack/solid-router';
+import { ExerciseListRow } from '@/components/ExerciseListRow';
 import { InstrumentFilter } from '@/components/InstrumentFields';
 import {
   addExerciseToLibrary,
   getPublicExerciseCatalogPage,
+  removeExerciseFromLibrary,
   type ExerciseCatalogPage,
   type ExerciseCatalogRow,
   type ExerciseCatalogSearchInput,
@@ -23,6 +25,7 @@ export function ExerciseCatalogSearch(props: {
   const [loading, setLoading] = createSignal(false);
   const [addingId, setAddingId] = createSignal<string | null>(null);
   const [addedIds, setAddedIds] = createSignal<string[]>([]);
+  const [removedIds, setRemovedIds] = createSignal<string[]>([]);
   const [error, setError] = createSignal('');
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
   let requestId = 0;
@@ -69,9 +72,25 @@ export function ExerciseCatalogSearch(props: {
     try {
       await addExerciseToLibrary({ data: exercise.id });
       setAddedIds((ids) => [...ids, exercise.id]);
+      setRemovedIds((ids) => ids.filter((id) => id !== exercise.id));
       await router.invalidate({ sync: true });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The exercise could not be added.');
+    } finally {
+      setAddingId(null);
+    }
+  }
+
+  async function removeFromLibrary(exercise: ExerciseCatalogRow) {
+    setAddingId(exercise.id);
+    setError('');
+    try {
+      await removeExerciseFromLibrary({ data: exercise.id });
+      setRemovedIds((ids) => [...ids, exercise.id]);
+      setAddedIds((ids) => ids.filter((id) => id !== exercise.id));
+      await router.invalidate({ sync: true });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The exercise could not be removed.');
     } finally {
       setAddingId(null);
     }
@@ -157,39 +176,16 @@ export function ExerciseCatalogSearch(props: {
             fallback={<p class="library-empty">No public exercises match.</p>}
           >
             {(exercise) => {
-              const inLibrary = () => exercise.inLibrary || addedIds().includes(exercise.id);
+              const inLibrary = () =>
+                !removedIds().includes(exercise.id) &&
+                (exercise.inLibrary || addedIds().includes(exercise.id));
               return (
-                <article class="catalog-result-card">
-                  <div class="catalog-result-summary">
-                    <div>
-                      <div class="card-topline">
-                        <Show when={exercise.instrumentName}>
-                          <span class="tag">{exercise.instrumentName}</span>
-                        </Show>
-                      </div>
-                      <Link to="/exercises/$exerciseId" params={{ exerciseId: exercise.id }}>
-                        <h3>{exercise.name}</h3>
-                      </Link>
-                      <Show when={exercise.copiedFrom}>
-                        <small>Adapted from {exercise.copiedFrom}</small>
-                      </Show>
-                    </div>
-                    <div class="catalog-result-actions">
-                      <button
-                        class={inLibrary() ? 'secondary-button' : 'primary-button'}
-                        type="button"
-                        disabled={inLibrary() || addingId() === exercise.id}
-                        onClick={() => void addToLibrary(exercise)}
-                      >
-                        {inLibrary()
-                          ? 'In My Library'
-                          : addingId() === exercise.id
-                            ? 'Adding…'
-                            : '+ Add'}
-                      </button>
-                    </div>
-                  </div>
-                </article>
+                <ExerciseListRow
+                  item={{ ...exercise, inLibrary: inLibrary() }}
+                  pending={addingId() === exercise.id}
+                  onAdd={() => addToLibrary(exercise)}
+                  onRemove={() => removeFromLibrary(exercise)}
+                />
               );
             }}
           </For>

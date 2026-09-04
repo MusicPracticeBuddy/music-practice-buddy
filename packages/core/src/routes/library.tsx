@@ -1,15 +1,13 @@
 import { For, Show, createSignal, onCleanup } from 'solid-js';
 import { Link, createFileRoute } from '@tanstack/solid-router';
-import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog';
+import { ExerciseListRow } from '@/components/ExerciseListRow';
 import { RepertoireListRow } from '@/components/RepertoireListRow';
-import { ExerciseNotation } from '@/components/ExerciseNotation';
 import { InstrumentFilter } from '@/components/InstrumentFields';
 import {
   getExerciseLibraryPage,
   removeExerciseFromLibrary,
   type ExerciseLibrarySearchInput,
   type ExerciseLibraryPage,
-  type ExerciseRow,
 } from '@/data/exercises';
 import {
   addRepertoireToLibrary,
@@ -542,14 +540,13 @@ function Library() {
                 }
               >
                 <div
-                  class="list-stack"
+                  class="catalog-result-list"
                   classList={{ 'catalog-results-loading': exercisesLoading() }}
                 >
                   <For each={exercises().items}>
-                    {(exercise, index) => (
-                      <ExerciseLibraryCard
-                        exercise={exercise}
-                        number={(exercises().page - 1) * exercises().pageSize + index() + 1}
+                    {(exercise) => (
+                      <ExerciseListRow
+                        item={{ ...exercise, inLibrary: true }}
                         onRemove={async () => {
                           await removeExerciseFromLibrary({ data: exercise.id });
                           await loadExercisePage(exercises().page);
@@ -628,64 +625,5 @@ function LibraryRepertoireChildren(props: {
         )}
       </For>
     </ul>
-  );
-}
-
-function ExerciseLibraryCard(props: {
-  exercise: ExerciseRow;
-  number: number;
-  onRemove: () => Promise<void>;
-}) {
-  const [expanded, setExpanded] = createSignal(false);
-  const notationId = `library-exercise-notation-${props.exercise.id}`;
-
-  return (
-    <article class="list-card exercise-library-card">
-      <span class="list-number">{String(props.number).padStart(2, '0')}</span>
-      <div class="list-main">
-        <div class="card-topline">
-          <Show when={props.exercise.instrumentName}>
-            <span class="tag">{props.exercise.instrumentName}</span>
-          </Show>
-          <span>{props.exercise.visibility.toLowerCase()}</span>
-        </div>
-        <h2>
-          <Link to="/exercises/$exerciseId" params={{ exerciseId: props.exercise.id }}>
-            {props.exercise.name}
-          </Link>
-        </h2>
-        <Show when={props.exercise.notation}>
-          <button
-            class="text-button exercise-notation-toggle"
-            type="button"
-            aria-expanded={expanded()}
-            aria-controls={notationId}
-            onClick={() => setExpanded((value) => !value)}
-          >
-            {expanded() ? 'Hide notation' : 'Show notation'}
-          </button>
-          <Show when={expanded()}>
-            <div id={notationId} class="exercise-library-notation">
-              <ExerciseNotation
-                notation={props.exercise.notation ?? ''}
-                format={props.exercise.notationFormat}
-              />
-            </div>
-          </Show>
-        </Show>
-        {props.exercise.copiedFrom && <small>Adapted from {props.exercise.copiedFrom}</small>}
-        <div class="library-section-actions exercise-library-actions">
-          <DeleteConfirmationDialog
-            triggerLabel="Remove from My Library"
-            title="Remove from My Library?"
-            itemName={props.exercise.name}
-            description="This removes the library entry. The exercise and your practice history remain available."
-            confirmLabel="Remove from My Library"
-            pendingLabel="Removing…"
-            onConfirm={props.onRemove}
-          />
-        </div>
-      </div>
-    </article>
   );
 }
