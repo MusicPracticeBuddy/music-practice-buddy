@@ -111,6 +111,7 @@ function SearchRepertoire() {
             navigate({
               search,
               replace,
+              resetScroll: false,
             })
           }
         />
