@@ -14,8 +14,6 @@
     "./contracts": "./src/edition/index.ts",
     "./domain": "./src/domain/index.ts",
     "./domain/*": "./src/domain/*.ts",
-    "./features/dashboard": "./src/features/dashboard/index.ts",
-    "./features/dashboard/server": "./src/features/dashboard/server.ts",
     "./migrations/*": "./migrations/*",
     "./routing": "./src/routing/index.ts",
     "./server/auth": "./src/server/auth.ts",

@@ -20,7 +20,6 @@ export type MpbEdition = Readonly<{
   displayName: string;
   loginProviders: readonly LoginProviderContribution[];
   primaryNavigation: readonly EditionContribution[];
-  dashboardPanels: readonly EditionContribution[];
 }>;
 
 export type MpbRouterContext = Readonly<{

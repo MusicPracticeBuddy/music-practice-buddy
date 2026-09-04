@@ -109,7 +109,7 @@ describe('telemetry', () => {
     configureTelemetry(provider);
 
     const serverFunction = startServerFunction({
-      functionName: 'getDashboard',
+      functionName: 'getSessionsPage',
       method: 'GET',
       traceId: TRACE_ID,
     });
@@ -128,7 +128,7 @@ describe('telemetry', () => {
     configureTelemetry(provider);
 
     const operation = startServerFunction({
-      functionName: 'getDashboard',
+      functionName: 'getSessionsPage',
       method: 'GET',
       traceId: TRACE_ID,
     });

@@ -5,5 +5,4 @@ export const communityEdition: MpbEdition = {
   displayName: 'Music Practice Buddy',
   loginProviders: [],
   primaryNavigation: [],
-  dashboardPanels: [],
 };

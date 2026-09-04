@@ -13,8 +13,6 @@ TanStack Start builds.
 - `@music-practice-buddy/core/app/server` — server telemetry provider registration and metadata.
 - `@music-practice-buddy/core/domain` and `/domain/*` — framework-independent domain APIs.
 - `@music-practice-buddy/core/ui/*` — individually importable shared Solid components.
-- `@music-practice-buddy/core/features/dashboard` — dashboard UI and types.
-- `@music-practice-buddy/core/features/dashboard/server` — dashboard application service.
 - `@music-practice-buddy/core/server/auth` — authentication middleware and user types.
 - `@music-practice-buddy/core/server/database` — shared PostgreSQL pool for downstream server
   extensions.

@@ -10,8 +10,6 @@ const publicSpecifiers = [
   '@music-practice-buddy/core/contracts',
   '@music-practice-buddy/core/domain',
   '@music-practice-buddy/core/domain/session',
-  '@music-practice-buddy/core/features/dashboard',
-  '@music-practice-buddy/core/features/dashboard/server',
   '@music-practice-buddy/core/migrations/V1__initial_schema.sql',
   '@music-practice-buddy/core/package.json',
   '@music-practice-buddy/core/routing',

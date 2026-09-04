@@ -7,8 +7,8 @@ The repository contains the public application and the reusable core package:
 
 The application uses TanStack virtual file routes to mount the routes shipped in
 `@music-practice-buddy/core`. The root route receives an edition definition through router context,
-so downstream applications can add navigation and dashboard contributions without adding
-application-specific branches to core.
+so downstream applications can add navigation contributions without adding application-specific
+branches to core.
 
 ## Local commands
 
