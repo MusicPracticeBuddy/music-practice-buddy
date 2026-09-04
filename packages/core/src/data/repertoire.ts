@@ -1436,17 +1436,19 @@ export const createChildRepertoire = createServerFn({ method: 'POST' })
     try {
       await client.query('BEGIN');
       const result = await client.query<{ id: string }>(
-        `INSERT INTO repertoire
+        `${ACCESS_CTE}
+         INSERT INTO repertoire
            (title, composition_year, parent_repertoire_id, start_measure, end_measure,
             owner_musician_id, visibility, status)
          SELECT $1, $2, parent.id, $3, $4, $5, 'PRIVATE', 'APPROVED'
          FROM repertoire parent
+         JOIN repertoire_access access ON access.id = parent.id
          WHERE parent.id = $6
-           AND parent.parent_repertoire_id IS NULL
+           AND parent.start_measure IS NULL
            AND parent.deleted_at IS NULL
            AND (
-             parent.owner_musician_id = $5
-             OR (parent.visibility = 'PUBLIC' AND parent.status = 'APPROVED')
+             access.owner_musician_id = $5
+             OR access.visibility = 'PUBLIC'
            )
          RETURNING id::text`,
         [

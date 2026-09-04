@@ -561,6 +561,30 @@ describe('library item persistence', () => {
       instruments: [{ instrumentId: excerptInstrumentId, name: 'Excerpt horn' }],
     });
 
+    const movementExcerpt = await createChildRepertoire({
+      data: {
+        parentId: movement.id,
+        title: 'Second movement excerpt',
+        visibility: 'PRIVATE',
+        startMeasure: 8,
+        endMeasure: 16,
+      },
+    });
+    expect(await getRepertoireDetail({ data: movement.id })).toMatchObject({
+      children: [{ id: movementExcerpt.id, title: 'Second movement excerpt' }],
+    });
+    await expect(
+      createChildRepertoire({
+        data: {
+          parentId: excerpt.id,
+          title: 'Nested beneath an excerpt',
+          visibility: 'PRIVATE',
+          startMeasure: null,
+          endMeasure: null,
+        },
+      }),
+    ).rejects.toThrow('Parent repertoire not found');
+
     await updateRepertoire({
       data: {
         id: excerpt.id,

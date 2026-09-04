@@ -8,7 +8,7 @@ export const Route = createFileRoute('/repertoire/$repertoireId_/excerpts/new')(
       getRepertoireDetail({ data: params.repertoireId }),
       getInstruments(),
     ]);
-    if (!parent?.canUse || parent.parent) throw notFound();
+    if (!parent?.canUse || parent.startMeasure !== null) throw notFound();
     return { parent, instruments };
   },
   component: NewExcerpt,
