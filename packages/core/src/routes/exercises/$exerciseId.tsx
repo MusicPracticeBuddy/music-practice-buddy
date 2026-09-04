@@ -1,8 +1,13 @@
-import { For, Show } from 'solid-js';
+import { For, Show, createSignal } from 'solid-js';
 import { Link, createFileRoute, notFound, useNavigate, useRouter } from '@tanstack/solid-router';
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog';
 import { ExerciseNotation } from '@/components/ExerciseNotation';
-import { deleteExercise, getExerciseDetail } from '@/data/exercises';
+import {
+  addExerciseToLibrary,
+  deleteExercise,
+  getExerciseDetail,
+  removeExerciseFromLibrary,
+} from '@/data/exercises';
 
 export const Route = createFileRoute('/exercises/$exerciseId')({
   loader: async ({ params }) => {
@@ -27,6 +32,25 @@ function ExerciseDetail() {
   const exercise = Route.useLoaderData();
   const navigate = useNavigate();
   const router = useRouter();
+  const [updatingLibrary, setUpdatingLibrary] = createSignal(false);
+  const [libraryError, setLibraryError] = createSignal('');
+
+  async function updateLibrary(action: 'add' | 'remove') {
+    setUpdatingLibrary(true);
+    setLibraryError('');
+    try {
+      if (action === 'add') await addExerciseToLibrary({ data: exercise().id });
+      else await removeExerciseFromLibrary({ data: exercise().id });
+      await router.invalidate({ sync: true });
+    } catch (caught) {
+      setLibraryError(
+        caught instanceof Error ? caught.message : 'My Library could not be updated.',
+      );
+      if (action === 'remove') throw caught;
+    } finally {
+      setUpdatingLibrary(false);
+    }
+  }
 
   return (
     <main class="page detail-page">
@@ -36,21 +60,44 @@ function ExerciseDetail() {
 
       <header class="record-header">
         <div>
-          <p class="eyebrow">Exercise #{exercise().id}</p>
           <h1>{exercise().name}</h1>
+          <Show when={exercise().instrumentName !== null}>{exercise().instrumentName}</Show>
         </div>
         <div class="header-actions">
           <span class="tag">{exercise().visibility.toLowerCase()}</span>
+          <Show
+            when={exercise().inLibrary}
+            fallback={
+              <button
+                class="primary-button"
+                type="button"
+                disabled={updatingLibrary()}
+                onClick={() => void updateLibrary('add')}
+              >
+                {updatingLibrary() ? 'Adding…' : '+ Add'}
+              </button>
+            }
+          >
+            <DeleteConfirmationDialog
+              triggerLabel="- Remove"
+              title="Remove from My Library?"
+              itemName={exercise().name}
+              description="This removes the library entry. The exercise and your practice history remain available."
+              confirmLabel="Remove from My Library"
+              pendingLabel="Removing…"
+              onConfirm={() => updateLibrary('remove')}
+            />
+          </Show>
           <Show when={exercise().canManage}>
             <Link
               class="secondary-button"
               to="/exercises/$exerciseId/edit"
               params={{ exerciseId: exercise().id }}
             >
-              Edit exercise
+              Edit
             </Link>
             <DeleteConfirmationDialog
-              triggerLabel="Delete exercise"
+              triggerLabel="Delete"
               title="Delete this exercise?"
               itemName={exercise().name}
               description="This removes the exercise from your library. Historical session entries will remain."
@@ -64,6 +111,12 @@ function ExerciseDetail() {
           </Show>
         </div>
       </header>
+
+      <Show when={libraryError()}>
+        <p class="form-error" role="alert">
+          {libraryError()}
+        </p>
+      </Show>
 
       <section class="detail-grid">
         <article class="detail-card detail-card-wide">

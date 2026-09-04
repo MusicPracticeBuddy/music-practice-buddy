@@ -106,6 +106,7 @@ type ExerciseDetail = {
   ownerId: string;
   instrumentId: string | null;
   instrumentName: string | null;
+  inLibrary: boolean;
   createdAt: string;
   copiedFrom: { id: string; name: string } | null;
   adaptations: { id: string; name: string }[];
@@ -482,6 +483,7 @@ export const getExerciseDetail = createServerFn({ method: 'GET' })
         copiedFromName: string | null;
         instrumentId: string | null;
         instrumentName: string | null;
+        inLibrary: boolean;
       }>(
         `
           SELECT
@@ -497,6 +499,10 @@ export const getExerciseDetail = createServerFn({ method: 'GET' })
             source.name AS "copiedFromName"
             ,exercise.instrument_id::text AS "instrumentId"
             ,instrument.name AS "instrumentName"
+            ,EXISTS (
+              SELECT 1 FROM musician_exercise_library library
+              WHERE library.exercise_id = exercise.id AND library.musician_id = $2
+            ) AS "inLibrary"
           FROM exercise
           JOIN musician ON musician.id = exercise.musician_id
           LEFT JOIN instrument ON instrument.id = exercise.instrument_id
@@ -553,6 +559,7 @@ export const getExerciseDetail = createServerFn({ method: 'GET' })
       ownerId: exercise.ownerId,
       instrumentId: exercise.instrumentId,
       instrumentName: exercise.instrumentName,
+      inLibrary: exercise.inLibrary,
       createdAt: exercise.createdAt.toISOString(),
       copiedFrom:
         exercise.copiedFromId && exercise.copiedFromName
