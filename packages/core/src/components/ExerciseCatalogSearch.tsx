@@ -1,15 +1,16 @@
 import { For, Show, createSignal, onCleanup } from 'solid-js';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query';
 import { useRouter } from '@tanstack/solid-router';
 import { ExerciseListRow } from '@/components/ExerciseListRow';
 import { InstrumentFilter } from '@/components/InstrumentFields';
 import {
   addExerciseToLibrary,
-  getPublicExerciseCatalogPage,
   removeExerciseFromLibrary,
   type ExerciseCatalogPage,
   type ExerciseCatalogRow,
   type ExerciseCatalogSearchInput,
 } from '@/data/exercises';
+import { exerciseCatalogQueryOptions, exerciseKeys } from '@/data/exerciseQueries';
 import type { InstrumentOption } from '@/data/repertoire';
 
 export function ExerciseCatalogSearch(props: {
@@ -20,15 +21,9 @@ export function ExerciseCatalogSearch(props: {
   const router = useRouter();
   const [query, setQuery] = createSignal('');
   const [hasNotation, setHasNotation] = createSignal(false);
-  const [results, setResults] = createSignal(props.initialPage);
   const [instrumentIds, setInstrumentIds] = createSignal(props.initialInstrumentIds);
-  const [loading, setLoading] = createSignal(false);
-  const [addingId, setAddingId] = createSignal<string | null>(null);
-  const [addedIds, setAddedIds] = createSignal<string[]>([]);
-  const [removedIds, setRemovedIds] = createSignal<string[]>([]);
-  const [error, setError] = createSignal('');
+  const [search, setSearch] = createSignal<ExerciseCatalogSearchInput>(searchInput(1));
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
-  let requestId = 0;
 
   function searchInput(page: number): ExerciseCatalogSearchInput {
     return {
@@ -39,62 +34,58 @@ export function ExerciseCatalogSearch(props: {
     };
   }
 
-  async function loadPage(page: number) {
+  function loadPage(page: number) {
     clearTimeout(searchTimer);
-    const currentRequest = ++requestId;
-    setLoading(true);
-    setError('');
-    try {
-      const nextResults = await getPublicExerciseCatalogPage({ data: searchInput(page) });
-      if (currentRequest === requestId) setResults(nextResults);
-    } catch (caught) {
-      if (currentRequest === requestId) {
-        setError(
-          caught instanceof Error ? caught.message : 'The exercise catalog could not be searched.',
-        );
-      }
-    } finally {
-      if (currentRequest === requestId) setLoading(false);
-    }
+    setSearch(searchInput(page));
   }
 
   function queueSearch(delay = 0) {
     clearTimeout(searchTimer);
-    requestId += 1;
-    searchTimer = setTimeout(() => void loadPage(1), delay);
+    searchTimer = setTimeout(() => loadPage(1), delay);
   }
 
   onCleanup(() => clearTimeout(searchTimer));
 
-  async function addToLibrary(exercise: ExerciseCatalogRow) {
-    setAddingId(exercise.id);
-    setError('');
-    try {
-      await addExerciseToLibrary({ data: exercise.id });
-      setAddedIds((ids) => [...ids, exercise.id]);
-      setRemovedIds((ids) => ids.filter((id) => id !== exercise.id));
+  const queryClient = useQueryClient();
+  const catalogQuery = useQuery(() => ({
+    ...exerciseCatalogQueryOptions(search()),
+    initialData: props.initialPage,
+  }));
+  const results = () => catalogQuery.data ?? props.initialPage;
+  const libraryMutation = useMutation(() => ({
+    mutationFn: async (input: { exercise: ExerciseCatalogRow; add: boolean }) => {
+      if (input.add) await addExerciseToLibrary({ data: input.exercise.id });
+      else await removeExerciseFromLibrary({ data: input.exercise.id });
+      return input;
+    },
+    onSuccess: async ({ exercise, add }) => {
+      queryClient.setQueryData<ExerciseCatalogPage>(exerciseKeys.catalog(search()), (page) =>
+        page
+          ? {
+              ...page,
+              items: page.items.map((item) =>
+                item.id === exercise.id ? { ...item, inLibrary: add } : item,
+              ),
+            }
+          : page,
+      );
       await router.invalidate({ sync: true });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'The exercise could not be added.');
-    } finally {
-      setAddingId(null);
-    }
-  }
+    },
+  }));
+  const addingId = () =>
+    libraryMutation.isPending ? libraryMutation.variables?.exercise.id : null;
+  const error = () => catalogQuery.error ?? libraryMutation.error;
+  const errorMessage = () => {
+    const caught = error();
+    return caught instanceof Error ? caught.message : 'The exercise catalog could not be searched.';
+  };
 
-  async function removeFromLibrary(exercise: ExerciseCatalogRow) {
-    setAddingId(exercise.id);
-    setError('');
-    try {
-      await removeExerciseFromLibrary({ data: exercise.id });
-      setRemovedIds((ids) => [...ids, exercise.id]);
-      setAddedIds((ids) => ids.filter((id) => id !== exercise.id));
-      await router.invalidate({ sync: true });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'The exercise could not be removed.');
-    } finally {
-      setAddingId(null);
-    }
-  }
+  const addToLibrary = async (exercise: ExerciseCatalogRow) => {
+    await libraryMutation.mutateAsync({ exercise, add: true });
+  };
+  const removeFromLibrary = async (exercise: ExerciseCatalogRow) => {
+    await libraryMutation.mutateAsync({ exercise, add: false });
+  };
 
   return (
     <div class="catalog-search-layout">
@@ -150,7 +141,7 @@ export function ExerciseCatalogSearch(props: {
         </button>
       </aside>
 
-      <section class="catalog-results" aria-live="polite" aria-busy={loading()}>
+      <section class="catalog-results" aria-live="polite" aria-busy={catalogQuery.isFetching}>
         <header>
           <div>
             <p class="eyebrow">Public exercise catalog</p>
@@ -166,22 +157,22 @@ export function ExerciseCatalogSearch(props: {
 
         <Show when={error()}>
           <p class="form-error" role="alert">
-            {error()}
+            {errorMessage()}
           </p>
         </Show>
 
-        <div class="catalog-result-list" classList={{ 'catalog-results-loading': loading() }}>
+        <div
+          class="catalog-result-list"
+          classList={{ 'catalog-results-loading': catalogQuery.isFetching }}
+        >
           <For
             each={results().items}
             fallback={<p class="library-empty">No public exercises match.</p>}
           >
             {(exercise) => {
-              const inLibrary = () =>
-                !removedIds().includes(exercise.id) &&
-                (exercise.inLibrary || addedIds().includes(exercise.id));
               return (
                 <ExerciseListRow
-                  item={{ ...exercise, inLibrary: inLibrary() }}
+                  item={exercise}
                   pending={addingId() === exercise.id}
                   onAdd={() => addToLibrary(exercise)}
                   onRemove={() => removeFromLibrary(exercise)}
@@ -196,8 +187,8 @@ export function ExerciseCatalogSearch(props: {
             <button
               class="secondary-button"
               type="button"
-              disabled={loading() || results().page === 1}
-              onClick={() => void loadPage(results().page - 1)}
+              disabled={catalogQuery.isFetching || results().page === 1}
+              onClick={() => loadPage(results().page - 1)}
             >
               Previous
             </button>
@@ -207,8 +198,8 @@ export function ExerciseCatalogSearch(props: {
             <button
               class="secondary-button"
               type="button"
-              disabled={loading() || results().page === results().totalPages}
-              onClick={() => void loadPage(results().page + 1)}
+              disabled={catalogQuery.isFetching || results().page === results().totalPages}
+              onClick={() => loadPage(results().page + 1)}
             >
               Next
             </button>

@@ -6,11 +6,11 @@ import { RepertoireListRow } from '@/components/RepertoireListRow';
 import { InstrumentFilter } from '@/components/InstrumentFields';
 import { getLibraryCounts } from '@/data/library';
 import {
-  getExerciseLibraryPage,
   removeExerciseFromLibrary,
   type ExerciseLibrarySearchInput,
   type ExerciseLibraryPage,
 } from '@/data/exercises';
+import { exerciseKeys, exerciseLibraryQueryOptions } from '@/data/exerciseQueries';
 import {
   addRepertoireToLibrary,
   getInstruments,
@@ -45,13 +45,9 @@ function Library() {
     total: 0,
     totalPages: 0,
   };
-  const [exercises, setExercises] = createSignal(emptyExercisePage);
   const [repertoireExpanded, setRepertoireExpanded] = createSignal(false);
   const [exercisesExpanded, setExercisesExpanded] = createSignal(false);
-  const [exercisesLoaded, setExercisesLoaded] = createSignal(false);
-  const [exercisesLoading, setExercisesLoading] = createSignal(false);
   const [expandedRepertoireIds, setExpandedRepertoireIds] = createSignal<string[]>([]);
-  const [exerciseError, setExerciseError] = createSignal('');
   const [repertoireQuery, setRepertoireQuery] = createSignal('');
   const [composer, setComposer] = createSignal('');
   const [instrumentIds, setInstrumentIds] = createSignal<string[]>([]);
@@ -69,9 +65,15 @@ function Library() {
   const [exerciseVisibility, setExerciseVisibility] =
     createSignal<ExerciseLibrarySearchInput['visibility']>('ALL');
   const [hasNotation, setHasNotation] = createSignal(false);
+  const [exerciseSearch, setExerciseSearch] = createSignal<ExerciseLibrarySearchInput>({
+    query: '',
+    visibility: 'ALL',
+    hasNotation: false,
+    instrumentIds: [],
+    page: 1,
+  });
   let repertoireTimer: ReturnType<typeof setTimeout> | undefined;
   let exerciseTimer: ReturnType<typeof setTimeout> | undefined;
-  let exerciseRequestId = 0;
 
   function repertoireSearchInput(page: number): RepertoireLibrarySearchInput {
     return {
@@ -98,26 +100,9 @@ function Library() {
     setRepertoireSearch(repertoireSearchInput(page));
   }
 
-  async function loadExercisePage(page: number) {
+  function loadExercisePage(page: number) {
     clearTimeout(exerciseTimer);
-    const currentRequest = ++exerciseRequestId;
-    setExercisesLoading(true);
-    setExerciseError('');
-    try {
-      const result = await getExerciseLibraryPage({ data: exerciseSearchInput(page) });
-      if (currentRequest === exerciseRequestId) {
-        setExercises(result);
-        setExercisesLoaded(true);
-      }
-    } catch (caught) {
-      if (currentRequest === exerciseRequestId) {
-        setExerciseError(
-          caught instanceof Error ? caught.message : 'Exercises could not be loaded.',
-        );
-      }
-    } finally {
-      if (currentRequest === exerciseRequestId) setExercisesLoading(false);
-    }
+    setExerciseSearch(exerciseSearchInput(page));
   }
 
   function queueRepertoireSearch(delay = 0) {
@@ -127,8 +112,7 @@ function Library() {
 
   function queueExerciseSearch(delay = 0) {
     clearTimeout(exerciseTimer);
-    exerciseRequestId += 1;
-    exerciseTimer = setTimeout(() => void loadExercisePage(1), delay);
+    exerciseTimer = setTimeout(() => loadExercisePage(1), delay);
   }
 
   function toggleRepertoire() {
@@ -139,7 +123,6 @@ function Library() {
   function toggleExercises() {
     const expanded = !exercisesExpanded();
     setExercisesExpanded(expanded);
-    if (expanded && !exercisesLoaded() && !exercisesLoading()) void loadExercisePage(1);
   }
 
   onCleanup(() => {
@@ -148,6 +131,22 @@ function Library() {
   });
 
   const queryClient = useQueryClient();
+  const exerciseQueryResult = useQuery(() => ({
+    ...exerciseLibraryQueryOptions(exerciseSearch()),
+    enabled: exercisesExpanded(),
+    placeholderData: (previousData) => previousData ?? emptyExercisePage,
+  }));
+  const exercises = () => exerciseQueryResult.data ?? emptyExercisePage;
+  const exercisesLoading = () => exerciseQueryResult.isFetching;
+  const exerciseError = () =>
+    exerciseQueryResult.error instanceof Error ? exerciseQueryResult.error.message : '';
+  const exerciseMutation = useMutation(() => ({
+    mutationFn: (id: string) => removeExerciseFromLibrary({ data: id }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: exerciseKeys.libraries(),
+      }),
+  }));
   const repertoireQueryResult = useQuery(() => ({
     ...repertoireLibraryQueryOptions(repertoireSearch()),
     enabled: repertoireExpanded(),
@@ -437,7 +436,8 @@ function Library() {
                 <h2 id="exercises-heading">My Exercises</h2>
               </button>
               <span class="count-badge">
-                {exercisesLoaded() ? exercises().total : data().counts.exercises} exercises
+                {exerciseQueryResult.isFetched ? exercises().total : data().counts.exercises}{' '}
+                exercises
               </span>
             </div>
             <div class="library-section-actions">
@@ -526,65 +526,66 @@ function Library() {
                 </button>
               </div>
 
-              <Show when={exerciseError()}>
-                <p class="form-error" role="alert">
-                  {exerciseError()}
-                </p>
-              </Show>
+              <Suspense fallback={<p class="library-empty">Loading exercises…</p>}>
+                <Show when={exerciseError()}>
+                  <p class="form-error" role="alert">
+                    {exerciseError()}
+                  </p>
+                </Show>
 
-              <Show
-                when={exercises().items.length > 0}
-                fallback={
-                  <Show when={!exerciseError()}>
-                    <p class="library-empty">
-                      {exercisesLoading()
-                        ? 'Loading exercises…'
-                        : 'No exercises match these filters.'}
-                    </p>
-                  </Show>
-                }
-              >
-                <div
-                  class="catalog-result-list"
-                  classList={{ 'catalog-results-loading': exercisesLoading() }}
+                <Show
+                  when={exercises().items.length > 0}
+                  fallback={
+                    <Show when={!exerciseError()}>
+                      <p class="library-empty">
+                        {exercisesLoading()
+                          ? 'Loading exercises…'
+                          : 'No exercises match these filters.'}
+                      </p>
+                    </Show>
+                  }
                 >
-                  <For each={exercises().items}>
-                    {(exercise) => (
-                      <ExerciseListRow
-                        item={{ ...exercise, inLibrary: true }}
-                        onRemove={async () => {
-                          await removeExerciseFromLibrary({ data: exercise.id });
-                          await loadExercisePage(exercises().page);
-                        }}
-                      />
-                    )}
-                  </For>
-                </div>
-              </Show>
+                  <div
+                    class="catalog-result-list"
+                    classList={{ 'catalog-results-loading': exercisesLoading() }}
+                  >
+                    <For each={exercises().items}>
+                      {(exercise) => (
+                        <ExerciseListRow
+                          item={{ ...exercise, inLibrary: true }}
+                          onRemove={async () => {
+                            await exerciseMutation.mutateAsync(exercise.id);
+                          }}
+                        />
+                      )}
+                    </For>
+                  </div>
+                </Show>
 
-              <Show when={exercises().totalPages > 1}>
-                <nav class="catalog-pagination" aria-label="My Library exercise pages">
-                  <button
-                    class="secondary-button"
-                    type="button"
-                    disabled={exercisesLoading() || exercises().page === 1}
-                    onClick={() => void loadExercisePage(exercises().page - 1)}
-                  >
-                    Previous
-                  </button>
-                  <span>
-                    Page {exercises().page} of {exercises().totalPages}
-                  </span>
-                  <button
-                    class="secondary-button"
-                    type="button"
-                    disabled={exercisesLoading() || exercises().page === exercises().totalPages}
-                    onClick={() => void loadExercisePage(exercises().page + 1)}
-                  >
-                    Next
-                  </button>
-                </nav>
-              </Show>
+                <Show when={exercises().totalPages > 1}>
+                  <nav class="catalog-pagination" aria-label="My Library exercise pages">
+                    <button
+                      class="secondary-button"
+                      type="button"
+                      disabled={exercisesLoading() || exercises().page === 1}
+                      onClick={() => void loadExercisePage(exercises().page - 1)}
+                    >
+                      Previous
+                    </button>
+                    <span>
+                      Page {exercises().page} of {exercises().totalPages}
+                    </span>
+                    <button
+                      class="secondary-button"
+                      type="button"
+                      disabled={exercisesLoading() || exercises().page === exercises().totalPages}
+                      onClick={() => void loadExercisePage(exercises().page + 1)}
+                    >
+                      Next
+                    </button>
+                  </nav>
+                </Show>
+              </Suspense>
             </div>
           </Show>
         </section>
