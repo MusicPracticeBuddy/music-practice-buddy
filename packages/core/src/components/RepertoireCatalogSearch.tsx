@@ -1,4 +1,5 @@
-import { For, Show, createSignal, onCleanup } from 'solid-js';
+import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/solid-query';
 import { useRouter } from '@tanstack/solid-router';
 import { InstrumentFilter } from '@/components/InstrumentFields';
 import { RepertoireListRow } from '@/components/RepertoireListRow';
@@ -6,7 +7,6 @@ import {
   addRepertoireToLibrary,
   removeRepertoireFromLibrary,
   searchComposerNames,
-  type CatalogInstrumentMatch,
   type ComposerNameSuggestion,
   type CatalogRepertoireRow,
   type CatalogSearchInput,
@@ -15,67 +15,80 @@ import {
   getPublicRepertoireCatalogPage,
 } from '@/data/repertoire';
 
+export type RepertoireCatalogSearchState = CatalogSearchInput;
+
+export function repertoireCatalogQueryOptions(search: RepertoireCatalogSearchState) {
+  return queryOptions({
+    queryKey: ['repertoire', 'catalog', search] as const,
+    queryFn: () => getPublicRepertoireCatalogPage({ data: search }),
+    staleTime: 30_000,
+  });
+}
+
+function updateLibraryState(
+  items: CatalogRepertoireRow[],
+  id: string,
+  inLibrary: boolean,
+): CatalogRepertoireRow[] {
+  return items.map((item) => ({
+    ...item,
+    inLibrary: item.id === id ? inLibrary : item.inLibrary,
+    children: updateLibraryState(item.children, id, inLibrary),
+  }));
+}
+
 export function RepertoireCatalogSearch(props: {
   initialPage: CatalogSearchPage;
   instruments: InstrumentOption[];
-  initialInstrumentIds?: string[];
+  search: RepertoireCatalogSearchState;
+  onSearchChange: (search: RepertoireCatalogSearchState, replace?: boolean) => void | Promise<void>;
 }) {
   const router = useRouter();
-  const [query, setQuery] = createSignal('');
-  const [composerQuery, setComposerQuery] = createSignal('');
+  const queryClient = useQueryClient();
+  const [query, setQuery] = createSignal(props.search.query);
+  const [composerQuery, setComposerQuery] = createSignal(props.search.composer);
   const [composerSuggestions, setComposerSuggestions] = createSignal<ComposerNameSuggestion[]>([]);
   const [acceptedComposerName, setAcceptedComposerName] = createSignal('');
-  const [selectedInstrumentIds, setSelectedInstrumentIds] = createSignal<string[]>(
-    props.initialInstrumentIds ?? [],
-  );
-  const [instrumentMatch, setInstrumentMatch] = createSignal<CatalogInstrumentMatch>('ANY');
-  const [yearFrom, setYearFrom] = createSignal('');
-  const [yearTo, setYearTo] = createSignal('');
-  const [results, setResults] = createSignal(props.initialPage);
-  const [loading, setLoading] = createSignal(false);
+  const [yearFrom, setYearFrom] = createSignal(props.search.yearFrom?.toString() ?? '');
+  const [yearTo, setYearTo] = createSignal(props.search.yearTo?.toString() ?? '');
   const [expandedIds, setExpandedIds] = createSignal<string[]>([]);
-  const [addingId, setAddingId] = createSignal<string | null>(null);
-  const [addedIds, setAddedIds] = createSignal<string[]>([]);
-  const [removedIds, setRemovedIds] = createSignal<string[]>([]);
-  const [error, setError] = createSignal('');
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
   let composerSearchTimer: ReturnType<typeof setTimeout> | undefined;
-  let requestId = 0;
   let composerRequestId = 0;
 
-  function searchInput(page: number): CatalogSearchInput {
+  const catalogQuery = useQuery(() => ({
+    ...repertoireCatalogQueryOptions(props.search),
+    initialData: props.initialPage,
+  }));
+  const results = () => catalogQuery.data ?? props.initialPage;
+
+  createEffect(() => {
+    setQuery(props.search.query);
+    setComposerQuery(props.search.composer);
+    setYearFrom(props.search.yearFrom?.toString() ?? '');
+    setYearTo(props.search.yearTo?.toString() ?? '');
+  });
+
+  function searchInput(page: number): RepertoireCatalogSearchState {
     return {
       query: query(),
       composer: composerQuery(),
-      instrumentIds: selectedInstrumentIds(),
-      instrumentMatch: instrumentMatch(),
+      instrumentIds: props.search.instrumentIds,
+      instrumentMatch: props.search.instrumentMatch,
       yearFrom: yearFrom() === '' ? null : Number(yearFrom()),
       yearTo: yearTo() === '' ? null : Number(yearTo()),
       page,
     };
   }
 
-  async function loadPage(page: number) {
+  function loadPage(page: number, replace = false) {
     clearTimeout(searchTimer);
-    const currentRequest = ++requestId;
-    setLoading(true);
-    setError('');
-    try {
-      const nextResults = await getPublicRepertoireCatalogPage({ data: searchInput(page) });
-      if (currentRequest === requestId) setResults(nextResults);
-    } catch (caught) {
-      if (currentRequest === requestId) {
-        setError(caught instanceof Error ? caught.message : 'The catalog could not be searched.');
-      }
-    } finally {
-      if (currentRequest === requestId) setLoading(false);
-    }
+    void props.onSearchChange(searchInput(page), replace);
   }
 
   function queueSearch(delay = 0) {
     clearTimeout(searchTimer);
-    requestId += 1;
-    searchTimer = setTimeout(() => void loadPage(1), delay);
+    searchTimer = setTimeout(() => loadPage(1, true), delay);
   }
 
   function queueComposerLookup(composerName: string) {
@@ -121,41 +134,52 @@ export function RepertoireCatalogSearch(props: {
     setComposerQuery('');
     setComposerSuggestions([]);
     setAcceptedComposerName('');
-    setSelectedInstrumentIds([]);
-    setInstrumentMatch('ANY');
     setYearFrom('');
     setYearTo('');
-    queueSearch();
+    void props.onSearchChange(
+      {
+        query: '',
+        composer: '',
+        instrumentIds: [],
+        instrumentMatch: 'ANY',
+        yearFrom: null,
+        yearTo: null,
+        page: 1,
+      },
+      true,
+    );
   }
 
-  async function addToLibrary(item: CatalogRepertoireRow) {
-    setAddingId(item.id);
-    setError('');
-    try {
-      await addRepertoireToLibrary({ data: item.id });
-      setAddedIds((ids) => [...ids, item.id]);
-      setRemovedIds((ids) => ids.filter((id) => id !== item.id));
+  const libraryMutation = useMutation(() => ({
+    mutationFn: async (input: { item: CatalogRepertoireRow; inLibrary: boolean }) => {
+      if (input.inLibrary) await addRepertoireToLibrary({ data: input.item.id });
+      else await removeRepertoireFromLibrary({ data: input.item.id });
+      return input;
+    },
+    onSuccess: async ({ item, inLibrary }) => {
+      queryClient.setQueryData<CatalogSearchPage>(
+        repertoireCatalogQueryOptions(props.search).queryKey,
+        (page) =>
+          page ? { ...page, items: updateLibraryState(page.items, item.id, inLibrary) } : page,
+      );
       await router.invalidate({ sync: true });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'The repertoire could not be added.');
-    } finally {
-      setAddingId(null);
-    }
+    },
+  }));
+
+  const addingId = () => (libraryMutation.isPending ? libraryMutation.variables?.item.id : null);
+  const mutationError = () =>
+    libraryMutation.error instanceof Error
+      ? libraryMutation.error.message
+      : libraryMutation.isError
+        ? 'The repertoire library could not be updated.'
+        : '';
+
+  async function addToLibrary(item: CatalogRepertoireRow) {
+    await libraryMutation.mutateAsync({ item, inLibrary: true });
   }
 
   async function removeFromLibrary(item: CatalogRepertoireRow) {
-    setAddingId(item.id);
-    setError('');
-    try {
-      await removeRepertoireFromLibrary({ data: item.id });
-      setRemovedIds((ids) => [...ids, item.id]);
-      setAddedIds((ids) => ids.filter((id) => id !== item.id));
-      await router.invalidate({ sync: true });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'The repertoire could not be removed.');
-    } finally {
-      setAddingId(null);
-    }
+    await libraryMutation.mutateAsync({ item, inLibrary: false });
   }
 
   return (
@@ -232,10 +256,9 @@ export function RepertoireCatalogSearch(props: {
               <input
                 type="radio"
                 name="instrument-match"
-                checked={instrumentMatch() === 'ANY'}
+                checked={props.search.instrumentMatch === 'ANY'}
                 onChange={() => {
-                  setInstrumentMatch('ANY');
-                  queueSearch();
+                  void props.onSearchChange({ ...searchInput(1), instrumentMatch: 'ANY' }, true);
                 }}
               />
               Match any
@@ -244,10 +267,9 @@ export function RepertoireCatalogSearch(props: {
               <input
                 type="radio"
                 name="instrument-match"
-                checked={instrumentMatch() === 'ALL'}
+                checked={props.search.instrumentMatch === 'ALL'}
                 onChange={() => {
-                  setInstrumentMatch('ALL');
-                  queueSearch();
+                  void props.onSearchChange({ ...searchInput(1), instrumentMatch: 'ALL' }, true);
                 }}
               />
               Match all
@@ -255,10 +277,9 @@ export function RepertoireCatalogSearch(props: {
           </div>
           <InstrumentFilter
             instruments={props.instruments}
-            selectedIds={selectedInstrumentIds()}
+            selectedIds={props.search.instrumentIds}
             onChange={(ids) => {
-              setSelectedInstrumentIds(ids);
-              queueSearch();
+              void props.onSearchChange({ ...searchInput(1), instrumentIds: ids }, true);
             }}
           />
         </fieldset>
@@ -268,7 +289,7 @@ export function RepertoireCatalogSearch(props: {
         </button>
       </aside>
 
-      <section class="catalog-results" aria-live="polite" aria-busy={loading()}>
+      <section class="catalog-results" aria-live="polite" aria-busy={catalogQuery.isFetching}>
         <header>
           <div>
             <p class="eyebrow">Repertoire catalog</p>
@@ -281,19 +302,23 @@ export function RepertoireCatalogSearch(props: {
             </small>
           </Show>
         </header>
-        <Show when={error()}>
+        <Show when={catalogQuery.error ?? mutationError()}>
           <p class="form-error" role="alert">
-            {error()}
+            {catalogQuery.error instanceof Error
+              ? catalogQuery.error.message
+              : mutationError() || 'The catalog could not be searched.'}
           </p>
         </Show>
-        <div class="catalog-result-list" classList={{ 'catalog-results-loading': loading() }}>
+        <div
+          class="catalog-result-list"
+          classList={{ 'catalog-results-loading': catalogQuery.isFetching }}
+        >
           <For
             each={results().items}
             fallback={<p class="library-empty">No catalog works match.</p>}
           >
             {(item) => {
-              const inLibrary = () =>
-                !removedIds().includes(item.id) && (item.inLibrary || addedIds().includes(item.id));
+              const inLibrary = () => item.inLibrary;
               const expanded = () => expandedIds().includes(item.id);
               return (
                 <RepertoireListRow
@@ -339,8 +364,6 @@ export function RepertoireCatalogSearch(props: {
                     <CatalogChildren
                       items={item.children}
                       addingId={addingId()}
-                      addedIds={addedIds()}
-                      removedIds={removedIds()}
                       onAdd={addToLibrary}
                       onRemove={removeFromLibrary}
                     />
@@ -355,8 +378,8 @@ export function RepertoireCatalogSearch(props: {
             <button
               class="secondary-button"
               type="button"
-              disabled={loading() || results().page === 1}
-              onClick={() => void loadPage(results().page - 1)}
+              disabled={catalogQuery.isFetching || results().page === 1}
+              onClick={() => loadPage(results().page - 1)}
             >
               Previous
             </button>
@@ -366,8 +389,8 @@ export function RepertoireCatalogSearch(props: {
             <button
               class="secondary-button"
               type="button"
-              disabled={loading() || results().page === results().totalPages}
-              onClick={() => void loadPage(results().page + 1)}
+              disabled={catalogQuery.isFetching || results().page === results().totalPages}
+              onClick={() => loadPage(results().page + 1)}
             >
               Next
             </button>
@@ -381,8 +404,6 @@ export function RepertoireCatalogSearch(props: {
 function CatalogChildren(props: {
   items: CatalogRepertoireRow[];
   addingId: string | null;
-  addedIds: string[];
-  removedIds: string[];
   onAdd: (item: CatalogRepertoireRow) => Promise<void>;
   onRemove: (item: CatalogRepertoireRow) => Promise<void>;
 }) {
@@ -402,9 +423,7 @@ function CatalogChildren(props: {
                   item.visibility.toLowerCase(),
                   ...(item.measureRange ? [item.measureRange] : []),
                 ],
-                inLibrary:
-                  !props.removedIds.includes(item.id) &&
-                  (item.inLibrary || props.addedIds.includes(item.id)),
+                inLibrary: item.inLibrary,
                 libraryNotes: item.libraryNotes,
               }}
               pending={props.addingId === item.id}
@@ -415,8 +434,6 @@ function CatalogChildren(props: {
                 <CatalogChildren
                   items={item.children}
                   addingId={props.addingId}
-                  addedIds={props.addedIds}
-                  removedIds={props.removedIds}
                   onAdd={props.onAdd}
                   onRemove={props.onRemove}
                 />

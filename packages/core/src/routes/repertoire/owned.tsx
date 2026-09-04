@@ -72,7 +72,18 @@ function OwnedRepertoire() {
           <Link class="secondary-button" to="/library">
             My Library
           </Link>
-          <Link class="primary-button" to="/repertoire/search">
+          <Link
+            class="primary-button"
+            to="/repertoire/search"
+            search={{
+              query: '',
+              composer: '',
+              instrumentMatch: 'ANY',
+              yearFrom: null,
+              yearTo: null,
+              page: 1,
+            }}
+          >
             Find repertoire
           </Link>
         </div>

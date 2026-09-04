@@ -1,4 +1,5 @@
 import type { Component } from 'solid-js';
+import type { QueryClient } from '@tanstack/solid-query';
 
 export type EditionContribution = Readonly<{
   id: string;
@@ -24,4 +25,5 @@ export type MpbEdition = Readonly<{
 
 export type MpbRouterContext = Readonly<{
   edition: MpbEdition;
+  queryClient: QueryClient;
 }>;

@@ -1,4 +1,5 @@
 import * as Solid from 'solid-js';
+import { QueryClientProvider } from '@tanstack/solid-query';
 import {
   HeadContent,
   Link,
@@ -68,15 +69,17 @@ function RootComponent() {
   const context = Route.useRouteContext();
   return (
     <RootDocument>
-      <Solid.Show when={context().user} fallback={<Outlet />}>
-        {(user) => (
-          <AuthenticatedShell
-            developmentLoginEnabled={context().developmentLoginEnabled}
-            edition={context().edition}
-            user={user()}
-          />
-        )}
-      </Solid.Show>
+      <QueryClientProvider client={context().queryClient}>
+        <Solid.Show when={context().user} fallback={<Outlet />}>
+          {(user) => (
+            <AuthenticatedShell
+              developmentLoginEnabled={context().developmentLoginEnabled}
+              edition={context().edition}
+              user={user()}
+            />
+          )}
+        </Solid.Show>
+      </QueryClientProvider>
     </RootDocument>
   );
 }

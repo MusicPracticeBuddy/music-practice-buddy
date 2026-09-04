@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
-import type { JSX } from 'solid-js';
-import type { CatalogRepertoireRow } from '@/data/repertoire';
+import { createSignal, type JSX } from 'solid-js';
+import { QueryClient, QueryClientProvider } from '@tanstack/solid-query';
+import type { CatalogRepertoireRow, CatalogSearchInput } from '@/data/repertoire';
 
 const mocks = vi.hoisted(() => ({
   addToLibrary: vi.fn(async () => ({ id: '1' })),
+  removeFromLibrary: vi.fn(async () => ({ id: '1' })),
   searchCatalog: vi.fn(),
   searchComposerNames: vi.fn(),
   invalidate: vi.fn(async () => undefined),
@@ -17,6 +19,7 @@ vi.mock('@tanstack/solid-router', () => ({
 
 vi.mock('../../packages/core/src/data/repertoire', () => ({
   addRepertoireToLibrary: mocks.addToLibrary,
+  removeRepertoireFromLibrary: mocks.removeFromLibrary,
   getPublicRepertoireCatalogPage: mocks.searchCatalog,
   searchComposerNames: mocks.searchComposerNames,
 }));
@@ -70,12 +73,33 @@ function renderSearch(
   initialPage = { items, page: 1, pageSize: 25, total: items.length, totalPages: 1 },
   initialInstrumentIds: string[] = [],
 ) {
+  const [page, setPage] = createSignal(initialPage);
+  const [search, setSearch] = createSignal<CatalogSearchInput>({
+    query: '',
+    composer: '',
+    instrumentIds: initialInstrumentIds,
+    instrumentMatch: 'ANY',
+    yearFrom: null,
+    yearTo: null,
+    page: initialPage.page,
+  });
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
   return render(() => (
-    <RepertoireCatalogSearch
-      initialPage={initialPage}
-      instruments={instruments}
-      initialInstrumentIds={initialInstrumentIds}
-    />
+    <QueryClientProvider client={queryClient}>
+      <RepertoireCatalogSearch
+        initialPage={page()}
+        instruments={instruments}
+        search={search()}
+        onSearchChange={async (nextSearch) => {
+          const nextPage = await mocks.searchCatalog({ data: nextSearch });
+          queryClient.setQueryData(['repertoire', 'catalog', nextSearch], nextPage);
+          setPage(nextPage);
+          setSearch(nextSearch);
+        }}
+      />
+    </QueryClientProvider>
   ));
 }
 
@@ -132,15 +156,18 @@ describe('RepertoireCatalogSearch', () => {
     expect(screen.getByText('Inclusive Lower Bound')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear all filters' }));
+    await waitFor(() => expect(screen.getByText('3 matching works')).toBeTruthy());
     fireEvent.input(screen.getByLabelText('From'), { target: { value: '1800' } });
     fireEvent.input(screen.getByLabelText('To'), { target: { value: '1900' } });
 
-    expect(await screen.findByText('Inclusive Upper Bound')).toBeTruthy();
+    await waitFor(() =>
+      expect(mocks.searchCatalog).toHaveBeenLastCalledWith({
+        data: expect.objectContaining({ yearFrom: 1800, yearTo: 1900, page: 1 }),
+      }),
+    );
+    expect(screen.getByText('Inclusive Upper Bound')).toBeTruthy();
     expect(screen.queryByText('Outside Range')).toBeNull();
     expect(screen.getByText('Inclusive Lower Bound')).toBeTruthy();
-    expect(mocks.searchCatalog).toHaveBeenLastCalledWith({
-      data: expect.objectContaining({ yearFrom: 1800, yearTo: 1900, page: 1 }),
-    });
   });
 
   it('uses fuzzy full-name composer suggestions and stops after one is accepted', async () => {

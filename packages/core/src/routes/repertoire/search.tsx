@@ -1,30 +1,63 @@
 import { Show, createSignal } from 'solid-js';
-import { Link, createFileRoute } from '@tanstack/solid-router';
+import { Link, createFileRoute, useNavigate } from '@tanstack/solid-router';
 import { LibraryItemForm } from '@/components/LibraryItemForm';
-import { RepertoireCatalogSearch } from '@/components/RepertoireCatalogSearch';
 import {
-  EMPTY_CATALOG_SEARCH,
-  getInstruments,
-  getPublicRepertoireCatalogPage,
-} from '@/data/repertoire';
+  RepertoireCatalogSearch,
+  repertoireCatalogQueryOptions,
+  type RepertoireCatalogSearchState,
+} from '@/components/RepertoireCatalogSearch';
+import { getInstruments } from '@/data/repertoire';
 import { getMusicianInstrumentIds } from '@/data/preferences';
 
+function optionalString(value: unknown) {
+  return typeof value === 'string' ? value : '';
+}
+
+function optionalYear(value: unknown) {
+  if (value === null || value === undefined || value === '') return null;
+  const number = typeof value === 'number' ? value : Number(value);
+  return Number.isInteger(number) && number >= -9999 && number <= 9999 ? number : null;
+}
+
+function positivePage(value: unknown) {
+  const number = typeof value === 'number' ? value : Number(value);
+  return Number.isInteger(number) && number > 0 ? number : 1;
+}
+
+export type RepertoireCatalogUrlSearch = Omit<RepertoireCatalogSearchState, 'instrumentIds'> & {
+  instrumentIds?: string[];
+};
+
 export const Route = createFileRoute('/repertoire/search')({
-  loader: async () => {
+  validateSearch: (search: Record<string, unknown>): RepertoireCatalogUrlSearch => ({
+    query: optionalString(search.query),
+    composer: optionalString(search.composer),
+    instrumentIds: Array.isArray(search.instrumentIds)
+      ? search.instrumentIds.filter((id): id is string => typeof id === 'string')
+      : typeof search.instrumentIds === 'string'
+        ? [search.instrumentIds]
+        : undefined,
+    instrumentMatch: search.instrumentMatch === 'ALL' ? 'ALL' : 'ANY',
+    yearFrom: optionalYear(search.yearFrom),
+    yearTo: optionalYear(search.yearTo),
+    page: positivePage(search.page),
+  }),
+  loaderDeps: ({ search }) => search,
+  loader: async ({ deps, context }) => {
     const [instruments, instrumentIds] = await Promise.all([
       getInstruments(),
       getMusicianInstrumentIds(),
     ]);
-    const catalog = await getPublicRepertoireCatalogPage({
-      data: { ...EMPTY_CATALOG_SEARCH, instrumentIds },
-    });
-    return { catalog, instruments, instrumentIds };
+    const catalogSearch = { ...deps, instrumentIds: deps.instrumentIds ?? instrumentIds };
+    const catalog = await context.queryClient.query(repertoireCatalogQueryOptions(catalogSearch));
+    return { catalog, catalogSearch, instruments, instrumentIds };
   },
   component: SearchRepertoire,
 });
 
 function SearchRepertoire() {
   const data = Route.useLoaderData();
+  const navigate = useNavigate({ from: '/repertoire/search' });
   const context = Route.useRouteContext();
   const [creating, setCreating] = createSignal(false);
 
@@ -73,7 +106,13 @@ function SearchRepertoire() {
         <RepertoireCatalogSearch
           initialPage={data().catalog}
           instruments={data().instruments}
-          initialInstrumentIds={data().instrumentIds}
+          search={data().catalogSearch}
+          onSearchChange={(search, replace) =>
+            navigate({
+              search,
+              replace,
+            })
+          }
         />
         <div class="catalog-create-fallback">
           <div>
