@@ -2952,6 +2952,15 @@ textarea.text-input {
     padding: 0 10px 12px;
   }
 
+  .key-carousel-window {
+    grid-template-columns: repeat(3, minmax(54px, 1fr));
+  }
+
+  .key-carousel-window > :first-child,
+  .key-carousel-window > :last-child {
+    display: none;
+  }
+
   .session-row {
     align-items: flex-start;
     padding: 0 16px 0 0;
