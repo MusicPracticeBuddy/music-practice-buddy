@@ -224,28 +224,28 @@ function RepertoireDetail() {
         <Show when={repertoire().startMeasure === null}>
           <article class="detail-card detail-card-wide">
             <div class="child-repertoire-header">
-                <div>
-                  <p class="eyebrow">Excerpts</p>
-                  <p class="muted">Excerpts, movements, and individual pieces in this work.</p>
+              <div>
+                <p class="eyebrow">Excerpts</p>
+                <p class="muted">Excerpts, movements, and individual pieces in this work.</p>
+              </div>
+              <Show when={repertoire().canUse}>
+                <div class="child-repertoire-actions">
+                  <Link
+                    class="secondary-button"
+                    to="/repertoire/$repertoireId/excerpts/new"
+                    params={{ repertoireId: repertoire().id }}
+                  >
+                    Add excerpt
+                  </Link>
+                  <Link
+                    class="secondary-button"
+                    to="/repertoire/$repertoireId/children/new"
+                    params={{ repertoireId: repertoire().id }}
+                  >
+                    Add movement or piece
+                  </Link>
                 </div>
-                <Show when={repertoire().canUse}>
-                  <div class="child-repertoire-actions">
-                    <Link
-                      class="secondary-button"
-                      to="/repertoire/$repertoireId/excerpts/new"
-                      params={{ repertoireId: repertoire().id }}
-                    >
-                      Add excerpt
-                    </Link>
-                    <Link
-                      class="secondary-button"
-                      to="/repertoire/$repertoireId/children/new"
-                      params={{ repertoireId: repertoire().id }}
-                    >
-                      Add movement or piece
-                    </Link>
-                  </div>
-                </Show>
+              </Show>
             </div>
             <Show
               when={repertoire().children.length > 0}
