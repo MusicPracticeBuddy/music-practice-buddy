@@ -241,7 +241,7 @@ export const getExerciseLibraryPage = createServerFn({ method: 'GET' })
            AND (source.musician_id = $1 OR source.visibility = 'PUBLIC')
            AND source.deleted_at IS NULL
          WHERE ${where}
-         ORDER BY exercise.created_at, exercise.id
+         ORDER BY lower(exercise.name), exercise.id
          LIMIT ${limit} OFFSET ${offset}`,
         parameters,
       ),

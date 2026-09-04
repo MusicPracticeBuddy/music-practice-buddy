@@ -1224,18 +1224,24 @@ export const getRepertoireDetail = createServerFn({ method: 'GET' })
              owner_musician_id = $2
              OR (owner_musician_id IS NULL AND visibility IS NULL)
            )
-         ORDER BY start_measure NULLS LAST, title`,
+         ORDER BY start_measure NULLS LAST, lower(title), id`,
         [repertoireId, context.user.musicianId],
       ),
       pool.query<{ id: string; templateName: string; status: string; startedAt: Date | null }>(
-        `SELECT DISTINCT session.id::text,
+        `SELECT session.id::text,
            COALESCE(template.name, 'Open practice') AS "templateName",
            session.status::text, session.started_at AS "startedAt"
-         FROM session_item item
-         JOIN session ON session.id = item.session_id
+         FROM session
          LEFT JOIN session_template template ON template.id = session.session_template_id
-         WHERE item.repertoire_id = $1 AND session.musician_id = $2
-         ORDER BY session.started_at DESC NULLS LAST`,
+         WHERE session.musician_id = $2
+           AND EXISTS (
+             SELECT 1 FROM session_item item
+             WHERE item.session_id = session.id AND item.repertoire_id = $1
+           )
+         ORDER BY COALESCE(
+           session.started_at,
+           session.assigned_date::timestamp AT TIME ZONE current_setting('TIMEZONE')
+         ) DESC NULLS LAST, session.id DESC`,
         [repertoireId, context.user.musicianId],
       ),
     ]);
