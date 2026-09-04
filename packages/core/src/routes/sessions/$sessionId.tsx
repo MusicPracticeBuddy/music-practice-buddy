@@ -539,6 +539,7 @@ function SessionDetailPage() {
     try {
       const update = await completePracticeSession({ data: session.id });
       applyProgress(update);
+      setAddingItem(false);
     } catch (caught) {
       setError(errorMessage(caught));
     } finally {
@@ -746,7 +747,10 @@ function SessionDetailPage() {
         </div>
       </section>
 
-      <div class="running-session-workspace" classList={{ active: addingItem() }}>
+      <div
+        class="running-session-workspace"
+        classList={{ active: addingItem() && session.status === SESSION_STATUS.IN_PROGRESS }}
+      >
         <div class="running-session-outline-column">
           <Show
             when={itemTree().length > 0}
@@ -760,7 +764,7 @@ function SessionDetailPage() {
             <PracticePlanOutline
               items={session.items}
               sessionActive={session.status === SESSION_STATUS.IN_PROGRESS}
-              addingItem={addingItem()}
+              addingItem={addingItem() && session.status === SESSION_STATUS.IN_PROGRESS}
               timingMode={session.timingMode}
               hasActiveItem={hasActiveItem()}
               onAction={queueAction}
@@ -769,7 +773,7 @@ function SessionDetailPage() {
               onDropLibraryItem={dropLibraryItem}
             />
           </Show>
-          <Show when={addingItem()}>
+          <Show when={addingItem() && session.status === SESSION_STATUS.IN_PROGRESS}>
             <div
               class="running-drop-zone"
               onDragOver={(event) => event.preventDefault()}
@@ -788,7 +792,7 @@ function SessionDetailPage() {
           </Show>
         </div>
 
-        <Show when={addingItem()}>
+        <Show when={addingItem() && session.status === SESSION_STATUS.IN_PROGRESS}>
           <PracticeLibraryPanel
             class="running-library-panel"
             items={library()}

@@ -118,17 +118,41 @@ function StatusIndicator(props: { status: SessionItemStatus }) {
 
 export function PracticePlanOutline(props: PracticePlanOutlineProps) {
   const tree = () => buildItemTree(props.items);
+  const [expandedItems, setExpandedItems] = createSignal<Record<string, boolean>>({});
+
+  function isExpanded(item: PracticePlanItemNode) {
+    return expandedItems()[item.id] ?? item.type === PRACTICE_ITEM_TYPE.SECTION;
+  }
+
+  function toggleExpanded(item: PracticePlanItemNode) {
+    setExpandedItems((current) => ({ ...current, [item.id]: !isExpanded(item) }));
+  }
 
   return (
     <section class="session-outline" aria-label="Practice plan contents">
-      <For each={tree()}>{(item) => <PracticePlanOutlineItem {...props} item={item} />}</For>
+      <For each={tree()}>
+        {(item) => (
+          <PracticePlanOutlineItem
+            {...props}
+            item={item}
+            isExpanded={isExpanded}
+            toggleExpanded={toggleExpanded}
+          />
+        )}
+      </For>
     </section>
   );
 }
 
-function PracticePlanOutlineItem(props: PracticePlanOutlineProps & { item: PracticePlanItemNode }) {
+type PracticePlanOutlineItemProps = PracticePlanOutlineProps & {
+  item: PracticePlanItemNode;
+  isExpanded: (item: PracticePlanItemNode) => boolean;
+  toggleExpanded: (item: PracticePlanItemNode) => void;
+};
+
+function PracticePlanOutlineItem(props: PracticePlanOutlineItemProps) {
   const isSection = props.item.type === PRACTICE_ITEM_TYPE.SECTION;
-  const [expanded, setExpanded] = createSignal(isSection);
+  const expanded = () => props.isExpanded(props.item);
   const [editingSessionNote, setEditingSessionNote] = createSignal(false);
   const [sessionNoteDraft, setSessionNoteDraft] = createSignal(props.item.sessionNote ?? '');
   const [savingSessionNote, setSavingSessionNote] = createSignal(false);
@@ -194,7 +218,7 @@ function PracticePlanOutlineItem(props: PracticePlanOutlineProps & { item: Pract
             class="section-disclosure"
             aria-expanded={expanded()}
             aria-controls={contentId}
-            onClick={() => setExpanded((value) => !value)}
+            onClick={() => props.toggleExpanded(props.item)}
           >
             <span class="disclosure-icon" aria-hidden="true">
               {expanded() ? '⌄' : '›'}
@@ -273,7 +297,7 @@ function PracticePlanOutlineItem(props: PracticePlanOutlineProps & { item: Pract
           class="practice-item-toggle"
           aria-expanded={expanded()}
           aria-controls={contentId}
-          onClick={() => setExpanded((value) => !value)}
+          onClick={() => props.toggleExpanded(props.item)}
         >
           <span class="disclosure-icon" aria-hidden="true">
             {expanded() ? '⌄' : '›'}
