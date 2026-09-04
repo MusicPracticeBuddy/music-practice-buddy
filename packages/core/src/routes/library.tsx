@@ -3,6 +3,7 @@ import { Link, createFileRoute } from '@tanstack/solid-router';
 import { ExerciseListRow } from '@/components/ExerciseListRow';
 import { RepertoireListRow } from '@/components/RepertoireListRow';
 import { InstrumentFilter } from '@/components/InstrumentFields';
+import { getLibraryCounts } from '@/data/library';
 import {
   getExerciseLibraryPage,
   removeExerciseFromLibrary,
@@ -21,8 +22,8 @@ import {
 
 export const Route = createFileRoute('/library')({
   loader: async () => {
-    const instruments = await getInstruments();
-    return { instruments };
+    const [instruments, counts] = await Promise.all([getInstruments(), getLibraryCounts()]);
+    return { instruments, counts };
   },
   component: Library,
 });
@@ -194,9 +195,7 @@ function Library() {
                 </span>
                 <h2 id="repertoire-heading">My Repertoire</h2>
               </button>
-              <Show when={repertoireLoaded()}>
-                <span class="count-badge">{repertoire().total} entries</span>
-              </Show>
+              <span class="count-badge">{data().counts.repertoire} entries</span>
             </div>
             <div class="library-section-actions">
               <Show when={repertoireExpanded()}>
@@ -431,9 +430,9 @@ function Library() {
                 </span>
                 <h2 id="exercises-heading">My Exercises</h2>
               </button>
-              <Show when={exercisesLoaded()}>
-                <span class="count-badge">{exercises().total} exercises</span>
-              </Show>
+              <span class="count-badge">
+                {exercisesLoaded() ? exercises().total : data().counts.exercises} exercises
+              </span>
             </div>
             <div class="library-section-actions">
               <Show when={exercisesExpanded()}>

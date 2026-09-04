@@ -4,6 +4,7 @@ import { createSignal, type Accessor, type JSX } from 'solid-js';
 
 type LibraryLoaderData = {
   instruments: [];
+  counts: { repertoire: number; exercises: number };
 };
 
 let loaderData: Accessor<LibraryLoaderData>;
@@ -44,6 +45,10 @@ vi.mock('../../packages/core/src/data/exercises', () => ({
   },
   getExerciseLibraryPage: vi.fn(),
   removeExerciseFromLibrary: vi.fn(),
+}));
+
+vi.mock('../../packages/core/src/data/library', () => ({
+  getLibraryCounts: vi.fn(),
 }));
 
 vi.mock('../../packages/core/src/data/repertoire', () => ({
@@ -136,10 +141,15 @@ describe('Library page', () => {
       total: 1,
       totalPages: 1,
     });
-    const [data] = createSignal<LibraryLoaderData>({ instruments: [] });
+    const [data] = createSignal<LibraryLoaderData>({
+      instruments: [],
+      counts: { repertoire: 7, exercises: 11 },
+    });
     loaderData = data;
     render(() => <Library />);
 
+    expect(screen.getByText('7 entries')).toBeTruthy();
+    expect(screen.getByText('11 exercises')).toBeTruthy();
     expect(getRepertoireLibraryPage).not.toHaveBeenCalled();
     expect(getExerciseLibraryPage).not.toHaveBeenCalled();
     expect(screen.queryByRole('search')).toBeNull();

@@ -16,6 +16,7 @@ import {
   updateExercise,
 } from '@/data/exercises';
 import { getMusicianInstrumentIds, updateMusicianInstrumentIds } from '@/data/preferences';
+import { getLibraryCounts } from '@/data/library';
 import {
   EMPTY_CATALOG_SEARCH,
   EMPTY_REPERTOIRE_LIBRARY_SEARCH,
@@ -324,6 +325,19 @@ describe('library item persistence', () => {
     });
     expect(repertoireFirstPage.items).toHaveLength(20);
     expect(repertoireSecondPage.items).toHaveLength(1);
+    await pool.query(
+      `WITH public_parent AS (
+         INSERT INTO repertoire (title, visibility, status)
+         VALUES ('Public library parent', 'PUBLIC', 'APPROVED')
+         RETURNING id
+       ), library_entry AS (
+         INSERT INTO musician_repertoire_library (musician_id, repertoire_id)
+         SELECT 1, id FROM public_parent
+       )
+       INSERT INTO repertoire (title, parent_repertoire_id, visibility, status)
+       SELECT 'Public unowned child', id, NULL, 'APPROVED' FROM public_parent`,
+    );
+    await expect(getLibraryCounts()).resolves.toEqual({ repertoire: 22, exercises: 21 });
 
     expect(
       await getExerciseLibraryPage({
