@@ -38,6 +38,7 @@ const items: CatalogRepertoireRow[] = [
     id: '1',
     title: 'Inclusive Lower Bound',
     compositionYear: 1800,
+    visibility: 'PUBLIC',
     composers: [composers[0]!],
     instruments: [instruments[0]!, instruments[1]!],
     inLibrary: false,
@@ -47,6 +48,7 @@ const items: CatalogRepertoireRow[] = [
     id: '2',
     title: 'Inclusive Upper Bound',
     compositionYear: 1900,
+    visibility: 'PUBLIC',
     composers: [composers[1]!],
     instruments: [instruments[0]!],
     inLibrary: false,
@@ -56,6 +58,7 @@ const items: CatalogRepertoireRow[] = [
     id: '3',
     title: 'Outside Range',
     compositionYear: 1901,
+    visibility: 'PUBLIC',
     composers: [composers[1]!],
     instruments: [instruments[1]!],
     inLibrary: true,
@@ -197,15 +200,15 @@ describe('RepertoireCatalogSearch', () => {
     expect(screen.queryByText('Inclusive Upper Bound')).toBeNull();
   });
 
-  it('adds a public work and disables its action', async () => {
+  it('adds a public work and changes its action to remove', async () => {
     renderSearch();
 
-    const addButtons = screen.getAllByRole('button', { name: '+ Add' });
+    const addButtons = screen.getAllByRole('button', { name: /Add .* to My Library/ });
     fireEvent.click(addButtons[0]!);
 
     await waitFor(() => {
       expect(mocks.addToLibrary).toHaveBeenCalledWith({ data: '1' });
-      expect(screen.getAllByRole('button', { name: 'In My Library' })).toHaveLength(2);
+      expect(screen.getAllByRole('button', { name: '- Remove' })).toHaveLength(2);
     });
     expect(mocks.invalidate).toHaveBeenCalledWith({ sync: true });
   });
@@ -251,7 +254,7 @@ describe('RepertoireCatalogSearch', () => {
 
     await waitFor(() => {
       expect(mocks.addToLibrary).toHaveBeenCalledWith({ data: '20' });
-      expect(screen.getByText('In My Library', { selector: '.catalog-child-action' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: '- Remove' })).toBeTruthy();
     });
   });
 });

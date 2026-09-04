@@ -55,6 +55,7 @@ vi.mock('../../packages/core/src/data/repertoire', () => ({
     page: 1,
   },
   getInstruments: vi.fn(),
+  addRepertoireToLibrary: vi.fn(),
   getRepertoireLibraryPage: vi.fn(),
   removeRepertoireFromLibrary: vi.fn(),
 }));
@@ -92,6 +93,19 @@ describe('Library page', () => {
           canEdit: true,
           canManage: true,
           canUse: true,
+          children: [
+            {
+              id: 'repertoire-child-1',
+              title: 'Loaded child repertoire',
+              compositionYear: 1900,
+              visibility: 'PRIVATE',
+              composers: [{ id: 'composer-1', name: 'Child Composer' }],
+              instruments: [],
+              inLibrary: false,
+              libraryNotes: null,
+              children: [],
+            },
+          ],
         },
       ],
       page: 1,
@@ -139,6 +153,10 @@ describe('Library page', () => {
     expect(screen.getByText('Owned repertoire')).toBeTruthy();
     expect(screen.getByText('Find repertoire')).toBeTruthy();
     await waitFor(() => expect(screen.getByText('Loaded repertoire')).toBeTruthy());
+    expect(screen.queryByText('Loaded child repertoire')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show 1 child' }));
+    expect(screen.getByText('Loaded child repertoire')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Hide 1 child' })).toBeTruthy();
     expect(getExerciseLibraryPage).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse repertoire' }));

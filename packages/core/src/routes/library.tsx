@@ -1,7 +1,7 @@
 import { For, Show, createSignal, onCleanup } from 'solid-js';
 import { Link, createFileRoute } from '@tanstack/solid-router';
-import { RepertoireLibraryNote } from '@/components/RepertoireLibraryNote';
 import { DeleteConfirmationDialog } from '@/components/DeleteConfirmationDialog';
+import { RepertoireListRow } from '@/components/RepertoireListRow';
 import { ExerciseNotation } from '@/components/ExerciseNotation';
 import { InstrumentFilter } from '@/components/InstrumentFields';
 import {
@@ -12,12 +12,13 @@ import {
   type ExerciseRow,
 } from '@/data/exercises';
 import {
+  addRepertoireToLibrary,
   getInstruments,
   getRepertoireLibraryPage,
   removeRepertoireFromLibrary,
   type RepertoireLibrarySearchInput,
   type RepertoireLibraryPage,
-  type RepertoireRow,
+  type CatalogRepertoireRow,
 } from '@/data/repertoire';
 
 export const Route = createFileRoute('/library')({
@@ -53,6 +54,8 @@ function Library() {
   const [repertoireLoading, setRepertoireLoading] = createSignal(false);
   const [exercisesLoading, setExercisesLoading] = createSignal(false);
   const [repertoireError, setRepertoireError] = createSignal('');
+  const [expandedRepertoireIds, setExpandedRepertoireIds] = createSignal<string[]>([]);
+  const [updatingRepertoireId, setUpdatingRepertoireId] = createSignal<string | null>(null);
   const [exerciseError, setExerciseError] = createSignal('');
   const [repertoireQuery, setRepertoireQuery] = createSignal('');
   const [composer, setComposer] = createSignal('');
@@ -301,19 +304,83 @@ function Library() {
                 }
               >
                 <div
-                  class="card-grid"
+                  class="catalog-result-list"
                   classList={{ 'catalog-results-loading': repertoireLoading() }}
                 >
                   <For each={repertoire().items}>
-                    {(piece) => (
-                      <RepertoireCard
-                        piece={piece}
-                        onRemove={async () => {
-                          await removeRepertoireFromLibrary({ data: piece.id });
-                          await loadRepertoirePage(repertoire().page);
-                        }}
-                      />
-                    )}
+                    {(piece) => {
+                      const expanded = () => expandedRepertoireIds().includes(piece.id);
+                      return (
+                        <RepertoireListRow
+                          item={{
+                            id: piece.id,
+                            title: piece.title,
+                            composer: piece.composer,
+                            details: [
+                              piece.instrument ?? 'Unscored',
+                              String(piece.compositionYear ?? 'Year unknown'),
+                              piece.visibility.toLowerCase(),
+                            ],
+                            inLibrary: true,
+                            libraryNotes: piece.libraryNotes,
+                          }}
+                          pending={updatingRepertoireId() === piece.id}
+                          actions={
+                            <Show when={(piece.children?.length ?? 0) > 0}>
+                              <button
+                                class="text-button catalog-expand-button"
+                                type="button"
+                                aria-expanded={expanded()}
+                                onClick={() =>
+                                  setExpandedRepertoireIds((ids) =>
+                                    expanded()
+                                      ? ids.filter((id) => id !== piece.id)
+                                      : [...ids, piece.id],
+                                  )
+                                }
+                              >
+                                {expanded() ? 'Hide' : 'Show'} {piece.children!.length}{' '}
+                                {piece.children!.length === 1 ? 'child' : 'children'}
+                              </button>
+                            </Show>
+                          }
+                          onRemove={async () => {
+                            setUpdatingRepertoireId(piece.id);
+                            try {
+                              await removeRepertoireFromLibrary({ data: piece.id });
+                              await loadRepertoirePage(repertoire().page);
+                            } finally {
+                              setUpdatingRepertoireId(null);
+                            }
+                          }}
+                        >
+                          <Show when={expanded()}>
+                            <LibraryRepertoireChildren
+                              items={piece.children ?? []}
+                              updatingId={updatingRepertoireId()}
+                              onAdd={async (item) => {
+                                setUpdatingRepertoireId(item.id);
+                                try {
+                                  await addRepertoireToLibrary({ data: item.id });
+                                  await loadRepertoirePage(repertoire().page);
+                                } finally {
+                                  setUpdatingRepertoireId(null);
+                                }
+                              }}
+                              onRemove={async (item) => {
+                                setUpdatingRepertoireId(item.id);
+                                try {
+                                  await removeRepertoireFromLibrary({ data: item.id });
+                                  await loadRepertoirePage(repertoire().page);
+                                } finally {
+                                  setUpdatingRepertoireId(null);
+                                }
+                              }}
+                            />
+                          </Show>
+                        </RepertoireListRow>
+                      );
+                    }}
                   </For>
                 </div>
               </Show>
@@ -523,6 +590,45 @@ function Library() {
   );
 }
 
+function LibraryRepertoireChildren(props: {
+  items: CatalogRepertoireRow[];
+  updatingId: string | null;
+  onAdd: (item: CatalogRepertoireRow) => Promise<void>;
+  onRemove: (item: CatalogRepertoireRow) => Promise<void>;
+}) {
+  return (
+    <ul class="catalog-child-list">
+      <For each={props.items}>
+        {(item) => (
+          <li>
+            <RepertoireListRow
+              item={{
+                id: item.id,
+                title: item.title,
+                composer: item.composers.map((composer) => composer.name).join(', '),
+                details: [
+                  item.instruments.map((instrument) => instrument.name).join(', ') || 'Unscored',
+                  item.compositionYear === null ? 'Year unknown' : String(item.compositionYear),
+                  item.visibility.toLowerCase(),
+                ],
+                inLibrary: item.inLibrary,
+                libraryNotes: item.libraryNotes,
+              }}
+              pending={props.updatingId === item.id}
+              onAdd={() => props.onAdd(item)}
+              onRemove={() => props.onRemove(item)}
+            >
+              <Show when={item.children.length > 0}>
+                <LibraryRepertoireChildren {...props} items={item.children} />
+              </Show>
+            </RepertoireListRow>
+          </li>
+        )}
+      </For>
+    </ul>
+  );
+}
+
 function ExerciseLibraryCard(props: {
   exercise: ExerciseRow;
   number: number;
@@ -577,43 +683,6 @@ function ExerciseLibraryCard(props: {
             onConfirm={props.onRemove}
           />
         </div>
-      </div>
-    </article>
-  );
-}
-
-function RepertoireCard(props: { piece: RepertoireRow; onRemove: () => Promise<void> }) {
-  return (
-    <article class="content-card">
-      <div class="card-topline">
-        <span class="tag">{props.piece.instrument ?? 'Unscored'}</span>
-        <span>{props.piece.visibility.toLowerCase()}</span>
-      </div>
-      <h2>
-        <Link to="/repertoire/$repertoireId" params={{ repertoireId: props.piece.id }}>
-          {props.piece.title}
-        </Link>
-      </h2>
-      <p class="muted">{props.piece.composer}</p>
-      {props.piece.parentTitle && <p class="detail">From {props.piece.parentTitle}</p>}
-      {props.piece.measureRange && <p class="detail">{props.piece.measureRange}</p>}
-
-      <RepertoireLibraryNote
-        repertoireId={props.piece.id}
-        repertoireTitle={props.piece.title}
-        initialNote={props.piece.libraryNotes}
-      />
-
-      <div class="library-section-actions">
-        <DeleteConfirmationDialog
-          triggerLabel="Remove from My Library"
-          title="Remove from My Library?"
-          itemName={props.piece.title}
-          description="This removes the library entry and its note. The repertoire and your practice history remain available."
-          confirmLabel="Remove from My Library"
-          pendingLabel="Removing…"
-          onConfirm={props.onRemove}
-        />
       </div>
     </article>
   );

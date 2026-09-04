@@ -7,6 +7,7 @@ import { pool, toIsoString } from '@/data/db';
 export type RepertoireRow = {
   id: string;
   title: string;
+  compositionYear?: number | null;
   parentTitle: string | null;
   measureRange: string | null;
   visibility: Visibility;
@@ -18,6 +19,7 @@ export type RepertoireRow = {
   resourceType: string | null;
   resourceUrl: string | null;
   libraryNotes: string | null;
+  children?: CatalogRepertoireRow[];
   systemOwned: boolean;
 } & ResourceAccess;
 
@@ -103,9 +105,11 @@ export type CatalogRepertoireRow = {
   id: string;
   title: string;
   compositionYear: number | null;
+  visibility: Visibility;
   composers: { id: string; name: string }[];
   instruments: { id: string; name: string }[];
   inLibrary: boolean;
+  libraryNotes?: string | null;
   ownedByUser?: boolean;
   children: CatalogRepertoireRow[];
 };
@@ -612,6 +616,7 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
              repertoire.composition_year,
              EXTRACT(YEAR FROM repertoire.publication_date)::integer
            ) AS "compositionYear",
+           COALESCE(repertoire.visibility, root.visibility)::text AS visibility,
            COALESCE((
              SELECT jsonb_agg(
                jsonb_build_object('id', composer.id::text, 'name', composer.name)
@@ -634,6 +639,10 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
              SELECT 1 FROM musician_repertoire_library library
              WHERE library.repertoire_id = repertoire.id AND library.musician_id = $1
            ) AS "inLibrary",
+           (
+             SELECT library.notes FROM musician_repertoire_library library
+             WHERE library.repertoire_id = repertoire.id AND library.musician_id = $1
+           ) AS "libraryNotes",
            root.owner_musician_id = $1 AS "ownedByUser"
          FROM repertoire
          JOIN page_catalog ON page_catalog.id = repertoire.id
@@ -672,9 +681,11 @@ export const getPublicRepertoireCatalog = createServerFn({ method: 'GET' })
       id: string;
       title: string;
       compositionYear: number | null;
+      visibility: Visibility;
       composers: CatalogRepertoireRow['composers'];
       instruments: CatalogRepertoireRow['instruments'];
       inLibrary: boolean;
+      libraryNotes: string | null;
       parentId: string | null;
     }>(
       `WITH RECURSIVE public_catalog AS (
@@ -703,6 +714,7 @@ export const getPublicRepertoireCatalog = createServerFn({ method: 'GET' })
            repertoire.composition_year,
            EXTRACT(YEAR FROM repertoire.publication_date)::integer
          ) AS "compositionYear",
+         'PUBLIC'::text AS visibility,
          COALESCE(
            (
              SELECT jsonb_agg(
@@ -730,7 +742,11 @@ export const getPublicRepertoireCatalog = createServerFn({ method: 'GET' })
          EXISTS (
            SELECT 1 FROM musician_repertoire_library library
            WHERE library.repertoire_id = repertoire.id AND library.musician_id = $1
-         ) AS "inLibrary"
+         ) AS "inLibrary",
+         (
+           SELECT library.notes FROM musician_repertoire_library library
+           WHERE library.repertoire_id = repertoire.id AND library.musician_id = $1
+         ) AS "libraryNotes"
        FROM repertoire
        JOIN public_catalog ON public_catalog.id = repertoire.id
        WHERE repertoire.status = 'APPROVED'
@@ -897,6 +913,8 @@ export const getRepertoire = createServerFn({ method: 'GET' })
         SELECT
           r.id::text,
           r.title,
+          COALESCE(r.composition_year, EXTRACT(YEAR FROM r.publication_date)::integer)
+            AS "compositionYear",
           r.external_id AS "externalId",
           parent.title AS "parentTitle",
           CASE
@@ -974,7 +992,26 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
   })
   .handler(async ({ data, context }): Promise<RepertoireLibraryPage> => {
     const parameters: unknown[] = [context.user.musicianId];
-    const conditions = [`access.owner_musician_id = $1 OR access.visibility = 'PUBLIC'`];
+    const conditions = [
+      `access.owner_musician_id = $1 OR access.visibility = 'PUBLIC'`,
+      `NOT EXISTS (
+        WITH RECURSIVE ancestors AS (
+          SELECT parent_repertoire_id AS id
+          FROM repertoire
+          WHERE id = r.id
+          UNION ALL
+          SELECT parent.parent_repertoire_id
+          FROM repertoire parent
+          JOIN ancestors ON ancestors.id = parent.id
+          WHERE parent.parent_repertoire_id IS NOT NULL
+        )
+        SELECT 1
+        FROM ancestors
+        JOIN musician_repertoire_library ancestor_library
+          ON ancestor_library.repertoire_id = ancestors.id
+        WHERE ancestor_library.musician_id = $1
+      )`,
+    ];
     const parameter = (value: unknown) => {
       parameters.push(value);
       return `$${parameters.length}`;
@@ -1057,6 +1094,8 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
          SELECT
            r.id::text,
            r.title,
+           COALESCE(r.composition_year, EXTRACT(YEAR FROM r.publication_date)::integer)
+             AS "compositionYear",
            r.external_id AS "externalId",
            parent.title AS "parentTitle",
            CASE
@@ -1099,6 +1138,82 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
       ),
     ]);
     const total = countResult.rows[0]?.total ?? 0;
+    const rootIds = result.rows.map((row) => row.id);
+    const childResult =
+      rootIds.length === 0
+        ? { rows: [] }
+        : await pool.query<
+            Omit<CatalogRepertoireRow, 'children'> & {
+              parentId: string;
+              rootId: string;
+            }
+          >(
+            `${ACCESS_CTE},
+             descendant AS (
+               SELECT child.id, child.parent_repertoire_id, roots.id AS root_id
+               FROM unnest($2::bigint[]) roots(id)
+               JOIN repertoire child ON child.parent_repertoire_id = roots.id
+               WHERE child.deleted_at IS NULL
+               UNION ALL
+               SELECT child.id, child.parent_repertoire_id, parent.root_id
+               FROM repertoire child
+               JOIN descendant parent ON parent.id = child.parent_repertoire_id
+               WHERE child.deleted_at IS NULL
+             )
+             SELECT
+               r.id::text,
+               r.title,
+               r.parent_repertoire_id::text AS "parentId",
+               descendant.root_id::text AS "rootId",
+               COALESCE(r.composition_year, EXTRACT(YEAR FROM r.publication_date)::integer)
+                 AS "compositionYear",
+               access.visibility::text AS visibility,
+               COALESCE((
+                 SELECT jsonb_agg(
+                   jsonb_build_object('id', composer.id::text, 'name', composer.name)
+                   ORDER BY credit.position NULLS LAST, composer.name
+                 )
+                 FROM repertoire_credit credit
+                 JOIN person composer ON composer.id = credit.person_id
+                 WHERE credit.repertoire_id = r.id AND credit.role = 'COMPOSER'
+               ), '[]'::jsonb) AS composers,
+               COALESCE((
+                 SELECT jsonb_agg(
+                   jsonb_build_object('id', instrument.id::text, 'name', instrument.name)
+                   ORDER BY part.position NULLS LAST, instrument.name
+                 )
+                 FROM repertoire_instrument part
+                 JOIN instrument ON instrument.id = part.instrument_id
+                 WHERE part.repertoire_id = r.id
+               ), '[]'::jsonb) AS instruments,
+               library.repertoire_id IS NOT NULL AS "inLibrary",
+               library.notes AS "libraryNotes",
+               access.owner_musician_id = $1 AS "ownedByUser"
+             FROM descendant
+             JOIN repertoire r ON r.id = descendant.id
+             JOIN repertoire_access access ON access.id = r.id
+             LEFT JOIN musician_repertoire_library library
+               ON library.repertoire_id = r.id AND library.musician_id = $1
+             WHERE access.owner_musician_id = $1 OR access.visibility = 'PUBLIC'
+             ORDER BY descendant.root_id, r.parent_repertoire_id, lower(r.title), r.id`,
+            [context.user.musicianId, rootIds],
+          );
+
+    const childrenByRoot = new Map<string, CatalogRepertoireRow[]>();
+    for (const rootId of rootIds) {
+      const rows = childResult.rows.filter((row) => row.rootId === rootId);
+      const items = new Map(
+        rows.map((row) => [row.id, { ...row, children: [] as CatalogRepertoireRow[] }]),
+      );
+      const children: CatalogRepertoireRow[] = [];
+      for (const row of rows) {
+        const item = items.get(row.id)!;
+        const parent = items.get(row.parentId);
+        if (parent) parent.children.push(item);
+        else children.push(item);
+      }
+      childrenByRoot.set(rootId, children);
+    }
 
     return {
       items: result.rows.map((repertoire) => {
@@ -1106,6 +1221,7 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
         const systemOwned = repertoire.externalId !== null;
         return {
           ...repertoire,
+          children: childrenByRoot.get(repertoire.id) ?? [],
           systemOwned,
           ...access,
           canEdit: systemOwned ? false : access.canEdit,

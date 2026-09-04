@@ -1,8 +1,10 @@
 import { For, Show, createSignal, onCleanup } from 'solid-js';
-import { Link, useRouter } from '@tanstack/solid-router';
+import { useRouter } from '@tanstack/solid-router';
 import { InstrumentFilter } from '@/components/InstrumentFields';
+import { RepertoireListRow } from '@/components/RepertoireListRow';
 import {
   addRepertoireToLibrary,
+  removeRepertoireFromLibrary,
   searchComposerNames,
   type CatalogInstrumentMatch,
   type ComposerNameSuggestion,
@@ -34,6 +36,7 @@ export function RepertoireCatalogSearch(props: {
   const [expandedIds, setExpandedIds] = createSignal<string[]>([]);
   const [addingId, setAddingId] = createSignal<string | null>(null);
   const [addedIds, setAddedIds] = createSignal<string[]>([]);
+  const [removedIds, setRemovedIds] = createSignal<string[]>([]);
   const [error, setError] = createSignal('');
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
   let composerSearchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -131,9 +134,25 @@ export function RepertoireCatalogSearch(props: {
     try {
       await addRepertoireToLibrary({ data: item.id });
       setAddedIds((ids) => [...ids, item.id]);
+      setRemovedIds((ids) => ids.filter((id) => id !== item.id));
       await router.invalidate({ sync: true });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The repertoire could not be added.');
+    } finally {
+      setAddingId(null);
+    }
+  }
+
+  async function removeFromLibrary(item: CatalogRepertoireRow) {
+    setAddingId(item.id);
+    setError('');
+    try {
+      await removeRepertoireFromLibrary({ data: item.id });
+      setRemovedIds((ids) => [...ids, item.id]);
+      setAddedIds((ids) => ids.filter((id) => id !== item.id));
+      await router.invalidate({ sync: true });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The repertoire could not be removed.');
     } finally {
       setAddingId(null);
     }
@@ -273,67 +292,59 @@ export function RepertoireCatalogSearch(props: {
             fallback={<p class="library-empty">No catalog works match.</p>}
           >
             {(item) => {
-              const inLibrary = () => item.inLibrary || addedIds().includes(item.id);
+              const inLibrary = () =>
+                !removedIds().includes(item.id) && (item.inLibrary || addedIds().includes(item.id));
               const expanded = () => expandedIds().includes(item.id);
               return (
-                <article class="catalog-result-card">
-                  <div class="catalog-result-summary">
-                    <div>
-                      <Link to="/repertoire/$repertoireId" params={{ repertoireId: item.id }}>
-                        <h3>{item.title}</h3>
-                      </Link>
-                      <Show when={item.ownedByUser && !inLibrary()}>
-                        <span class="tag catalog-owned-tag">Owned by you · Not in My Library</span>
-                      </Show>
-                      <p>
-                        {item.composers.map((composer) => composer.name).join(', ') ||
-                          'Unknown composer'}
-                      </p>
-                      <small>
-                        {item.compositionYear ?? 'Year unknown'}
-                        {item.instruments.length > 0 &&
-                          ` · ${item.instruments.map((instrument) => instrument.name).join(', ')}`}
-                      </small>
-                    </div>
-                    <div class="catalog-result-actions">
-                      <Show when={item.children.length > 0}>
-                        <button
-                          class="text-button catalog-expand-button"
-                          type="button"
-                          aria-expanded={expanded()}
-                          onClick={() =>
-                            setExpandedIds((ids) =>
-                              expanded() ? ids.filter((id) => id !== item.id) : [...ids, item.id],
-                            )
-                          }
-                        >
-                          {expanded() ? 'Hide' : 'Show'} {item.children.length}{' '}
-                          {item.children.length === 1 ? 'child' : 'children'}
-                        </button>
-                      </Show>
+                <RepertoireListRow
+                  item={{
+                    id: item.id,
+                    title: item.title,
+                    composer: item.composers.map((composer) => composer.name).join(', '),
+                    details: [
+                      item.instruments.map((instrument) => instrument.name).join(', ') ||
+                        'Unscored',
+                      String(item.compositionYear ?? 'Year unknown'),
+                      item.visibility.toLowerCase(),
+                    ],
+                    inLibrary: inLibrary(),
+                    libraryNotes: item.libraryNotes,
+                  }}
+                  pending={addingId() === item.id}
+                  onAdd={() => addToLibrary(item)}
+                  onRemove={() => removeFromLibrary(item)}
+                  actions={
+                    <Show when={item.children.length > 0}>
                       <button
-                        class={inLibrary() ? 'secondary-button' : 'primary-button'}
+                        class="text-button catalog-expand-button"
                         type="button"
-                        disabled={inLibrary() || addingId() === item.id}
-                        onClick={() => addToLibrary(item)}
+                        aria-expanded={expanded()}
+                        onClick={() =>
+                          setExpandedIds((ids) =>
+                            expanded() ? ids.filter((id) => id !== item.id) : [...ids, item.id],
+                          )
+                        }
                       >
-                        {inLibrary()
-                          ? 'In My Library'
-                          : addingId() === item.id
-                            ? 'Adding…'
-                            : '+ Add'}
+                        {expanded() ? 'Hide' : 'Show'} {item.children.length}{' '}
+                        {item.children.length === 1 ? 'child' : 'children'}
                       </button>
-                    </div>
-                  </div>
+                    </Show>
+                  }
+                >
+                  <Show when={item.ownedByUser && !inLibrary()}>
+                    <span class="tag catalog-owned-tag">Owned by you · Not in My Library</span>
+                  </Show>
                   <Show when={expanded()}>
                     <CatalogChildren
                       items={item.children}
                       addingId={addingId()}
                       addedIds={addedIds()}
+                      removedIds={removedIds()}
                       onAdd={addToLibrary}
+                      onRemove={removeFromLibrary}
                     />
                   </Show>
-                </article>
+                </RepertoireListRow>
               );
             }}
           </For>
@@ -370,55 +381,45 @@ function CatalogChildren(props: {
   items: CatalogRepertoireRow[];
   addingId: string | null;
   addedIds: string[];
+  removedIds: string[];
   onAdd: (item: CatalogRepertoireRow) => Promise<void>;
+  onRemove: (item: CatalogRepertoireRow) => Promise<void>;
 }) {
   return (
     <ul class="catalog-child-list">
       <For each={props.items}>
         {(item) => (
           <li>
-            <div class="catalog-child-summary">
-              <div>
-                <strong>{item.title}</strong>
-                <small>
-                  {item.composers.map((composer) => composer.name).join(', ') || 'Unknown composer'}
-                  {item.compositionYear !== null && ` · ${item.compositionYear}`}
-                  {item.instruments.length > 0 &&
-                    ` · ${item.instruments.map((instrument) => instrument.name).join(', ')}`}
-                </small>
-              </div>
-              <button
-                class={
-                  item.inLibrary || props.addedIds.includes(item.id)
-                    ? 'secondary-button catalog-child-action'
-                    : 'primary-button catalog-child-action'
-                }
-                type="button"
-                aria-label={
-                  item.inLibrary || props.addedIds.includes(item.id)
-                    ? `${item.title} is in My Library`
-                    : `Add ${item.title} to My Library`
-                }
-                disabled={
-                  item.inLibrary || props.addedIds.includes(item.id) || props.addingId === item.id
-                }
-                onClick={() => void props.onAdd(item)}
-              >
-                {item.inLibrary || props.addedIds.includes(item.id)
-                  ? 'In My Library'
-                  : props.addingId === item.id
-                    ? 'Adding…'
-                    : '+ Add'}
-              </button>
-            </div>
-            <Show when={item.children.length > 0}>
-              <CatalogChildren
-                items={item.children}
-                addingId={props.addingId}
-                addedIds={props.addedIds}
-                onAdd={props.onAdd}
-              />
-            </Show>
+            <RepertoireListRow
+              item={{
+                id: item.id,
+                title: item.title,
+                composer: item.composers.map((composer) => composer.name).join(', '),
+                details: [
+                  item.instruments.map((instrument) => instrument.name).join(', ') || 'Unscored',
+                  item.compositionYear === null ? 'Year unknown' : String(item.compositionYear),
+                  item.visibility.toLowerCase(),
+                ],
+                inLibrary:
+                  !props.removedIds.includes(item.id) &&
+                  (item.inLibrary || props.addedIds.includes(item.id)),
+                libraryNotes: item.libraryNotes,
+              }}
+              pending={props.addingId === item.id}
+              onAdd={() => props.onAdd(item)}
+              onRemove={() => props.onRemove(item)}
+            >
+              <Show when={item.children.length > 0}>
+                <CatalogChildren
+                  items={item.children}
+                  addingId={props.addingId}
+                  addedIds={props.addedIds}
+                  removedIds={props.removedIds}
+                  onAdd={props.onAdd}
+                  onRemove={props.onRemove}
+                />
+              </Show>
+            </RepertoireListRow>
           </li>
         )}
       </For>
