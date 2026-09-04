@@ -146,6 +146,16 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
+    if (
+      props.kind === 'repertoire' &&
+      props.isExcerpt &&
+      startMeasure() !== '' &&
+      endMeasure() !== '' &&
+      Number(startMeasure()) > Number(endMeasure())
+    ) {
+      setError('Starting measure cannot be after ending measure.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -257,6 +267,7 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
               class="text-input"
               type="number"
               min="1"
+              max={endMeasure() || undefined}
               step="1"
               value={startMeasure()}
               onInput={(event) => setStartMeasure(event.currentTarget.value)}

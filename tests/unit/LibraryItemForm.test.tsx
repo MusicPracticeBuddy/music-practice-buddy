@@ -229,6 +229,32 @@ describe('LibraryItemForm', () => {
     );
   });
 
+  it('keeps excerpt measure bounds in sync and rejects an inverted range', () => {
+    render(() => (
+      <LibraryItemForm
+        kind="repertoire"
+        parentId="12"
+        parentName="Orchestral work"
+        isExcerpt
+        visibility="PRIVATE"
+      />
+    ));
+
+    const start = screen.getByLabelText('Starting measure') as HTMLInputElement;
+    const end = screen.getByLabelText('Ending measure') as HTMLInputElement;
+    fireEvent.input(start, { target: { value: '25' } });
+    fireEvent.input(end, { target: { value: '20' } });
+
+    expect(start.max).toBe('20');
+    expect(end.min).toBe('25');
+    fireEvent.submit(screen.getByRole('button', { name: 'Create repertoire' }).closest('form')!);
+
+    expect(screen.getByRole('alert').textContent).toContain(
+      'Starting measure cannot be after ending measure.',
+    );
+    expect(mocks.createChildRepertoire).not.toHaveBeenCalled();
+  });
+
   it('searches and suggests existing full composer names while typing', async () => {
     render(() => (
       <LibraryItemForm kind="repertoire" credits={[{ person: '', role: 'COMPOSER' }]} />
