@@ -1049,20 +1049,33 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
       const fuzzyValue = data.query.length >= 4 ? parameter(data.query) : null;
       const fuzzyMatch = (column: string) =>
         fuzzyValue ? `OR CAST(${fuzzyValue} AS text) <<% CAST(${column} AS text)` : '';
-      conditions.push(`(
-        r.title ILIKE ${substring} ESCAPE '\\'
-        ${fuzzyMatch('r.title')}
-        OR EXISTS (
-          SELECT 1
-          FROM repertoire_credit search_credit
-          JOIN person search_person ON search_person.id = search_credit.person_id
-          WHERE search_credit.repertoire_id = r.id
-            AND search_credit.role = 'COMPOSER'
-            AND (
-              search_person.name ILIKE ${substring} ESCAPE '\\'
-              ${fuzzyMatch('search_person.name')}
-            )
+      conditions.push(`EXISTS (
+        WITH RECURSIVE searchable_repertoire AS (
+          SELECT r.id
+          UNION ALL
+          SELECT child.id
+          FROM repertoire child
+          JOIN searchable_repertoire parent ON parent.id = child.parent_repertoire_id
+          JOIN repertoire_access child_access ON child_access.id = child.id
+          WHERE child.deleted_at IS NULL
+            AND (child_access.owner_musician_id = $1 OR child_access.visibility = 'PUBLIC')
         )
+        SELECT 1
+        FROM searchable_repertoire searchable
+        JOIN repertoire candidate ON candidate.id = searchable.id
+        WHERE candidate.title ILIKE ${substring} ESCAPE '\\'
+          ${fuzzyMatch('candidate.title')}
+          OR EXISTS (
+            SELECT 1
+            FROM repertoire_credit search_credit
+            JOIN person search_person ON search_person.id = search_credit.person_id
+            WHERE search_credit.repertoire_id = candidate.id
+              AND search_credit.role = 'COMPOSER'
+              AND (
+                search_person.name ILIKE ${substring} ESCAPE '\\'
+                ${fuzzyMatch('search_person.name')}
+              )
+          )
       )`);
     }
     if (data.composer) {

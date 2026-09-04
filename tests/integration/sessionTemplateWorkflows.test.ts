@@ -293,6 +293,12 @@ describe('library item persistence', () => {
        SELECT id, $1, 'SOLO', 1 FROM repertoire WHERE title = 'Piano Concerto 21'`,
       [libraryInstrument.rows[0]!.id],
     );
+    await pool.query(
+      `INSERT INTO repertoire (title, parent_repertoire_id, visibility, status)
+       SELECT 'Larghetto movement', id, NULL, 'APPROVED'
+       FROM repertoire
+       WHERE title = 'Piano Concerto 21'`,
+    );
 
     const exerciseFirstPage = await getExerciseLibraryPage({
       data: EMPTY_EXERCISE_LIBRARY_SEARCH,
@@ -340,6 +346,19 @@ describe('library item persistence', () => {
     ).toMatchObject({
       total: 1,
       items: [expect.objectContaining({ title: 'Piano Concerto 21' })],
+    });
+    expect(
+      await getRepertoireLibraryPage({
+        data: { ...EMPTY_REPERTOIRE_LIBRARY_SEARCH, query: 'Larghetto' },
+      }),
+    ).toMatchObject({
+      total: 1,
+      items: [
+        expect.objectContaining({
+          title: 'Piano Concerto 21',
+          children: [expect.objectContaining({ title: 'Larghetto movement' })],
+        }),
+      ],
     });
     expect(
       await getRepertoireLibraryPage({
