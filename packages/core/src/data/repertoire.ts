@@ -485,6 +485,7 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
       parameters.push(value);
       return `$${parameters.length}`;
     };
+    let catalogOrder = 'lower(repertoire.title), repertoire.id';
 
     if (data.query) {
       const substring = parameter(catalogSubstringPattern(data.query));
@@ -575,6 +576,11 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
     }
     if (data.instrumentIds.length > 0) {
       const ids = parameter(data.instrumentIds);
+      catalogOrder = `(SELECT MIN(COALESCE(ranking_part.position, 2147483647))
+        FROM repertoire_instrument ranking_part
+        WHERE ranking_part.repertoire_id = repertoire.id
+          AND ranking_part.instrument_id = ANY(${ids}::bigint[])),
+        lower(repertoire.title), repertoire.id`;
       if (data.instrumentMatch === 'ALL') {
         const count = parameter(data.instrumentIds.length);
         conditions.push(`(
@@ -606,17 +612,19 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
       ),
       pool.query<Omit<CatalogRepertoireRow, 'children'> & { parentId: string | null }>(
         `WITH RECURSIVE matching_roots AS (
-           SELECT repertoire.id
+           SELECT repertoire.id,
+             row_number() OVER (ORDER BY ${catalogOrder}) AS catalog_rank
            FROM repertoire
            WHERE ${where}
-           ORDER BY lower(repertoire.title), repertoire.id
+           ORDER BY ${catalogOrder}
            LIMIT ${limit} OFFSET ${offset}
          ), page_catalog AS (
-           SELECT repertoire.id, repertoire.parent_repertoire_id, repertoire.id AS root_id
+           SELECT repertoire.id, repertoire.parent_repertoire_id, repertoire.id AS root_id,
+             matching_roots.catalog_rank
            FROM repertoire
            JOIN matching_roots ON matching_roots.id = repertoire.id
            UNION ALL
-           SELECT child.id, child.parent_repertoire_id, parent.root_id
+           SELECT child.id, child.parent_repertoire_id, parent.root_id, parent.catalog_rank
            FROM repertoire child
            JOIN page_catalog parent ON parent.id = child.parent_repertoire_id
            WHERE child.status = 'APPROVED'
@@ -674,7 +682,7 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
          FROM repertoire
          JOIN page_catalog ON page_catalog.id = repertoire.id
          JOIN repertoire root ON root.id = page_catalog.root_id
-         ORDER BY lower(root.title), root.id, repertoire.parent_repertoire_id NULLS FIRST,
+         ORDER BY page_catalog.catalog_rank, repertoire.parent_repertoire_id NULLS FIRST,
            lower(repertoire.title), repertoire.id`,
         parameters,
       ),

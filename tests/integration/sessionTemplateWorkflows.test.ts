@@ -914,6 +914,31 @@ describe('library item persistence', () => {
     });
     expect(filtered.items.map((item) => item.compositionYear)).toEqual([1810, 1812]);
 
+    await pool.query(
+      `UPDATE repertoire_instrument part
+       SET position = CASE repertoire.title
+         WHEN 'Catalog Work 04' THEN 6
+         WHEN 'Catalog Work 06' THEN 1
+       END
+       FROM repertoire
+       WHERE repertoire.id = part.repertoire_id
+         AND part.instrument_id = $1
+         AND repertoire.title IN ('Catalog Work 04', 'Catalog Work 06')`,
+      [instruments.rows[0]!.id],
+    );
+    const rankedByInstrumentation = await getPublicRepertoireCatalogPage({
+      data: {
+        ...EMPTY_CATALOG_SEARCH,
+        instrumentIds: [instruments.rows[0]!.id],
+        yearFrom: 1804,
+        yearTo: 1806,
+      },
+    });
+    expect(rankedByInstrumentation.items.map((item) => item.title)).toEqual([
+      'Catalog Work 06',
+      'Catalog Work 04',
+    ]);
+
     const matchAll = await getPublicRepertoireCatalogPage({
       data: {
         ...EMPTY_CATALOG_SEARCH,
