@@ -1,0 +1,1 @@
+ALTER TYPE instrument_family ADD VALUE IF NOT EXISTS 'VOICE';
