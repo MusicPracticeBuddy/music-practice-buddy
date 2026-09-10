@@ -219,6 +219,7 @@ function Library() {
                   search={{
                     query: '',
                     composer: '',
+                    composerId: null,
                     instrumentMatch: 'ANY',
                     yearFrom: null,
                     yearTo: null,

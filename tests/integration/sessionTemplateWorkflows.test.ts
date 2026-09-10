@@ -862,9 +862,35 @@ describe('library item persistence', () => {
       total: 1,
       items: [expect.objectContaining({ title: 'Catalog Piano Concerto 02' })],
     });
+    const chopinSociety = await pool.query<{ id: string }>(
+      `INSERT INTO person (name) VALUES ('Frédéric Chopin Society') RETURNING id::text`,
+    );
+    await pool.query(
+      `INSERT INTO repertoire_credit (repertoire_id, person_id, role, position)
+       SELECT id, $1, 'COMPOSER', 2
+       FROM repertoire WHERE title = 'Catalog Work 03'`,
+      [chopinSociety.rows[0]!.id],
+    );
+    expect(
+      await getPublicRepertoireCatalogPage({
+        data: { ...EMPTY_CATALOG_SEARCH, composer: 'Frédéric Chopin' },
+      }),
+    ).toMatchObject({ total: 2 });
     expect(
       await getPublicRepertoireCatalogPage({
         data: { ...EMPTY_CATALOG_SEARCH, composer: 'chopn' },
+      }),
+    ).toMatchObject({
+      total: 1,
+      items: [expect.objectContaining({ title: 'Catalog Piano Concerto 02' })],
+    });
+    expect(
+      await getPublicRepertoireCatalogPage({
+        data: {
+          ...EMPTY_CATALOG_SEARCH,
+          composer: 'Frédéric Chopin',
+          composerId: chopin.rows[0]!.id,
+        },
       }),
     ).toMatchObject({
       total: 1,

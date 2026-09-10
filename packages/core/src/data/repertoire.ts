@@ -140,6 +140,7 @@ export type CatalogInstrumentMatch = 'ANY' | 'ALL';
 export type CatalogSearchInput = {
   query: string;
   composer: string;
+  composerId: string | null;
   instrumentIds: string[];
   instrumentMatch: CatalogInstrumentMatch;
   yearFrom: number | null;
@@ -169,6 +170,7 @@ export const EMPTY_REPERTOIRE_LIBRARY_SEARCH: RepertoireLibrarySearchInput = {
 export const EMPTY_CATALOG_SEARCH: CatalogSearchInput = {
   query: '',
   composer: '',
+  composerId: null,
   instrumentIds: [],
   instrumentMatch: 'ANY',
   yearFrom: null,
@@ -438,6 +440,9 @@ function validateCatalogSearch(input: CatalogSearchInput): CatalogSearchInput {
   const composer = input.composer.trim();
   const instrumentIds = [...new Set(input.instrumentIds)];
   if (query.length > 300 || composer.length > 300) throw new Error('Search text is too long');
+  if (input.composerId !== null && !/^\d+$/.test(input.composerId)) {
+    throw new Error('Invalid composer filter');
+  }
   if (instrumentIds.length > 50 || instrumentIds.some((id) => !/^\d+$/.test(id))) {
     throw new Error('Invalid instrument filter');
   }
@@ -533,7 +538,16 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
         WHERE parent_repertoire_id IS NULL
       )`);
     }
-    if (data.composer) {
+    if (data.composerId !== null) {
+      const composerId = parameter(data.composerId);
+      conditions.push(`EXISTS (
+        SELECT 1
+        FROM repertoire_credit composer_credit
+        WHERE composer_credit.repertoire_id = repertoire.id
+          AND composer_credit.role = 'COMPOSER'
+          AND composer_credit.person_id = ${composerId}
+      )`);
+    } else if (data.composer) {
       const substring = parameter(catalogSubstringPattern(data.composer));
       const fuzzyValue = data.composer.length >= 4 ? parameter(data.composer) : null;
       const fuzzyComposerMatch =

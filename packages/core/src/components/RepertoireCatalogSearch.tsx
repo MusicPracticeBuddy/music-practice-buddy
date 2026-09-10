@@ -39,6 +39,7 @@ export function RepertoireCatalogSearch(props: {
   const queryClient = useQueryClient();
   const [query, setQuery] = createSignal(props.search.query);
   const [composerQuery, setComposerQuery] = createSignal(props.search.composer);
+  const [composerId, setComposerId] = createSignal(props.search.composerId);
   const [composerSuggestions, setComposerSuggestions] = createSignal<ComposerNameSuggestion[]>([]);
   const [acceptedComposerName, setAcceptedComposerName] = createSignal('');
   const [yearFrom, setYearFrom] = createSignal(props.search.yearFrom?.toString() ?? '');
@@ -57,6 +58,7 @@ export function RepertoireCatalogSearch(props: {
   createEffect(() => {
     setQuery(props.search.query);
     setComposerQuery(props.search.composer);
+    setComposerId(props.search.composerId);
     setYearFrom(props.search.yearFrom?.toString() ?? '');
     setYearTo(props.search.yearTo?.toString() ?? '');
   });
@@ -65,6 +67,7 @@ export function RepertoireCatalogSearch(props: {
     return {
       query: query(),
       composer: composerQuery(),
+      composerId: composerId(),
       instrumentIds: props.search.instrumentIds,
       instrumentMatch: props.search.instrumentMatch,
       yearFrom: yearFrom() === '' ? null : Number(yearFrom()),
@@ -91,17 +94,17 @@ export function RepertoireCatalogSearch(props: {
       setComposerSuggestions([]);
       return;
     }
-    if (
-      normalizedQuery &&
-      composerSuggestions().some(
-        (suggestion) => suggestion.name.toLocaleLowerCase() === normalizedQuery,
-      )
-    ) {
-      setAcceptedComposerName(composerName.trim());
+    const acceptedSuggestion = composerSuggestions().find(
+      (suggestion) => suggestion.name.toLocaleLowerCase() === normalizedQuery,
+    );
+    if (normalizedQuery && acceptedSuggestion) {
+      setAcceptedComposerName(acceptedSuggestion.name);
+      setComposerId(acceptedSuggestion.id);
       setComposerSuggestions([]);
       return;
     }
     setAcceptedComposerName('');
+    setComposerId(null);
     if (normalizedQuery.length < 2) {
       setComposerSuggestions([]);
       return;
@@ -124,6 +127,7 @@ export function RepertoireCatalogSearch(props: {
   function clearFilters() {
     setQuery('');
     setComposerQuery('');
+    setComposerId(null);
     setComposerSuggestions([]);
     setAcceptedComposerName('');
     setYearFrom('');
@@ -132,6 +136,7 @@ export function RepertoireCatalogSearch(props: {
       {
         query: '',
         composer: '',
+        composerId: null,
         instrumentIds: [],
         instrumentMatch: 'ANY',
         yearFrom: null,

@@ -78,6 +78,7 @@ function OwnedRepertoire() {
             search={{
               query: '',
               composer: '',
+              composerId: null,
               instrumentMatch: 'ANY',
               yearFrom: null,
               yearTo: null,

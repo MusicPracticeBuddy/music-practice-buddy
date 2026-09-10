@@ -32,6 +32,9 @@ export const Route = createFileRoute('/repertoire/search')({
   validateSearch: (search: Record<string, unknown>): RepertoireCatalogUrlSearch => ({
     query: optionalString(search.query),
     composer: optionalString(search.composer),
+    composerId: /^\d+$/.test(optionalString(search.composerId))
+      ? optionalString(search.composerId)
+      : null,
     instrumentIds: Array.isArray(search.instrumentIds)
       ? search.instrumentIds.filter((id): id is string => typeof id === 'string')
       : typeof search.instrumentIds === 'string'

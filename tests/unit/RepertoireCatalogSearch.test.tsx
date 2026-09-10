@@ -78,6 +78,7 @@ function renderSearch(
   const [search, setSearch] = createSignal<CatalogSearchInput>({
     query: '',
     composer: '',
+    composerId: null,
     instrumentIds: initialInstrumentIds,
     instrumentMatch: 'ANY',
     yearFrom: null,
@@ -112,6 +113,7 @@ afterEach(() => {
 function matchingPage(input: {
   query: string;
   composer: string;
+  composerId: string | null;
   instrumentIds: string[];
   instrumentMatch: 'ANY' | 'ALL';
   yearFrom: number | null;
@@ -128,8 +130,10 @@ function matchingPage(input: {
         `${item.title} ${item.composers.map((credit) => credit.name).join(' ')}`
           .toLowerCase()
           .includes(text)) &&
-      (!composer ||
-        item.composers.some((credit) => credit.name.toLowerCase().includes(composer))) &&
+      (input.composerId !== null
+        ? item.composers.some((credit) => credit.id === input.composerId)
+        : !composer ||
+          item.composers.some((credit) => credit.name.toLowerCase().includes(composer))) &&
       (input.yearFrom === null ||
         (item.compositionYear !== null && item.compositionYear >= input.yearFrom)) &&
       (input.yearTo === null ||
@@ -183,6 +187,11 @@ describe('RepertoireCatalogSearch', () => {
 
     mocks.searchComposerNames.mockClear();
     fireEvent.input(input, { target: { value: 'Wolfgang Amadeus Mozart' } });
+    await waitFor(() =>
+      expect(mocks.searchCatalog).toHaveBeenLastCalledWith({
+        data: expect.objectContaining({ composerId: '10' }),
+      }),
+    );
     await new Promise((resolve) => setTimeout(resolve, 250));
     expect(mocks.searchComposerNames).not.toHaveBeenCalled();
   });
@@ -191,6 +200,7 @@ describe('RepertoireCatalogSearch', () => {
     const initialInput = {
       query: '',
       composer: '',
+      composerId: null,
       instrumentIds: ['20'],
       instrumentMatch: 'ANY' as const,
       yearFrom: null,
