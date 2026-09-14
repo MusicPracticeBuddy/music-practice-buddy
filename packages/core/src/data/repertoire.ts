@@ -1073,36 +1073,58 @@ export const getRepertoireLibraryChildren = createServerFn({ method: 'GET' })
   })
   .handler(async ({ data: parentId, context }): Promise<CatalogRepertoireRow[]> => {
     const result = await pool.query<Omit<CatalogRepertoireRow, 'children'>>(
-      `${ACCESS_CTE},
-       direct_library AS (
-         SELECT r.id, r.parent_repertoire_id
-         FROM musician_repertoire_library library
-         JOIN repertoire r ON r.id = library.repertoire_id
-         WHERE library.musician_id = $1 AND r.deleted_at IS NULL
-       ),
-       library_ancestors AS (
-         SELECT id, parent_repertoire_id FROM direct_library
+      `WITH RECURSIVE parent_ancestors AS (
+         SELECT id, parent_repertoire_id
+         FROM repertoire
+         WHERE id = $2
+           AND deleted_at IS NULL
+           AND (effective_owner_musician_id = $1 OR effective_visibility = 'PUBLIC')
          UNION
          SELECT parent.id, parent.parent_repertoire_id
          FROM repertoire parent
-         JOIN library_ancestors child ON child.parent_repertoire_id = parent.id
-         JOIN repertoire_access access ON access.id = parent.id
-         WHERE access.owner_musician_id = $1 OR access.visibility = 'PUBLIC'
+         JOIN parent_ancestors child ON child.parent_repertoire_id = parent.id
+         WHERE parent.deleted_at IS NULL
+           AND (
+             parent.effective_owner_musician_id = $1
+             OR parent.effective_visibility = 'PUBLIC'
+           )
        ),
-       library_descendants AS (
-         SELECT id, parent_repertoire_id FROM direct_library
-         UNION
+       parent_context AS (
+         SELECT EXISTS (
+           SELECT 1
+           FROM parent_ancestors ancestor
+           JOIN musician_repertoire_library library ON library.repertoire_id = ancestor.id
+           WHERE library.musician_id = $1
+         ) AS covered
+       ),
+       requested_subtree AS (
          SELECT child.id, child.parent_repertoire_id
          FROM repertoire child
-         JOIN library_descendants parent ON child.parent_repertoire_id = parent.id
-         JOIN repertoire_access access ON access.id = child.id
+         WHERE child.parent_repertoire_id = $2
+           AND child.deleted_at IS NULL
+           AND (
+             child.effective_owner_musician_id = $1
+             OR child.effective_visibility = 'PUBLIC'
+           )
+         UNION ALL
+         SELECT child.id, child.parent_repertoire_id
+         FROM repertoire child
+         JOIN requested_subtree parent ON child.parent_repertoire_id = parent.id
          WHERE child.deleted_at IS NULL
-           AND (access.owner_musician_id = $1 OR access.visibility = 'PUBLIC')
+           AND (
+             child.effective_owner_musician_id = $1
+             OR child.effective_visibility = 'PUBLIC'
+           )
        ),
-       included AS (
-         SELECT id, parent_repertoire_id FROM library_ancestors
+       saved_paths AS (
+         SELECT subtree.id, subtree.parent_repertoire_id
+         FROM requested_subtree subtree
+         JOIN musician_repertoire_library library ON library.repertoire_id = subtree.id
+         WHERE library.musician_id = $1
          UNION
-         SELECT id, parent_repertoire_id FROM library_descendants
+         SELECT parent.id, parent.parent_repertoire_id
+         FROM requested_subtree parent
+         JOIN saved_paths child ON child.parent_repertoire_id = parent.id
        )
        SELECT
          r.id::text,
@@ -1112,7 +1134,7 @@ export const getRepertoireLibraryChildren = createServerFn({ method: 'GET' })
          CASE WHEN r.start_measure IS NOT NULL
            THEN 'Measures ' || r.start_measure || '–' || r.end_measure ELSE NULL
          END AS "measureRange",
-         access.visibility::text AS visibility,
+         r.effective_visibility::text AS visibility,
          COALESCE((
            SELECT jsonb_agg(jsonb_build_object('id', person.id::text, 'name', person.name)
              ORDER BY credit.position NULLS LAST, person.name)
@@ -1129,19 +1151,28 @@ export const getRepertoireLibraryChildren = createServerFn({ method: 'GET' })
          ), '[]'::jsonb) AS instruments,
          library.repertoire_id IS NOT NULL AS "inLibrary",
          library.notes AS "libraryNotes",
-         access.owner_musician_id = $1 AS "ownedByUser",
+         r.effective_owner_musician_id = $1 AS "ownedByUser",
          EXISTS (
-           SELECT 1 FROM repertoire grandchild
-           JOIN included grandchild_included ON grandchild_included.id = grandchild.id
+           SELECT 1
+           FROM requested_subtree grandchild
            WHERE grandchild.parent_repertoire_id = r.id
+             AND (
+               context.covered
+               OR library.repertoire_id IS NOT NULL
+               OR EXISTS (SELECT 1 FROM saved_paths path WHERE path.id = grandchild.id)
+             )
          ) AS "hasChildren"
        FROM repertoire r
-       JOIN included ON included.id = r.id
-       JOIN repertoire_access access ON access.id = r.id
+       CROSS JOIN parent_context context
        LEFT JOIN musician_repertoire_library library
          ON library.repertoire_id = r.id AND library.musician_id = $1
        WHERE r.parent_repertoire_id = $2
-         AND (access.owner_musician_id = $1 OR access.visibility = 'PUBLIC')
+         AND r.deleted_at IS NULL
+         AND (r.effective_owner_musician_id = $1 OR r.effective_visibility = 'PUBLIC')
+         AND (
+           context.covered
+           OR EXISTS (SELECT 1 FROM saved_paths path WHERE path.id = r.id)
+         )
        ORDER BY lower(r.title), r.id`,
       [context.user.musicianId, parentId],
     );
