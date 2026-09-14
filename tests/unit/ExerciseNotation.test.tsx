@@ -19,6 +19,7 @@ describe('ExerciseNotation', () => {
     render(() => <ExerciseNotation notation={'Play slowly\nStay relaxed'} format="text" />);
 
     expect(screen.getByText(/Play slowly/).textContent).toBe('Play slowly\nStay relaxed');
+    expect(screen.queryByText('Text')).toBeNull();
     expect(renderAbc).not.toHaveBeenCalled();
   });
 
@@ -27,6 +28,7 @@ describe('ExerciseNotation', () => {
     render(() => <ExerciseNotation notation={notation} format="abc" />);
 
     const score = screen.getByLabelText('Rendered music notation');
+    expect(screen.queryByText('ABC notation')).toBeNull();
     await waitFor(() => {
       expect(renderAbc).toHaveBeenCalledWith(score, notation, { responsive: 'resize' });
     });

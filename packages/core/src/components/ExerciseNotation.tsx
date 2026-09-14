@@ -86,7 +86,6 @@ export function ExerciseNotation(props: ExerciseNotationProps) {
 
   return (
     <div class="notation-block">
-      <span>{props.format === EXERCISE_NOTATION_FORMAT.ABC ? 'ABC notation' : 'Text'}</span>
       <p hidden={props.format === EXERCISE_NOTATION_FORMAT.ABC}>{props.notation}</p>
       <div
         class="abc-notation"
