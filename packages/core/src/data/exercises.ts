@@ -2,11 +2,12 @@ import { createServerFn } from '@tanstack/solid-start';
 import { resourceAccess, type ResourceAccess, type Visibility } from '@/auth/authorization';
 import { authMiddleware } from '@/auth/middleware';
 import { pool, toIsoString } from '@/data/db';
-import { isExerciseNotationFormat, type ExerciseNotationFormat } from '@/domain/exercise';
+import type { ExerciseNotationFormat } from '@/domain/exercise';
 
 export type ExerciseRow = {
   id: string;
   name: string;
+  instruction: string | null;
   notation: string | null;
   notationFormat: ExerciseNotationFormat;
   visibility: string;
@@ -36,6 +37,7 @@ export type ExerciseLibrarySearchInput = {
 export type ExerciseCatalogRow = {
   id: string;
   name: string;
+  instruction: string | null;
   notation: string | null;
   notationFormat: ExerciseNotationFormat;
   visibility: Visibility;
@@ -64,6 +66,7 @@ export type ExerciseCatalogPage = {
 export type OwnedExerciseRow = {
   id: string;
   name: string;
+  instruction: string | null;
   notation: string | null;
   notationFormat: ExerciseNotationFormat;
   visibility: Visibility;
@@ -102,6 +105,7 @@ export const EMPTY_EXERCISE_CATALOG_SEARCH: ExerciseCatalogSearchInput = {
 type ExerciseDetail = {
   id: string;
   name: string;
+  instruction: string | null;
   notation: string | null;
   notationFormat: ExerciseNotationFormat;
   visibility: string;
@@ -123,8 +127,8 @@ type ExerciseDetail = {
 
 export type ExerciseInput = {
   name: string;
+  instruction: string;
   notation: string;
-  notationFormat: ExerciseNotationFormat;
   visibility: Visibility;
   instrumentId?: string | null;
 };
@@ -133,11 +137,11 @@ type UpdateExerciseInput = ExerciseInput & { id: string };
 
 function validateExercise(input: ExerciseInput): ExerciseInput {
   const name = input.name.trim();
+  const instruction = input.instruction.trim();
   const notation = input.notation.trim();
-  const notationFormat = input.notationFormat.trim();
   if (!name) throw new Error('Exercise name is required');
   if (name.length > 200) throw new Error('Exercise name must be 200 characters or fewer');
-  if (!isExerciseNotationFormat(notationFormat)) throw new Error('Invalid notation format');
+  if (!instruction && !notation) throw new Error('An instruction or notation is required');
   if (input.visibility !== 'PRIVATE' && input.visibility !== 'PUBLIC') {
     throw new Error('Invalid exercise visibility');
   }
@@ -146,8 +150,8 @@ function validateExercise(input: ExerciseInput): ExerciseInput {
   }
   return {
     name,
+    instruction,
     notation,
-    notationFormat,
     visibility: input.visibility,
     instrumentId: input.instrumentId ?? null,
   };
@@ -203,7 +207,7 @@ export const getExerciseLibraryPage = createServerFn({ method: 'GET' })
     if (data.visibility !== 'ALL') {
       conditions.push(`exercise.visibility = ${parameter(data.visibility)}::visibility_type`);
     }
-    if (data.hasNotation) conditions.push(`exercise.notation_format <> 'text'`);
+    if (data.hasNotation) conditions.push(`exercise.notation IS NOT NULL`);
     if (data.instrumentIds.length > 0) {
       conditions.push(`exercise.instrument_id = ANY(${parameter(data.instrumentIds)}::bigint[])`);
     }
@@ -224,6 +228,7 @@ export const getExerciseLibraryPage = createServerFn({ method: 'GET' })
         `SELECT
            exercise.id::text,
            COALESCE(exercise.name, 'Untitled exercise') AS name,
+           exercise.instruction,
            exercise.notation,
            exercise.notation_format AS "notationFormat",
            exercise.visibility::text,
@@ -284,7 +289,7 @@ export const getPublicExerciseCatalogPage = createServerFn({ method: 'GET' })
         ${fuzzyValue ? `OR CAST(${fuzzyValue} AS text) <<% CAST(exercise.name AS text)` : ''}
       )`);
     }
-    if (data.hasNotation) conditions.push(`exercise.notation_format <> 'text'`);
+    if (data.hasNotation) conditions.push(`exercise.notation IS NOT NULL`);
     if (data.instrumentIds.length > 0) {
       conditions.push(`exercise.instrument_id = ANY(${parameter(data.instrumentIds)}::bigint[])`);
     }
@@ -302,6 +307,7 @@ export const getPublicExerciseCatalogPage = createServerFn({ method: 'GET' })
         `SELECT
            exercise.id::text,
            COALESCE(exercise.name, 'Untitled exercise') AS name,
+           exercise.instruction,
            exercise.notation,
            exercise.notation_format AS "notationFormat",
            exercise.visibility::text,
@@ -396,6 +402,7 @@ export const getOwnedExercisePage = createServerFn({ method: 'GET' })
         `SELECT
            exercise.id::text,
            COALESCE(exercise.name, 'Untitled exercise') AS name,
+           exercise.instruction,
            exercise.notation,
            exercise.notation_format AS "notationFormat",
            exercise.visibility::text,
@@ -441,6 +448,7 @@ export const getExerciseDetail = createServerFn({ method: 'GET' })
       pool.query<{
         id: string;
         name: string;
+        instruction: string | null;
         notation: string | null;
         notationFormat: ExerciseNotationFormat;
         visibility: string;
@@ -457,6 +465,7 @@ export const getExerciseDetail = createServerFn({ method: 'GET' })
           SELECT
             exercise.id::text,
             COALESCE(exercise.name, 'Untitled exercise') AS name,
+            exercise.instruction,
             exercise.notation,
             exercise.notation_format AS "notationFormat",
             exercise.visibility::text,
@@ -520,6 +529,7 @@ export const getExerciseDetail = createServerFn({ method: 'GET' })
     return {
       id: exercise.id,
       name: exercise.name,
+      instruction: exercise.instruction,
       notation: exercise.notation,
       notationFormat: exercise.notationFormat,
       visibility: exercise.visibility,
@@ -550,14 +560,15 @@ export const createExercise = createServerFn({ method: 'POST' })
     try {
       await client.query('BEGIN');
       const result = await client.query<{ id: string }>(
-        `INSERT INTO exercise (musician_id, name, notation, notation_format, visibility, instrument_id)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO exercise
+           (musician_id, name, instruction, notation, notation_format, visibility, instrument_id)
+         VALUES ($1, $2, $3, $4, 'abc', $5, $6)
          RETURNING id::text`,
         [
           context.user.musicianId,
           data.name,
+          data.instruction || null,
           data.notation || null,
-          data.notationFormat,
           data.visibility,
           data.instrumentId,
         ],
@@ -588,13 +599,14 @@ export const updateExercise = createServerFn({ method: 'POST' })
   .handler(async ({ data, context }): Promise<{ id: string }> => {
     const result = await pool.query<{ id: string }>(
       `UPDATE exercise
-       SET name = $1, notation = $2, notation_format = $3, visibility = $4, instrument_id = $5
+       SET name = $1, instruction = $2, notation = $3, notation_format = 'abc',
+           visibility = $4, instrument_id = $5
        WHERE id = $6 AND musician_id = $7 AND deleted_at IS NULL
        RETURNING id::text`,
       [
         data.name,
+        data.instruction || null,
         data.notation || null,
-        data.notationFormat,
         data.visibility,
         data.instrumentId,
         data.id,

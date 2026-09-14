@@ -9,6 +9,7 @@ export type ExerciseListRowItem = {
   name: string;
   instrumentName: string | null;
   visibility: string;
+  instruction: string | null;
   notation: string | null;
   notationFormat: ExerciseNotationFormat;
   inLibrary: boolean;
@@ -43,7 +44,7 @@ export function ExerciseListRow(props: {
         </div>
         <div class="catalog-result-actions">
           {props.actions}
-          <Show when={props.item.notation}>
+          <Show when={props.item.instruction || props.item.notation}>
             <button
               class="text-button exercise-notation-toggle"
               type="button"
@@ -51,7 +52,7 @@ export function ExerciseListRow(props: {
               aria-controls={notationId}
               onClick={() => setExpanded((value) => !value)}
             >
-              {expanded() ? 'Hide notation' : 'Show notation'}
+              {expanded() ? 'Hide details' : 'Show details'}
             </button>
           </Show>
           <Show
@@ -83,12 +84,17 @@ export function ExerciseListRow(props: {
           </Show>
         </div>
       </div>
-      <Show when={props.item.notation && expanded()}>
+      <Show when={(props.item.instruction || props.item.notation) && expanded()}>
         <div id={notationId} class="exercise-library-notation">
-          <ExerciseNotation
-            notation={props.item.notation ?? ''}
-            format={props.item.notationFormat}
-          />
+          <Show when={props.item.instruction}>
+            {(instruction) => <p class="exercise-instruction">{instruction()}</p>}
+          </Show>
+          <Show when={props.item.notation}>
+            <ExerciseNotation
+              notation={props.item.notation ?? ''}
+              format={props.item.notationFormat}
+            />
+          </Show>
         </div>
       </Show>
     </article>

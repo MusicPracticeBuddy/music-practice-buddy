@@ -23,8 +23,8 @@ function EditExercise() {
       kind="exercise"
       id={exercise().exercise.id}
       name={exercise().exercise.name}
+      instruction={exercise().exercise.instruction}
       notation={exercise().exercise.notation}
-      notationFormat={exercise().exercise.notationFormat}
       visibility={exercise().exercise.visibility as 'PRIVATE' | 'PUBLIC'}
       instrumentId={exercise().exercise.instrumentId}
       instrumentOptions={exercise().instruments}

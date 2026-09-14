@@ -75,6 +75,7 @@ export const EMPTY_SESSION_TEMPLATE_SEARCH: SessionTemplateSearchInput = {
 };
 
 export type SessionTemplateDetailItem = TemplateItemInput & {
+  exerciseInstruction?: string | null;
   notation?: string | null;
   notationFormat?: string | null;
 };
@@ -488,7 +489,11 @@ export const getTemplateLibrary = createServerFn({ method: 'GET' })
         SELECT
           exercise.id::text,
           COALESCE(exercise.name, 'Untitled exercise') AS name,
-          CASE WHEN exercise.notation IS NULL THEN 'Exercise' ELSE 'Exercise · with notation' END AS detail,
+          CASE
+            WHEN exercise.notation IS NOT NULL THEN 'Exercise · with notation'
+            WHEN exercise.instruction IS NOT NULL THEN 'Exercise · with instruction'
+            ELSE 'Exercise'
+          END AS detail,
           CASE
             WHEN exercise.instrument_id IS NULL THEN ARRAY[]::text[]
             ELSE ARRAY[exercise.instrument_id::text]
@@ -652,6 +657,7 @@ export const getSessionTemplate = createServerFn({ method: 'GET' })
             COALESCE(item.name, 'Untitled item') AS name,
             COALESCE(item.instruction, '') AS instruction,
             item.position::float8 AS position,
+            exercise.instruction AS "exerciseInstruction",
             exercise.notation,
             exercise.notation_format AS "notationFormat"
           FROM session_template_item item

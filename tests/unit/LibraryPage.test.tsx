@@ -154,6 +154,7 @@ describe('Library page', () => {
           id: 'exercise-1',
           name: 'Loaded exercise',
           visibility: 'PRIVATE',
+          instruction: 'Practice slowly',
           notation: null,
           notationFormat: 'text',
           instrumentName: null,

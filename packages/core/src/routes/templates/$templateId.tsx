@@ -87,6 +87,7 @@ function TemplateDetail() {
             type: item.type,
             name: item.name,
             instruction: item.instruction || null,
+            exerciseInstruction: item.exerciseInstruction ?? null,
             notation: item.notation ?? null,
             notationFormat: item.notationFormat ?? null,
           }))}

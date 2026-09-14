@@ -26,6 +26,7 @@ describe('PracticePlanOutline', () => {
             type: PRACTICE_ITEM_TYPE.EXERCISE,
             name: 'Long tones',
             instruction: 'Use a steady breath.',
+            exerciseInstruction: 'Sustain each note for eight counts.',
             notation: 'K:C\nCDEF|',
             notationFormat: 'abc',
           },
@@ -41,6 +42,7 @@ describe('PracticePlanOutline', () => {
 
     fireEvent.click(exerciseButton);
     expect(screen.getByText('Use a steady breath.')).toBeTruthy();
+    expect(screen.getByText('Sustain each note for eight counts.')).toBeTruthy();
     expect(screen.getByLabelText('Rendered music notation')).toBeTruthy();
     expect(screen.queryByText('Display key')).toBeNull();
 

@@ -342,12 +342,11 @@ describe('PracticePlanEditor', () => {
 
     const name = await screen.findByLabelText('Name');
     expect(name.getAttribute('maxlength')).toBe('200');
-    expect(screen.getByLabelText('Instructions or notation (optional)')).toBeTruthy();
-    const notationFormat = screen.getByLabelText('Notation format');
-    expect(notationFormat.tagName).toBe('SELECT');
     expect(
-      Array.from((notationFormat as HTMLSelectElement).options, (option) => option.value),
-    ).toEqual(['text', 'abc']);
+      screen.getByLabelText('Instruction (optional)', { selector: '#exercise-instructions' }),
+    ).toBeTruthy();
+    expect(screen.getByLabelText('ABC notation (optional)')).toBeTruthy();
+    expect(screen.queryByLabelText('Notation format')).toBeNull();
     expect(
       screen.getByLabelText('Visibility', { selector: '#library-item-visibility' }),
     ).toBeTruthy();
@@ -368,7 +367,9 @@ describe('PracticePlanEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: "Can't find what you're looking for?" }));
 
     expect((await screen.findByLabelText('Title')).getAttribute('maxlength')).toBe('300');
-    expect(screen.queryByLabelText('Instructions or notation (optional)')).toBeNull();
+    expect(
+      screen.queryByLabelText('Instruction (optional)', { selector: '#exercise-instructions' }),
+    ).toBeNull();
     expect(screen.getByRole('heading', { name: 'Credits' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Instrumentation' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Resources' })).toBeTruthy();

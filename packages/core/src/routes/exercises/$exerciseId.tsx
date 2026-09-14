@@ -124,11 +124,11 @@ function ExerciseDetail() {
 
       <section class="detail-grid">
         <article class="detail-card detail-card-wide">
-          <p class="eyebrow">Practice instruction</p>
-          <Show
-            when={exercise().notation}
-            fallback={<p class="muted">No notation or instructions have been added.</p>}
-          >
+          <p class="eyebrow">Practice material</p>
+          <Show when={exercise().instruction}>
+            {(instruction) => <p class="exercise-instruction">{instruction()}</p>}
+          </Show>
+          <Show when={exercise().notation}>
             <ExerciseNotation
               notation={exercise().notation ?? ''}
               format={exercise().notationFormat}

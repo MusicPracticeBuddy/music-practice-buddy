@@ -65,6 +65,7 @@ export type SessionDetailItem = {
   position: number;
   name: string;
   instruction: string | null;
+  exerciseInstruction: string | null;
   sessionNote: string | null;
   notation: string | null;
   notationFormat: string | null;
@@ -239,6 +240,7 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
         position: number;
         name: string;
         instruction: string | null;
+        exerciseInstruction: string | null;
         sessionNote: string | null;
         notation: string | null;
         notationFormat: string | null;
@@ -270,6 +272,7 @@ export const getSessionDetail = createServerFn({ method: 'GET' })
             COALESCE(item.name, 'Untitled item') AS name,
             item.instruction,
             item.session_note AS "sessionNote",
+            exercise.instruction AS "exerciseInstruction",
             exercise.notation,
             exercise.notation_format AS "notationFormat",
             COALESCE(

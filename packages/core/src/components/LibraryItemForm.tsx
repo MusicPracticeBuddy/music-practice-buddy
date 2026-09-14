@@ -13,7 +13,7 @@ import { Link, useNavigate, useRouter } from '@tanstack/solid-router';
 import { ExerciseNotation } from '@/components/ExerciseNotation';
 import { InstrumentSelect } from '@/components/InstrumentFields';
 import { createExercise, updateExercise, type ExerciseInput } from '@/data/exercises';
-import { EXERCISE_NOTATION_FORMAT, type ExerciseNotationFormat } from '@/domain/exercise';
+import { EXERCISE_NOTATION_FORMAT } from '@/domain/exercise';
 import { groupInstrumentOptions } from '@/domain/instrument';
 import {
   createChildRepertoire,
@@ -38,8 +38,8 @@ type LibraryItemFormProps = {
   endMeasure?: string | null;
   name?: string;
   compositionYear?: number | null;
+  instruction?: string | null;
   notation?: string | null;
-  notationFormat?: ExerciseNotationFormat;
   instrumentId?: string | null;
   visibility?: 'PRIVATE' | 'PUBLIC';
   credits?: RepertoireCreditInput[];
@@ -70,8 +70,8 @@ type LibraryItemFormValues = {
   compositionYear: string;
   startMeasure: string;
   endMeasure: string;
+  instruction: string;
   notation: string;
-  notationFormat: ExerciseNotationFormat;
   visibility: 'PRIVATE' | 'PUBLIC';
   instrumentId: string;
   credits: RepertoireCreditInput[];
@@ -85,8 +85,8 @@ function defaultValues(props: LibraryItemFormProps): LibraryItemFormValues {
     compositionYear: props.compositionYear?.toString() ?? '',
     startMeasure: props.startMeasure?.toString() ?? '',
     endMeasure: props.endMeasure?.toString() ?? '',
+    instruction: props.instruction ?? '',
     notation: props.notation ?? '',
-    notationFormat: props.notationFormat ?? EXERCISE_NOTATION_FORMAT.TEXT,
     visibility: props.visibility ?? 'PRIVATE',
     instrumentId: props.instrumentId ?? '',
     credits: props.credits ?? [],
@@ -103,14 +103,18 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
   const formApi = createForm(() => ({
     defaultValues: defaultValues(props),
     validators: {
-      onSubmit: ({ value }) =>
-        props.kind === 'repertoire' &&
-        props.isExcerpt &&
-        value.startMeasure !== '' &&
-        value.endMeasure !== '' &&
-        Number(value.startMeasure) > Number(value.endMeasure)
+      onSubmit: ({ value }) => {
+        if (props.kind === 'exercise' && !value.instruction.trim() && !value.notation.trim()) {
+          return 'An instruction or notation is required.';
+        }
+        return props.kind === 'repertoire' &&
+          props.isExcerpt &&
+          value.startMeasure !== '' &&
+          value.endMeasure !== '' &&
+          Number(value.startMeasure) > Number(value.endMeasure)
           ? 'Starting measure cannot be after ending measure.'
-          : undefined,
+          : undefined;
+      },
     },
     onSubmit: ({ value }) => save(value),
   }));
@@ -123,8 +127,8 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
   const compositionYear = () => value('compositionYear');
   const startMeasure = () => value('startMeasure');
   const endMeasure = () => value('endMeasure');
+  const instruction = () => value('instruction');
   const notation = () => value('notation');
-  const notationFormat = () => value('notationFormat');
   const visibility = () => value('visibility');
   const instrumentId = () => value('instrumentId');
   const credits = () => value('credits');
@@ -134,9 +138,8 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
   const setCompositionYear = (next: string) => formApi.setFieldValue('compositionYear', next);
   const setStartMeasure = (next: string) => formApi.setFieldValue('startMeasure', next);
   const setEndMeasure = (next: string) => formApi.setFieldValue('endMeasure', next);
+  const setInstruction = (next: string) => formApi.setFieldValue('instruction', next);
   const setNotation = (next: string) => formApi.setFieldValue('notation', next);
-  const setNotationFormat = (next: ExerciseNotationFormat) =>
-    formApi.setFieldValue('notationFormat', next);
   const setVisibility = (next: 'PRIVATE' | 'PUBLIC') => formApi.setFieldValue('visibility', next);
   const setInstrumentId = (next: string) => formApi.setFieldValue('instrumentId', next);
   const setCredits = (update: (items: RepertoireCreditInput[]) => RepertoireCreditInput[]) =>
@@ -207,8 +210,8 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
       if (props.kind === 'exercise') {
         const data: ExerciseInput = {
           name: values.name,
+          instruction: values.instruction,
           notation: values.notation,
-          notationFormat: values.notationFormat,
           visibility: values.visibility,
           instrumentId: values.instrumentId || null,
         };
@@ -346,44 +349,38 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
         />
 
         <label class="field-label" for="exercise-instructions">
-          Instructions or notation (optional)
+          Instruction (optional)
         </label>
         <textarea
           id="exercise-instructions"
+          class="text-input"
+          rows="4"
+          value={instruction()}
+          onInput={(event) => setInstruction(event.currentTarget.value)}
+        />
+
+        <label class="field-label" for="exercise-notation">
+          ABC notation (optional)
+        </label>
+        <textarea
+          id="exercise-notation"
           class="text-input"
           rows="7"
           value={notation()}
           onInput={(event) => setNotation(event.currentTarget.value)}
         />
 
-        <label class="field-label" for="exercise-notation-format">
-          Notation format
-        </label>
-        <select
-          id="exercise-notation-format"
-          class="text-input"
-          value={notationFormat()}
-          onChange={(event) =>
-            setNotationFormat(event.currentTarget.value as ExerciseNotationFormat)
-          }
-        >
-          <option value={EXERCISE_NOTATION_FORMAT.TEXT}>Text</option>
-          <option value={EXERCISE_NOTATION_FORMAT.ABC}>ABC notation</option>
-        </select>
-
-        <Show when={notationFormat() === EXERCISE_NOTATION_FORMAT.ABC}>
-          <section class="exercise-notation-preview" aria-labelledby="exercise-preview-heading">
-            <p class="eyebrow" id="exercise-preview-heading">
-              Preview
-            </p>
-            <Show
-              when={notation().trim()}
-              fallback={<p class="muted">Enter ABC notation above to preview the score.</p>}
-            >
-              <ExerciseNotation notation={notation()} format={EXERCISE_NOTATION_FORMAT.ABC} />
-            </Show>
-          </section>
-        </Show>
+        <section class="exercise-notation-preview" aria-labelledby="exercise-preview-heading">
+          <p class="eyebrow" id="exercise-preview-heading">
+            Preview
+          </p>
+          <Show
+            when={notation().trim()}
+            fallback={<p class="muted">Enter ABC notation above to preview the score.</p>}
+          >
+            <ExerciseNotation notation={notation()} format={EXERCISE_NOTATION_FORMAT.ABC} />
+          </Show>
+        </section>
       </Show>
 
       <Show when={props.kind === 'repertoire'}>

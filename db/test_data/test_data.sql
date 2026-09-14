@@ -41,19 +41,19 @@ VALUES
     ('Frédéric Chopin', '1810-03-01', '1849-10-17', 'https://en.wikipedia.org/wiki/Fr%C3%A9d%C3%A9ric_Chopin'),
     ('Jean-Baptiste Arban', '1825-02-28', '1889-04-08', 'https://en.wikipedia.org/wiki/Jean-Baptiste_Arban');
 
-INSERT INTO exercise (musician_id, name, notation, notation_format, visibility)
+INSERT INTO exercise (musician_id, name, instruction, notation, notation_format, visibility)
 VALUES
-    ((SELECT id FROM musician WHERE is_admin LIMIT 1), 'Long tones', 'Whole notes at pp-mf-pp, 8 counts each', 'text', 'PRIVATE'),
-    ((SELECT id FROM musician WHERE is_admin LIMIT 1), 'Lip slurs', 'Low to middle register, slow and relaxed', 'text', 'PRIVATE'),
-    ((SELECT id FROM musician WHERE NOT is_admin ORDER BY id LIMIT 1), 'Double-tonguing', 'ta-ka, beginning at 80 BPM', 'text', 'PRIVATE'),
-    ((SELECT id FROM musician WHERE is_admin LIMIT 1), 'Scale articulation', E'X:1\nM:4/4\nL:1/8\nK:C\nCDEF GABc | cBAG FEDC |', 'abc', 'PUBLIC');
+    ((SELECT id FROM musician WHERE is_admin LIMIT 1), 'Long tones', 'Whole notes at pp-mf-pp, 8 counts each', NULL, 'abc', 'PRIVATE'),
+    ((SELECT id FROM musician WHERE is_admin LIMIT 1), 'Lip slurs', 'Low to middle register, slow and relaxed', NULL, 'abc', 'PRIVATE'),
+    ((SELECT id FROM musician WHERE NOT is_admin ORDER BY id LIMIT 1), 'Double-tonguing', 'ta-ka, beginning at 80 BPM', NULL, 'abc', 'PRIVATE'),
+    ((SELECT id FROM musician WHERE is_admin LIMIT 1), 'Scale articulation', NULL, E'X:1\nM:4/4\nL:1/8\nK:C\nCDEF GABc | cBAG FEDC |', 'abc', 'PUBLIC');
 
-INSERT INTO exercise (musician_id, name, notation, notation_format, copied_from_exercise_id, visibility)
+INSERT INTO exercise (musician_id, name, instruction, notation_format, copied_from_exercise_id, visibility)
 VALUES (
     (SELECT id FROM musician WHERE NOT is_admin ORDER BY id LIMIT 1),
     'Long tones - adapted',
     'Whole notes, 6 counts each, starting in middle register',
-    'text',
+    'abc',
     (SELECT id FROM exercise WHERE name = 'Long tones'),
     'PRIVATE'
 );

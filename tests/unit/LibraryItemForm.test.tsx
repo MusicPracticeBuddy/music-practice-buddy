@@ -41,6 +41,19 @@ afterEach(() => {
 });
 
 describe('LibraryItemForm', () => {
+  it('requires an instruction or ABC notation for an exercise', async () => {
+    render(() => <LibraryItemForm kind="exercise" visibility="PRIVATE" />);
+
+    fireEvent.input(screen.getByLabelText('Name'), { target: { value: 'Empty exercise' } });
+    fireEvent.submit(screen.getByRole('button', { name: 'Create exercise' }).closest('form')!);
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toContain(
+        'An instruction or notation is required.',
+      ),
+    );
+  });
+
   it('only offers public visibility to admins creating resources', () => {
     const { unmount } = render(() => <LibraryItemForm kind="exercise" />);
 
@@ -80,12 +93,11 @@ describe('LibraryItemForm', () => {
         id="42"
         name="Scales"
         notation="X:1\nK:C\nCDEF|"
-        notationFormat="abc"
         visibility="PRIVATE"
       />
     ));
 
-    fireEvent.input(screen.getByLabelText('Instructions or notation (optional)'), {
+    fireEvent.input(screen.getByLabelText('ABC notation (optional)'), {
       target: { value: 'X:1\nK:G\nGABc|' },
     });
     fireEvent.submit(screen.getByRole('button', { name: 'Save exercise' }).closest('form')!);
@@ -108,12 +120,11 @@ describe('LibraryItemForm', () => {
         id="42"
         name="Scales"
         notation={notation()}
-        notationFormat="abc"
         visibility="PRIVATE"
       />
     ));
 
-    const textarea = screen.getByLabelText('Instructions or notation (optional)');
+    const textarea = screen.getByLabelText('ABC notation (optional)');
     expect((textarea as HTMLTextAreaElement).value).toBe('X:1\nK:C\nCDEF|');
 
     setNotation('X:1\nK:G\nGABc|');
@@ -132,7 +143,6 @@ describe('LibraryItemForm', () => {
         id="42"
         name="Scales"
         notation={initialNotation}
-        notationFormat="abc"
         visibility="PRIVATE"
       />
     ));
@@ -145,7 +155,7 @@ describe('LibraryItemForm', () => {
       });
     });
 
-    fireEvent.input(screen.getByLabelText('Instructions or notation (optional)'), {
+    fireEvent.input(screen.getByLabelText('ABC notation (optional)'), {
       target: { value: updatedNotation },
     });
 

@@ -2428,6 +2428,10 @@ textarea.text-input {
   white-space: pre-wrap;
 }
 
+.exercise-instruction {
+  white-space: pre-wrap;
+}
+
 .abc-notation {
   margin-top: 6px;
   overflow-x: auto;

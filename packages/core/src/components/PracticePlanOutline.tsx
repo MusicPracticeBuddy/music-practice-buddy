@@ -21,6 +21,7 @@ export type PracticePlanItem = {
   type: PracticeItemType;
   name: string;
   instruction: string | null;
+  exerciseInstruction?: string | null;
   notation: string | null;
   notationFormat: string | null;
   repertoireChildren?: { id: string; title: string }[];
@@ -442,6 +443,9 @@ function PracticePlanOutlineItem(props: PracticePlanOutlineItemProps) {
                 </button>
               </div>
             </div>
+          </Show>
+          <Show when={props.item.exerciseInstruction}>
+            {(instruction) => <p class="exercise-instruction">{instruction()}</p>}
           </Show>
           <Show when={props.item.notation}>
             <SessionExerciseNotation

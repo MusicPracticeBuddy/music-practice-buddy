@@ -194,18 +194,20 @@ describe('library item persistence', () => {
       `INSERT INTO musician (display_name) VALUES ('Exercise publisher') RETURNING id::text`,
     );
     await pool.query(
-      `INSERT INTO exercise (musician_id, name, notation_format, visibility)
+      `INSERT INTO exercise (musician_id, name, instruction, notation, notation_format, visibility)
        SELECT $1,
          CASE WHEN number = 27 THEN 'Chromatic scale study'
               ELSE 'Public exercise ' || lpad(number::text, 2, '0') END,
-         CASE WHEN number % 2 = 0 THEN 'abc' ELSE 'text' END,
+         CASE WHEN number % 2 = 0 THEN NULL ELSE 'Practice slowly' END,
+         CASE WHEN number % 2 = 0 THEN 'X:1\nK:C\nCDEF|' ELSE NULL END,
+         'abc',
          'PUBLIC'
        FROM generate_series(1, 27) number`,
       [publisher.rows[0]!.id],
     );
     const privateExercise = await pool.query<{ id: string }>(
-      `INSERT INTO exercise (musician_id, name, visibility)
-       VALUES ($1, 'Private publisher exercise', 'PRIVATE') RETURNING id::text`,
+      `INSERT INTO exercise (musician_id, name, instruction, visibility)
+       VALUES ($1, 'Private publisher exercise', 'Practice slowly', 'PRIVATE') RETURNING id::text`,
       [publisher.rows[0]!.id],
     );
 
@@ -288,8 +290,8 @@ describe('library item persistence', () => {
   it('paginates repertoire and exercises in My Library on the server', async () => {
     await pool.query(
       `WITH inserted AS (
-         INSERT INTO exercise (musician_id, name)
-         SELECT 1, 'Library exercise ' || lpad(number::text, 2, '0')
+         INSERT INTO exercise (musician_id, name, instruction)
+         SELECT 1, 'Library exercise ' || lpad(number::text, 2, '0'), 'Practice slowly'
          FROM generate_series(1, 21) number
          RETURNING id
        )
@@ -308,7 +310,7 @@ describe('library item persistence', () => {
     );
     await pool.query(
       `UPDATE exercise
-       SET name = 'Arpeggio workout', visibility = 'PUBLIC', notation_format = 'abc'
+       SET name = 'Arpeggio workout', visibility = 'PUBLIC', notation = 'X:1\nK:C\nCEG|'
        WHERE name = 'Library exercise 21'`,
     );
     await pool.query(
@@ -482,8 +484,8 @@ describe('library item persistence', () => {
     const created = await createExercise({
       data: {
         name: 'Created exercise',
-        notation: 'Slowly, at 60 BPM',
-        notationFormat: 'text',
+        instruction: 'Slowly, at 60 BPM',
+        notation: '',
         visibility: 'PRIVATE',
       },
     });
@@ -491,8 +493,8 @@ describe('library item persistence', () => {
       data: {
         id: created.id,
         name: 'Edited exercise',
-        notation: 'Slowly, at 72 BPM',
-        notationFormat: 'text',
+        instruction: 'Slowly, at 72 BPM',
+        notation: '',
         visibility: 'PUBLIC',
       },
     });
@@ -1124,8 +1126,8 @@ describe('template persistence', () => {
     const exercise = await createExercise({
       data: {
         name: 'Tagged exercise',
+        instruction: 'Practice this exercise',
         notation: '',
-        notationFormat: 'text',
         visibility: 'PRIVATE',
         instrumentId,
       },
@@ -1133,16 +1135,16 @@ describe('template persistence', () => {
     await createExercise({
       data: {
         name: 'Untagged exercise',
+        instruction: 'Practice this exercise',
         notation: '',
-        notationFormat: 'text',
         visibility: 'PRIVATE',
       },
     });
     await createExercise({
       data: {
         name: 'Other instrument exercise',
+        instruction: 'Practice this exercise',
         notation: '',
-        notationFormat: 'text',
         visibility: 'PRIVATE',
         instrumentId: otherInstrumentId,
       },
