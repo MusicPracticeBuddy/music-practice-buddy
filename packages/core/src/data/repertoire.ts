@@ -859,13 +859,20 @@ const ACCESS_CTE = `
 `;
 
 const LIBRARY_ROOTS_CTE = `
-  , library_roots AS (
-    SELECT DISTINCT r.root_repertoire_id AS id
+  WITH library_roots AS (
+    SELECT r.root_repertoire_id AS id
     FROM musician_repertoire_library library
     JOIN repertoire r ON r.id = library.repertoire_id
     WHERE library.musician_id = $1
       AND r.deleted_at IS NULL
-      AND (r.effective_owner_musician_id = $1 OR r.effective_visibility = 'PUBLIC')
+      AND r.effective_owner_musician_id = $1
+    UNION
+    SELECT r.root_repertoire_id AS id
+    FROM musician_repertoire_library library
+    JOIN repertoire r ON r.id = library.repertoire_id
+    WHERE library.musician_id = $1
+      AND r.deleted_at IS NULL
+      AND r.effective_visibility = 'PUBLIC'
   )
 `;
 
@@ -891,7 +898,7 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
   })
   .handler(async ({ data, context }): Promise<RepertoireLibraryPage> => {
     const parameters: unknown[] = [context.user.musicianId];
-    const conditions = [`access.owner_musician_id = $1 OR access.visibility = 'PUBLIC'`];
+    const conditions = ['TRUE'];
     const parameter = (value: unknown) => {
       parameters.push(value);
       return `$${parameters.length}`;
@@ -908,9 +915,11 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
           SELECT child.id
           FROM repertoire child
           JOIN searchable_repertoire parent ON parent.id = child.parent_repertoire_id
-          JOIN repertoire_access child_access ON child_access.id = child.id
           WHERE child.deleted_at IS NULL
-            AND (child_access.owner_musician_id = $1 OR child_access.visibility = 'PUBLIC')
+            AND (
+              child.effective_owner_musician_id = $1
+              OR child.effective_visibility = 'PUBLIC'
+            )
         )
         SELECT 1
         FROM searchable_repertoire searchable
@@ -953,7 +962,7 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
       )`);
     }
     if (data.visibility !== 'ALL') {
-      conditions.push(`access.visibility = ${parameter(data.visibility)}::visibility_type`);
+      conditions.push(`r.effective_visibility = ${parameter(data.visibility)}::visibility_type`);
     }
     const where = conditions.map((condition) => `(${condition})`).join('\n           AND ');
     const countParameters = [...parameters];
@@ -961,23 +970,21 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
     const offset = parameter((data.page - 1) * REPERTOIRE_LIBRARY_PAGE_SIZE);
     const [countResult, result] = await Promise.all([
       pool.query<{ total: number }>(
-        `${ACCESS_CTE}${LIBRARY_ROOTS_CTE}
+        `${LIBRARY_ROOTS_CTE}
          SELECT count(*)::integer AS total
          FROM repertoire r
          JOIN library_roots roots ON roots.id = r.id
-         JOIN repertoire_access access ON access.id = r.id
          WHERE ${where}`,
         countParameters,
       ),
       pool.query<
         Omit<RepertoireRow, keyof ResourceAccess | 'systemOwned'> & { externalId: string | null }
       >(
-        `${ACCESS_CTE}${LIBRARY_ROOTS_CTE},
+        `${LIBRARY_ROOTS_CTE},
          page_repertoire AS (
            SELECT r.id
            FROM repertoire r
            JOIN library_roots roots ON roots.id = r.id
-           JOIN repertoire_access access ON access.id = r.id
            WHERE ${where}
            ORDER BY r.parent_repertoire_id NULLS FIRST, lower(r.title), r.id
            LIMIT ${limit} OFFSET ${offset}
@@ -994,10 +1001,10 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
                'Measures ' || r.start_measure || COALESCE('–' || r.end_measure, '')
              ELSE NULL
            END AS "measureRange",
-           access.visibility::text,
+           r.effective_visibility::text AS visibility,
            r.status::text,
            owner.display_name AS owner,
-           access.owner_musician_id::text AS "ownerId",
+           r.effective_owner_musician_id::text AS "ownerId",
            COALESCE(string_agg(DISTINCT person.name, ', '), 'Unknown composer') AS composer,
            string_agg(DISTINCT instrument.name, ', ') AS instrument,
            resource.type::text AS "resourceType",
@@ -1006,14 +1013,15 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
            library.repertoire_id IS NOT NULL AS "inLibrary",
            EXISTS (
              SELECT 1 FROM repertoire child
-             JOIN repertoire_access child_access ON child_access.id = child.id
              WHERE child.parent_repertoire_id = r.id
-               AND (child_access.owner_musician_id = $1 OR child_access.visibility = 'PUBLIC')
+               AND (
+                 child.effective_owner_musician_id = $1
+                 OR child.effective_visibility = 'PUBLIC'
+               )
            ) AS "hasChildren"
          FROM page_repertoire page
          JOIN repertoire r ON r.id = page.id
-         JOIN repertoire_access access ON access.id = r.id
-         LEFT JOIN musician owner ON owner.id = access.owner_musician_id
+         LEFT JOIN musician owner ON owner.id = r.effective_owner_musician_id
          LEFT JOIN repertoire parent ON parent.id = r.parent_repertoire_id
          LEFT JOIN repertoire_credit credit
            ON credit.repertoire_id = r.id AND credit.role = 'COMPOSER'
@@ -1029,7 +1037,8 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
          ) resource ON TRUE
          LEFT JOIN musician_repertoire_library library
            ON library.repertoire_id = r.id AND library.musician_id = $1
-         GROUP BY r.id, r.external_id, parent.title, access.visibility, access.owner_musician_id,
+         GROUP BY r.id, r.external_id, parent.title, r.effective_visibility,
+           r.effective_owner_musician_id,
            owner.display_name, resource.type, resource.url, library.notes, library.repertoire_id
          ORDER BY r.parent_repertoire_id NULLS FIRST, lower(r.title), r.id`,
         parameters,
