@@ -48,8 +48,8 @@ type RepertoireDetail = {
   systemOwned: boolean;
   visibility: Visibility;
   status: string;
-  startMeasure: number | null;
-  endMeasure: number | null;
+  startMeasure: string | null;
+  endMeasure: string | null;
   owner: string | null;
   ownerId: string | null;
   createdAt: string;
@@ -58,7 +58,7 @@ type RepertoireDetail = {
   instruments: RepertoireInstrument[];
   resources: RepertoireResource[];
   libraryEntries: { acquiredOn: string | null; notes: string | null }[];
-  children: { id: string; title: string; startMeasure: number | null; endMeasure: number | null }[];
+  children: { id: string; title: string; startMeasure: string | null; endMeasure: string | null }[];
   sessions: {
     id: string;
     templateName: string;
@@ -200,24 +200,24 @@ export type RepertoireInput = {
 type ValidatedRepertoireInput = Required<RepertoireInput>;
 export type ChildRepertoireInput = RepertoireInput & {
   parentId: string;
-  startMeasure: number | null;
-  endMeasure: number | null;
+  startMeasure: string | null;
+  endMeasure: string | null;
 };
 type UpdateRepertoireInput = RepertoireInput & {
   id: string;
-  startMeasure?: number | null;
-  endMeasure?: number | null;
+  startMeasure?: string | null;
+  endMeasure?: string | null;
 };
 
-function validateMeasureRange(startMeasure: number | null, endMeasure: number | null) {
-  if (
-    (startMeasure !== null && (!Number.isInteger(startMeasure) || startMeasure < 1)) ||
-    (endMeasure !== null && (!Number.isInteger(endMeasure) || endMeasure < 1)) ||
-    (startMeasure !== null && endMeasure !== null && endMeasure < startMeasure)
-  ) {
-    throw new Error('Measure ranges must use positive whole numbers in ascending order');
+function validateMeasureRange(startMeasure: string | null, endMeasure: string | null) {
+  const start = startMeasure?.trim() || null;
+  const end = endMeasure?.trim() || null;
+  const numericStart = start === null || !Number.isFinite(Number(start)) ? null : Number(start);
+  const numericEnd = end === null || !Number.isFinite(Number(end)) ? null : Number(end);
+  if (numericStart !== null && numericEnd !== null && numericStart > numericEnd) {
+    throw new Error('Starting measure cannot be after ending measure');
   }
-  return { startMeasure, endMeasure };
+  return { startMeasure: start, endMeasure: end };
 }
 
 function validateChildRepertoire(input: ChildRepertoireInput) {
@@ -1196,8 +1196,8 @@ export const getRepertoireDetail = createServerFn({ method: 'GET' })
       title: string;
       visibility: Visibility;
       status: string;
-      startMeasure: number | null;
-      endMeasure: number | null;
+      startMeasure: string | null;
+      endMeasure: string | null;
       compositionYear: number | null;
       externalId: string | null;
       owner: string | null;
@@ -1279,8 +1279,8 @@ export const getRepertoireDetail = createServerFn({ method: 'GET' })
       pool.query<{
         id: string;
         title: string;
-        startMeasure: number | null;
-        endMeasure: number | null;
+        startMeasure: string | null;
+        endMeasure: string | null;
       }>(
         `SELECT id::text, title, start_measure AS "startMeasure",
            end_measure AS "endMeasure"
@@ -1456,11 +1456,11 @@ export const updateRepertoire = createServerFn({ method: 'POST' })
              END,
              start_measure = CASE
                WHEN target.parent_repertoire_id IS NULL THEN NULL
-               ELSE $4::integer
+               ELSE $4::text
              END,
              end_measure = CASE
                WHEN target.parent_repertoire_id IS NULL THEN NULL
-               ELSE $5::integer
+               ELSE $5::text
              END
          WHERE target.id = $6
            AND target.deleted_at IS NULL

@@ -79,8 +79,8 @@ INSERT INTO repertoire (title, parent_repertoire_id, start_measure, end_measure,
 VALUES (
     'Bach Cello Suite No. 1 - Prelude opening',
     (SELECT id FROM repertoire WHERE title LIKE 'Bach Cello Suite No. 1 in%'),
-    1,
-    22,
+    '1',
+    '22',
     NULL,
     NULL,
     'APPROVED'

@@ -646,8 +646,8 @@ describe('library item persistence', () => {
         parentId: parent.id,
         title: 'Horn excerpt',
         visibility: 'PRIVATE',
-        startMeasure: 12,
-        endMeasure: 24,
+        startMeasure: '12',
+        endMeasure: '24',
         instruments: [{ instrumentId: excerptInstrumentId, role: 'SOLO', partName: 'Horn 1' }],
       },
     });
@@ -667,7 +667,7 @@ describe('library item persistence', () => {
         title: 'Finale excerpt',
         visibility: 'PRIVATE',
         startMeasure: null,
-        endMeasure: 48,
+        endMeasure: '48',
       },
     });
     const openEndExcerpt = await createChildRepertoire({
@@ -675,21 +675,32 @@ describe('library item persistence', () => {
         parentId: parent.id,
         title: 'Coda excerpt',
         visibility: 'PRIVATE',
-        startMeasure: 49,
+        startMeasure: '49',
         endMeasure: null,
+      },
+    });
+    const textualExcerpt = await createChildRepertoire({
+      data: {
+        parentId: parent.id,
+        title: 'Lettered excerpt',
+        visibility: 'PRIVATE',
+        startMeasure: '9 after C',
+        endMeasure: 'D',
       },
     });
 
     expect(await getRepertoireDetail({ data: parent.id })).toMatchObject({
       children: [
-        { id: excerpt.id, title: 'Horn excerpt', startMeasure: 12, endMeasure: 24 },
-        { id: openEndExcerpt.id, startMeasure: 49, endMeasure: null },
-        { id: openStartExcerpt.id, startMeasure: null, endMeasure: 48 },
+        { id: excerpt.id, title: 'Horn excerpt', startMeasure: '12', endMeasure: '24' },
+        { id: openEndExcerpt.id, startMeasure: '49', endMeasure: null },
+        { id: textualExcerpt.id, startMeasure: '9 after C', endMeasure: 'D' },
+        { id: openStartExcerpt.id, startMeasure: null, endMeasure: '48' },
         { id: movement.id, title: 'Second movement', startMeasure: null, endMeasure: null },
       ],
     });
     await deleteRepertoire({ data: openStartExcerpt.id });
     await deleteRepertoire({ data: openEndExcerpt.id });
+    await deleteRepertoire({ data: textualExcerpt.id });
     expect(await getRepertoireDetail({ data: excerpt.id })).toMatchObject({
       parent: { id: parent.id, title: 'Multi-part work' },
       instruments: [{ instrumentId: excerptInstrumentId, name: 'Excerpt horn' }],
@@ -700,8 +711,8 @@ describe('library item persistence', () => {
         parentId: movement.id,
         title: 'Second movement excerpt',
         visibility: 'PRIVATE',
-        startMeasure: 8,
-        endMeasure: 16,
+        startMeasure: '8',
+        endMeasure: '16',
       },
     });
     expect(await getRepertoireDetail({ data: movement.id })).toMatchObject({
@@ -724,15 +735,15 @@ describe('library item persistence', () => {
         id: excerpt.id,
         title: 'Edited horn excerpt',
         visibility: 'PRIVATE',
-        startMeasure: 14,
-        endMeasure: 30,
+        startMeasure: '14',
+        endMeasure: '30',
         instruments: [],
       },
     });
     expect(await getRepertoireDetail({ data: excerpt.id })).toMatchObject({
       title: 'Edited horn excerpt',
-      startMeasure: 14,
-      endMeasure: 30,
+      startMeasure: '14',
+      endMeasure: '30',
       instruments: [],
     });
 
@@ -742,11 +753,11 @@ describe('library item persistence', () => {
           parentId: parent.id,
           title: 'Invalid excerpt',
           visibility: 'PRIVATE',
-          startMeasure: 8,
-          endMeasure: 4,
+          startMeasure: '8',
+          endMeasure: '4',
         },
       }),
-    ).toThrow('ascending order');
+    ).toThrow('Starting measure cannot be after ending measure');
 
     await deleteRepertoire({ data: movement.id });
     expect(await getRepertoireDetail({ data: movement.id })).toBeNull();
@@ -767,8 +778,8 @@ describe('library item persistence', () => {
         parentId,
         title: 'My audition excerpt',
         visibility: 'PRIVATE',
-        startMeasure: 40,
-        endMeasure: 52,
+        startMeasure: '40',
+        endMeasure: '52',
       },
     });
 
@@ -786,14 +797,14 @@ describe('library item persistence', () => {
         id: child.id,
         title: 'My edited audition excerpt',
         visibility: 'PRIVATE',
-        startMeasure: 41,
-        endMeasure: 53,
+        startMeasure: '41',
+        endMeasure: '53',
       },
     });
     expect(await getRepertoireDetail({ data: child.id })).toMatchObject({
       title: 'My edited audition excerpt',
-      startMeasure: 41,
-      endMeasure: 53,
+      startMeasure: '41',
+      endMeasure: '53',
     });
 
     const otherMusician = await pool.query<{ id: string }>(

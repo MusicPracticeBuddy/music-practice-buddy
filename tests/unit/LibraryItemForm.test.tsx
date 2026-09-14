@@ -220,8 +220,8 @@ describe('LibraryItemForm', () => {
           title: 'Horn excerpt',
           compositionYear: 1913,
           credits: [{ person: 'Igor Stravinsky', role: 'COMPOSER' }],
-          startMeasure: 12,
-          endMeasure: 24,
+          startMeasure: '12',
+          endMeasure: '24',
           instruments: [{ instrumentId: '8', role: 'OTHER', partName: 'Orchestra' }],
           resources: [],
         }),
@@ -246,7 +246,32 @@ describe('LibraryItemForm', () => {
 
     await waitFor(() =>
       expect(mocks.createChildRepertoire).toHaveBeenCalledWith({
-        data: expect.objectContaining({ startMeasure: null, endMeasure: 24 }),
+        data: expect.objectContaining({ startMeasure: null, endMeasure: '24' }),
+      }),
+    );
+  });
+
+  it('creates an excerpt with textual measure bounds', async () => {
+    render(() => (
+      <LibraryItemForm
+        kind="repertoire"
+        parentId="12"
+        parentName="Orchestral work"
+        isExcerpt
+        visibility="PRIVATE"
+      />
+    ));
+
+    fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'Lettered excerpt' } });
+    fireEvent.input(screen.getByLabelText('Starting measure'), {
+      target: { value: '9 after C' },
+    });
+    fireEvent.input(screen.getByLabelText('Ending measure'), { target: { value: 'D' } });
+    fireEvent.submit(screen.getByRole('button', { name: 'Create repertoire' }).closest('form')!);
+
+    await waitFor(() =>
+      expect(mocks.createChildRepertoire).toHaveBeenCalledWith({
+        data: expect.objectContaining({ startMeasure: '9 after C', endMeasure: 'D' }),
       }),
     );
   });
@@ -267,8 +292,6 @@ describe('LibraryItemForm', () => {
     fireEvent.input(start, { target: { value: '25' } });
     fireEvent.input(end, { target: { value: '20' } });
 
-    expect(start.max).toBe('20');
-    expect(end.min).toBe('25');
     fireEvent.submit(screen.getByRole('button', { name: 'Create repertoire' }).closest('form')!);
 
     await waitFor(() =>

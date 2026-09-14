@@ -34,8 +34,8 @@ type LibraryItemFormProps = {
   parentId?: string;
   parentName?: string;
   isExcerpt?: boolean;
-  startMeasure?: number | null;
-  endMeasure?: number | null;
+  startMeasure?: string | null;
+  endMeasure?: string | null;
   name?: string;
   compositionYear?: number | null;
   notation?: string | null;
@@ -237,10 +237,8 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
           resources: values.resources,
         };
         const measureRange = {
-          startMeasure:
-            props.isExcerpt && values.startMeasure !== '' ? Number(values.startMeasure) : null,
-          endMeasure:
-            props.isExcerpt && values.endMeasure !== '' ? Number(values.endMeasure) : null,
+          startMeasure: props.isExcerpt && values.startMeasure !== '' ? values.startMeasure : null,
+          endMeasure: props.isExcerpt && values.endMeasure !== '' ? values.endMeasure : null,
         };
         const result = props.id
           ? await updateRepertoire({ data: { id: props.id, ...data, ...measureRange } })
@@ -317,10 +315,8 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
             <input
               id="repertoire-start-measure"
               class="text-input"
-              type="number"
-              min="1"
-              max={endMeasure() || undefined}
-              step="1"
+              type="text"
+              maxlength="100"
               value={startMeasure()}
               onInput={(event) => setStartMeasure(event.currentTarget.value)}
             />
@@ -332,9 +328,8 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
             <input
               id="repertoire-end-measure"
               class="text-input"
-              type="number"
-              min={startMeasure() || '1'}
-              step="1"
+              type="text"
+              maxlength="100"
               value={endMeasure()}
               onInput={(event) => setEndMeasure(event.currentTarget.value)}
             />

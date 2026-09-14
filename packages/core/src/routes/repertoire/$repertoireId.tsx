@@ -28,7 +28,7 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-function formatMeasureRange(start: number | null, end: number | null) {
+function formatMeasureRange(start: string | null, end: string | null) {
   if (start !== null && end !== null) return `Measures ${start}–${end}`;
   if (start !== null) return `from ${start}`;
   if (end !== null) return `until ${end}`;
