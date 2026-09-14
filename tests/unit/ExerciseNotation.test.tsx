@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@solidjs/testing-library';
+import { cleanup, fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
 import { ExerciseNotation } from '@/components/ExerciseNotation';
 
@@ -32,6 +32,25 @@ describe('ExerciseNotation', () => {
     await waitFor(() => {
       expect(renderAbc).toHaveBeenCalledWith(score, notation, { responsive: 'resize' });
     });
+  });
+
+  it('copies the exact ABC source used to render the score', async () => {
+    const notation = 'X:1\nK:C\nCDEF|';
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    render(() => <ExerciseNotation notation={notation} format="abc" clef="bass" />);
+
+    const copyButton = await screen.findByRole('button', {
+      name: 'Copy ABC notation to clipboard',
+    });
+    fireEvent.click(copyButton);
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('X:1\nK:C clef=bass\nCDEF|'));
+    expect(screen.getByRole('button', { name: 'ABC notation copied' })).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe('Copied!');
   });
 
   it('re-renders when the ABC notation changes', async () => {

@@ -72,8 +72,7 @@ function LoginPage() {
             ♩
           </span>
           <span>
-            <strong>Practice Buddy</strong>
-            <small>Music, made daily</small>
+            <strong>Music Practice Buddy</strong>
           </span>
         </div>
         <p class="eyebrow">Welcome back</p>

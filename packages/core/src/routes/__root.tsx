@@ -116,8 +116,7 @@ function AuthenticatedShell({
             ♩
           </span>
           <span>
-            <strong>Practice Buddy</strong>
-            <small>Music, made daily</small>
+            <strong>Music Practice Buddy</strong>
           </span>
         </Link>
         <nav aria-label="Primary navigation">

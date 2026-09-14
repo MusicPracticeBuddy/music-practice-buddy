@@ -1,4 +1,4 @@
-import { createEffect, onCleanup, onMount } from 'solid-js';
+import { Show, createEffect, createSignal, onCleanup, onMount } from 'solid-js';
 import { changeAbcClef, changeAbcMode, type AbcClef, type AbcKeyMode } from '@/domain/abcTranspose';
 import { EXERCISE_NOTATION_FORMAT } from '@/domain/exercise';
 
@@ -22,6 +22,15 @@ function notationForTransposition(notation: string) {
 
 export function ExerciseNotation(props: ExerciseNotationProps) {
   let scoreElement: HTMLDivElement | undefined;
+  const [renderedSource, setRenderedSource] = createSignal<string | null>(null);
+  const [copied, setCopied] = createSignal(false);
+
+  async function copyRenderedSource() {
+    const source = renderedSource();
+    if (source === null) return;
+    await navigator.clipboard.writeText(source);
+    setCopied(true);
+  }
 
   onMount(() => {
     let active = true;
@@ -37,6 +46,7 @@ export function ExerciseNotation(props: ExerciseNotationProps) {
 
       if (!target) return;
       if (format !== EXERCISE_NOTATION_FORMAT.ABC) {
+        setRenderedSource(null);
         target.replaceChildren();
         return;
       }
@@ -74,6 +84,8 @@ export function ExerciseNotation(props: ExerciseNotationProps) {
             }
           }
           if (clef) renderedNotation = changeAbcClef(renderedNotation, clef);
+          setRenderedSource(renderedNotation);
+          setCopied(false);
           abcjs.renderAbc(target, renderedNotation, { responsive: 'resize' });
         },
       );
@@ -87,6 +99,27 @@ export function ExerciseNotation(props: ExerciseNotationProps) {
   return (
     <div class="notation-block">
       <p hidden={props.format === EXERCISE_NOTATION_FORMAT.ABC}>{props.notation}</p>
+      <Show when={props.format === EXERCISE_NOTATION_FORMAT.ABC && renderedSource() !== null}>
+        <div class="abc-copy-control">
+          <Show when={copied()}>
+            <span class="abc-copy-status" role="status">
+              Copied!
+            </span>
+          </Show>
+          <button
+            class="abc-copy-button"
+            type="button"
+            aria-label={copied() ? 'ABC notation copied' : 'Copy ABC notation to clipboard'}
+            title={copied() ? 'Copied' : 'Copy ABC notation'}
+            onClick={() => void copyRenderedSource()}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 7V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
+              <rect x="3" y="8" width="13" height="13" rx="2" />
+            </svg>
+          </button>
+        </div>
+      </Show>
       <div
         class="abc-notation"
         aria-label="Rendered music notation"
