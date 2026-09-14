@@ -175,6 +175,42 @@ describe('RepertoireCatalogSearch', () => {
     expect(screen.getByText('Inclusive Lower Bound')).toBeTruthy();
   });
 
+  it('preserves typing while a debounced search is in flight and searches the newer value', async () => {
+    let resolveFirstSearch: ((page: ReturnType<typeof matchingPage>) => void) | undefined;
+    mocks.searchCatalog.mockImplementationOnce(
+      ({ data }) =>
+        new Promise((resolve) => {
+          resolveFirstSearch = () => resolve(matchingPage(data));
+        }),
+    );
+    renderSearch();
+    const input = screen.getByLabelText('Search catalog') as HTMLInputElement;
+
+    fireEvent.input(input, { target: { value: 'Moz' } });
+    await waitFor(() => expect(mocks.searchCatalog).toHaveBeenCalledTimes(1));
+
+    fireEvent.input(input, { target: { value: 'Moza' } });
+    resolveFirstSearch?.(
+      matchingPage({
+        query: 'Moz',
+        composer: '',
+        composerId: null,
+        instrumentIds: [],
+        instrumentMatch: 'ANY',
+        yearFrom: null,
+        yearTo: null,
+        page: 1,
+      }),
+    );
+
+    await waitFor(() => expect(input.value).toBe('Moza'));
+    await waitFor(() =>
+      expect(mocks.searchCatalog).toHaveBeenLastCalledWith({
+        data: expect.objectContaining({ query: 'Moza' }),
+      }),
+    );
+  });
+
   it('uses fuzzy full-name composer suggestions and stops after one is accepted', async () => {
     renderSearch();
     const input = screen.getByLabelText('Composer');

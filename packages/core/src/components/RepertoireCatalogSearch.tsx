@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js';
+import { For, Show, createEffect, createSignal, onCleanup, untrack } from 'solid-js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/solid-query';
 import { useRouter } from '@tanstack/solid-router';
 import { InstrumentFilter } from '@/components/InstrumentFields';
@@ -16,6 +16,19 @@ import {
 import { repertoireCatalogQueryOptions } from '@/data/repertoireQueries';
 
 export type RepertoireCatalogSearchState = CatalogSearchInput;
+
+function editableSearchIsEqual(
+  left: RepertoireCatalogSearchState,
+  right: RepertoireCatalogSearchState,
+) {
+  return (
+    left.query === right.query &&
+    left.composer === right.composer &&
+    left.composerId === right.composerId &&
+    left.yearFrom === right.yearFrom &&
+    left.yearTo === right.yearTo
+  );
+}
 
 function updateLibraryState(
   items: CatalogRepertoireRow[],
@@ -48,6 +61,8 @@ export function RepertoireCatalogSearch(props: {
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
   let composerSearchTimer: ReturnType<typeof setTimeout> | undefined;
   let composerRequestId = 0;
+  let pendingSearches = 0;
+  let lastSubmittedSearch = props.search;
 
   const catalogQuery = useQuery(() => ({
     ...repertoireCatalogQueryOptions(props.search),
@@ -56,11 +71,19 @@ export function RepertoireCatalogSearch(props: {
   const results = () => catalogQuery.data ?? props.initialPage;
 
   createEffect(() => {
-    setQuery(props.search.query);
-    setComposerQuery(props.search.composer);
-    setComposerId(props.search.composerId);
-    setYearFrom(props.search.yearFrom?.toString() ?? '');
-    setYearTo(props.search.yearTo?.toString() ?? '');
+    const incomingSearch = props.search;
+    const currentInput = untrack(() => searchInput(incomingSearch.page));
+    const inputIsUnchanged = editableSearchIsEqual(currentInput, lastSubmittedSearch);
+    const responseIsCurrent = editableSearchIsEqual(incomingSearch, lastSubmittedSearch);
+
+    if (pendingSearches === 0 || (inputIsUnchanged && responseIsCurrent)) {
+      setQuery(incomingSearch.query);
+      setComposerQuery(incomingSearch.composer);
+      setComposerId(incomingSearch.composerId);
+      setYearFrom(incomingSearch.yearFrom?.toString() ?? '');
+      setYearTo(incomingSearch.yearTo?.toString() ?? '');
+      lastSubmittedSearch = incomingSearch;
+    }
   });
 
   function searchInput(page: number): RepertoireCatalogSearchState {
@@ -78,7 +101,12 @@ export function RepertoireCatalogSearch(props: {
 
   function loadPage(page: number, replace = false) {
     clearTimeout(searchTimer);
-    void props.onSearchChange(searchInput(page), replace);
+    const nextSearch = searchInput(page);
+    lastSubmittedSearch = nextSearch;
+    pendingSearches += 1;
+    void Promise.resolve(props.onSearchChange(nextSearch, replace)).finally(() => {
+      pendingSearches -= 1;
+    });
   }
 
   function queueSearch(delay = 0) {
