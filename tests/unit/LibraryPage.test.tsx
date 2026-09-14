@@ -62,13 +62,14 @@ vi.mock('../../packages/core/src/data/repertoire', () => ({
   },
   getInstruments: vi.fn(),
   addRepertoireToLibrary: vi.fn(),
+  getRepertoireLibraryChildren: vi.fn(),
   getRepertoireLibraryPage: vi.fn(),
   removeRepertoireFromLibrary: vi.fn(),
 }));
 
 import { Route } from '@/routes/library';
 import { getExerciseLibraryPage } from '@/data/exercises';
-import { getRepertoireLibraryPage } from '@/data/repertoire';
+import { getRepertoireLibraryChildren, getRepertoireLibraryPage } from '@/data/repertoire';
 
 const Library = (Route as unknown as { component: () => JSX.Element }).component;
 
@@ -108,6 +109,8 @@ describe('Library page', () => {
           ownerId: '1',
           resourceType: null,
           resourceUrl: null,
+          inLibrary: true,
+          hasChildren: true,
           systemOwned: false,
           canEdit: true,
           canManage: true,
@@ -132,6 +135,19 @@ describe('Library page', () => {
       total: 1,
       totalPages: 1,
     });
+    vi.mocked(getRepertoireLibraryChildren).mockResolvedValue([
+      {
+        id: 'repertoire-child-1',
+        title: 'Loaded child repertoire',
+        compositionYear: 1900,
+        visibility: 'PRIVATE',
+        composers: [{ id: 'composer-1', name: 'Child Composer' }],
+        instruments: [],
+        inLibrary: false,
+        libraryNotes: null,
+        children: [],
+      },
+    ]);
     vi.mocked(getExerciseLibraryPage).mockResolvedValue({
       items: [
         {
@@ -178,9 +194,10 @@ describe('Library page', () => {
     expect(screen.getByText('Find repertoire')).toBeTruthy();
     await waitFor(() => expect(screen.getByText('Loaded repertoire')).toBeTruthy());
     expect(screen.queryByText('Loaded child repertoire')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Show 1 child' }));
-    expect(screen.getByText('Loaded child repertoire')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Hide 1 child' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Show children' }));
+    await waitFor(() => expect(screen.getByText('Loaded child repertoire')).toBeTruthy());
+    expect(screen.getByRole('button', { name: 'Hide children' })).toBeTruthy();
+    expect(getRepertoireLibraryChildren).toHaveBeenCalledTimes(1);
     expect(getExerciseLibraryPage).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse repertoire' }));

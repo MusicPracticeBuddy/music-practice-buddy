@@ -26,6 +26,7 @@ import {
   getInstruments,
   getPublicRepertoireCatalogPage,
   getOwnedRepertoirePage,
+  getRepertoireLibraryChildren,
   getRepertoireDetail,
   getRepertoireLibraryPage,
   removeRepertoireFromLibrary,
@@ -243,6 +244,47 @@ describe('library item persistence', () => {
     );
   });
 
+  it('stores and cascades repertoire root and effective access values', async () => {
+    const root = await pool.query<{ id: string }>(
+      `INSERT INTO repertoire (title, visibility, status)
+       VALUES ('Derived access root', 'PUBLIC', 'APPROVED')
+       RETURNING id::text`,
+    );
+    const child = await pool.query<{ id: string }>(
+      `INSERT INTO repertoire (title, parent_repertoire_id, visibility, status)
+       VALUES ('Inherited access child', $1, NULL, 'APPROVED')
+       RETURNING id::text`,
+      [root.rows[0]!.id],
+    );
+
+    await expect(
+      pool.query(
+        `SELECT root_repertoire_id::text AS "rootId",
+           effective_owner_musician_id::text AS "ownerId",
+           effective_visibility::text AS visibility
+         FROM repertoire WHERE id = $1`,
+        [child.rows[0]!.id],
+      ),
+    ).resolves.toMatchObject({
+      rows: [{ rootId: root.rows[0]!.id, ownerId: null, visibility: 'PUBLIC' }],
+    });
+
+    await pool.query(
+      `UPDATE repertoire
+       SET owner_musician_id = 1, visibility = 'PRIVATE'
+       WHERE id = $1`,
+      [root.rows[0]!.id],
+    );
+    await expect(
+      pool.query(
+        `SELECT effective_owner_musician_id::text AS "ownerId",
+           effective_visibility::text AS visibility
+         FROM repertoire WHERE id = $1`,
+        [child.rows[0]!.id],
+      ),
+    ).resolves.toMatchObject({ rows: [{ ownerId: '1', visibility: 'PRIVATE' }] });
+  });
+
   it('paginates repertoire and exercises in My Library on the server', async () => {
     await pool.query(
       `WITH inserted AS (
@@ -334,6 +376,42 @@ describe('library item persistence', () => {
        SELECT 'Public unowned child', id, NULL, 'APPROVED' FROM public_parent`,
     );
     await expect(getLibraryCounts()).resolves.toEqual({ repertoire: 22, exercises: 21 });
+    const publicParentPage = await getRepertoireLibraryPage({
+      data: { ...EMPTY_REPERTOIRE_LIBRARY_SEARCH, query: 'Public library parent' },
+    });
+    expect(publicParentPage).toMatchObject({
+      total: 1,
+      items: [{ title: 'Public library parent', inLibrary: true, hasChildren: true }],
+    });
+    await expect(
+      getRepertoireLibraryChildren({ data: publicParentPage.items[0]!.id }),
+    ).resolves.toMatchObject([{ title: 'Public unowned child', inLibrary: false }]);
+
+    await pool.query(
+      `WITH parent AS (
+         INSERT INTO repertoire (title, visibility, status)
+         VALUES ('Unsaved collection', 'PUBLIC', 'APPROVED')
+         RETURNING id
+       ), children AS (
+         INSERT INTO repertoire (title, parent_repertoire_id, visibility, status)
+         SELECT title, parent.id, NULL, 'APPROVED'
+         FROM parent
+         CROSS JOIN (VALUES ('Saved movement'), ('Unsaved sibling')) child(title)
+         RETURNING id, title
+       )
+       INSERT INTO musician_repertoire_library (musician_id, repertoire_id)
+       SELECT 1, id FROM children WHERE title = 'Saved movement'`,
+    );
+    const unsavedCollectionPage = await getRepertoireLibraryPage({
+      data: { ...EMPTY_REPERTOIRE_LIBRARY_SEARCH, query: 'Saved movement' },
+    });
+    expect(unsavedCollectionPage).toMatchObject({
+      total: 1,
+      items: [{ title: 'Unsaved collection', inLibrary: false, hasChildren: true }],
+    });
+    await expect(
+      getRepertoireLibraryChildren({ data: unsavedCollectionPage.items[0]!.id }),
+    ).resolves.toMatchObject([{ title: 'Saved movement', inLibrary: true }]);
 
     expect(
       await getExerciseLibraryPage({
@@ -357,19 +435,16 @@ describe('library item persistence', () => {
       total: 1,
       items: [expect.objectContaining({ title: 'Piano Concerto 21' })],
     });
-    expect(
-      await getRepertoireLibraryPage({
-        data: { ...EMPTY_REPERTOIRE_LIBRARY_SEARCH, query: 'Larghetto' },
-      }),
-    ).toMatchObject({
-      total: 1,
-      items: [
-        expect.objectContaining({
-          title: 'Piano Concerto 21',
-          children: [expect.objectContaining({ title: 'Larghetto movement' })],
-        }),
-      ],
+    const larghettoPage = await getRepertoireLibraryPage({
+      data: { ...EMPTY_REPERTOIRE_LIBRARY_SEARCH, query: 'Larghetto' },
     });
+    expect(larghettoPage).toMatchObject({
+      total: 1,
+      items: [expect.objectContaining({ title: 'Piano Concerto 21', hasChildren: true })],
+    });
+    await expect(
+      getRepertoireLibraryChildren({ data: larghettoPage.items[0]!.id }),
+    ).resolves.toEqual([expect.objectContaining({ title: 'Larghetto movement' })]);
     expect(
       await getRepertoireLibraryPage({
         data: {

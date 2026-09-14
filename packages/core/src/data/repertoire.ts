@@ -19,6 +19,8 @@ export type RepertoireRow = {
   resourceType: string | null;
   resourceUrl: string | null;
   libraryNotes: string | null;
+  inLibrary: boolean;
+  hasChildren: boolean;
   children?: CatalogRepertoireRow[];
   systemOwned: boolean;
 } & ResourceAccess;
@@ -112,6 +114,7 @@ export type CatalogRepertoireRow = {
   inLibrary: boolean;
   libraryNotes?: string | null;
   ownedByUser?: boolean;
+  hasChildren?: boolean;
   children: CatalogRepertoireRow[];
 };
 
@@ -469,17 +472,6 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
       `repertoire.parent_repertoire_id IS NULL`,
       `repertoire.status = 'APPROVED'`,
       `repertoire.deleted_at IS NULL`,
-      `(
-        repertoire.visibility = 'PUBLIC'
-        OR (
-          repertoire.owner_musician_id = $1
-          AND NOT EXISTS (
-            SELECT 1 FROM musician_repertoire_library owned_library
-            WHERE owned_library.repertoire_id = repertoire.id
-              AND owned_library.musician_id = $1
-          )
-        )
-      )`,
     ];
     const parameter = (value: unknown) => {
       parameters.push(value);
@@ -493,50 +485,35 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
       const fuzzyTitleMatch = (column: string) =>
         fuzzyValue ? `OR CAST(${fuzzyValue} AS text) <<% CAST(${column} AS text)` : '';
       conditions.push(`repertoire.id IN (
-        WITH RECURSIVE direct_matches AS (
-          SELECT candidate.id, candidate.parent_repertoire_id
+        WITH accessible_candidates AS (
+          SELECT candidate.id, candidate.root_repertoire_id, candidate.title
           FROM repertoire candidate
           WHERE candidate.status = 'APPROVED'
             AND candidate.deleted_at IS NULL
-            AND (
-              candidate.owner_musician_id = $1
-              OR candidate.visibility = 'PUBLIC'
-              OR (candidate.owner_musician_id IS NULL AND candidate.visibility IS NULL)
-            )
-            AND (
-              candidate.title ILIKE ${substring} ESCAPE '\\'
-              ${fuzzyTitleMatch('candidate.title')}
-            )
+            AND candidate.effective_owner_musician_id = $1
           UNION
-          SELECT candidate.id, candidate.parent_repertoire_id
+          SELECT candidate.id, candidate.root_repertoire_id, candidate.title
           FROM repertoire candidate
+          WHERE candidate.status = 'APPROVED'
+            AND candidate.deleted_at IS NULL
+            AND candidate.effective_visibility = 'PUBLIC'
+        ), direct_matches AS (
+          SELECT candidate.root_repertoire_id
+          FROM accessible_candidates candidate
+          WHERE candidate.title ILIKE ${substring} ESCAPE '\\'
+             ${fuzzyTitleMatch('candidate.title')}
+          UNION
+          SELECT candidate.root_repertoire_id
+          FROM accessible_candidates candidate
           JOIN repertoire_credit search_credit ON search_credit.repertoire_id = candidate.id
           JOIN person search_person ON search_person.id = search_credit.person_id
-          WHERE candidate.status = 'APPROVED'
-            AND candidate.deleted_at IS NULL
-            AND (
-              candidate.owner_musician_id = $1
-              OR candidate.visibility = 'PUBLIC'
-              OR (candidate.owner_musician_id IS NULL AND candidate.visibility IS NULL)
-            )
-            AND search_credit.role = 'COMPOSER'
+          WHERE search_credit.role = 'COMPOSER'
             AND (
               search_person.name ILIKE ${substring} ESCAPE '\\'
               ${fuzzyTitleMatch('search_person.name')}
             )
-        ), matching_ancestors AS (
-          SELECT id, parent_repertoire_id
-          FROM direct_matches
-          UNION
-          SELECT parent.id, parent.parent_repertoire_id
-          FROM repertoire parent
-          JOIN matching_ancestors child ON parent.id = child.parent_repertoire_id
-          WHERE parent.status = 'APPROVED'
-            AND parent.deleted_at IS NULL
         )
-        SELECT id
-        FROM matching_ancestors
-        WHERE parent_repertoire_id IS NULL
+        SELECT root_repertoire_id FROM direct_matches
       )`);
     }
     if (data.composerId !== null) {
@@ -605,16 +582,53 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
     const offset = parameter((data.page - 1) * CATALOG_PAGE_SIZE);
     const [countResult, result] = await Promise.all([
       pool.query<{ total: number }>(
-        `SELECT count(*)::integer AS total
+        `WITH catalog_roots AS (
+           SELECT id FROM repertoire
+           WHERE parent_repertoire_id IS NULL
+             AND effective_visibility = 'PUBLIC'
+           UNION
+           SELECT owned.id FROM repertoire owned
+           WHERE owned.parent_repertoire_id IS NULL
+             AND owned.effective_owner_musician_id = $1
+             AND NOT EXISTS (
+               SELECT 1 FROM musician_repertoire_library library
+               WHERE library.repertoire_id = owned.id AND library.musician_id = $1
+             )
+         )
+         SELECT count(*)::integer AS total
          FROM repertoire
+         JOIN catalog_roots ON catalog_roots.id = repertoire.id
          WHERE $1::bigint IS NOT NULL AND ${where}`,
         countParameters,
       ),
       pool.query<Omit<CatalogRepertoireRow, 'children'> & { parentId: string | null }>(
-        `WITH RECURSIVE matching_roots AS (
+        `WITH RECURSIVE accessible_repertoire AS (
+           SELECT id, parent_repertoire_id
+           FROM repertoire
+           WHERE status = 'APPROVED' AND deleted_at IS NULL
+             AND effective_owner_musician_id = $1
+           UNION
+           SELECT id, parent_repertoire_id
+           FROM repertoire
+           WHERE status = 'APPROVED' AND deleted_at IS NULL
+             AND effective_visibility = 'PUBLIC'
+         ), catalog_roots AS (
+           SELECT id FROM repertoire
+           WHERE parent_repertoire_id IS NULL
+             AND effective_visibility = 'PUBLIC'
+           UNION
+           SELECT owned.id FROM repertoire owned
+           WHERE owned.parent_repertoire_id IS NULL
+             AND owned.effective_owner_musician_id = $1
+             AND NOT EXISTS (
+               SELECT 1 FROM musician_repertoire_library library
+               WHERE library.repertoire_id = owned.id AND library.musician_id = $1
+             )
+         ), matching_roots AS (
            SELECT repertoire.id,
              row_number() OVER (ORDER BY ${catalogOrder}) AS catalog_rank
            FROM repertoire
+           JOIN catalog_roots ON catalog_roots.id = repertoire.id
            WHERE ${where}
            ORDER BY ${catalogOrder}
            LIMIT ${limit} OFFSET ${offset}
@@ -626,13 +640,8 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
            UNION ALL
            SELECT child.id, child.parent_repertoire_id, parent.root_id, parent.catalog_rank
            FROM repertoire child
+           JOIN accessible_repertoire accessible ON accessible.id = child.id
            JOIN page_catalog parent ON parent.id = child.parent_repertoire_id
-           WHERE child.status = 'APPROVED'
-             AND child.deleted_at IS NULL
-             AND (
-               child.owner_musician_id = $1
-               OR (child.owner_musician_id IS NULL AND child.visibility IS NULL)
-             )
          )
          SELECT
            repertoire.id::text,
@@ -651,7 +660,7 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
                'Measures ' || repertoire.start_measure || '–' || repertoire.end_measure
              ELSE NULL
            END AS "measureRange",
-           COALESCE(repertoire.visibility, root.visibility)::text AS visibility,
+           repertoire.effective_visibility::text AS visibility,
            COALESCE((
              SELECT jsonb_agg(
                jsonb_build_object('id', composer.id::text, 'name', composer.name)
@@ -678,10 +687,9 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
              SELECT library.notes FROM musician_repertoire_library library
              WHERE library.repertoire_id = repertoire.id AND library.musician_id = $1
            ) AS "libraryNotes",
-           root.owner_musician_id = $1 AS "ownedByUser"
+           repertoire.effective_owner_musician_id = $1 AS "ownedByUser"
          FROM repertoire
          JOIN page_catalog ON page_catalog.id = repertoire.id
-         JOIN repertoire root ON root.id = page_catalog.root_id
          ORDER BY page_catalog.catalog_rank, repertoire.parent_repertoire_id NULLS FIRST,
            lower(repertoire.title), repertoire.id`,
         parameters,
@@ -841,16 +849,23 @@ export const getOwnedRepertoirePage = createServerFn({ method: 'GET' })
 
 const ACCESS_CTE = `
   WITH RECURSIVE repertoire_access AS (
-    SELECT id, owner_musician_id, visibility
+    SELECT
+      id,
+      effective_owner_musician_id AS owner_musician_id,
+      effective_visibility AS visibility
     FROM repertoire
-    WHERE parent_repertoire_id IS NULL AND deleted_at IS NULL
-    UNION ALL
-    SELECT child.id,
-      COALESCE(child.owner_musician_id, access.owner_musician_id),
-      COALESCE(child.visibility, access.visibility)
-    FROM repertoire child
-    JOIN repertoire_access access ON access.id = child.parent_repertoire_id
-    WHERE child.deleted_at IS NULL
+    WHERE deleted_at IS NULL
+  )
+`;
+
+const LIBRARY_ROOTS_CTE = `
+  , library_roots AS (
+    SELECT DISTINCT r.root_repertoire_id AS id
+    FROM musician_repertoire_library library
+    JOIN repertoire r ON r.id = library.repertoire_id
+    WHERE library.musician_id = $1
+      AND r.deleted_at IS NULL
+      AND (r.effective_owner_musician_id = $1 OR r.effective_visibility = 'PUBLIC')
   )
 `;
 
@@ -876,26 +891,7 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
   })
   .handler(async ({ data, context }): Promise<RepertoireLibraryPage> => {
     const parameters: unknown[] = [context.user.musicianId];
-    const conditions = [
-      `access.owner_musician_id = $1 OR access.visibility = 'PUBLIC'`,
-      `NOT EXISTS (
-        WITH RECURSIVE ancestors AS (
-          SELECT parent_repertoire_id AS id
-          FROM repertoire
-          WHERE id = r.id
-          UNION ALL
-          SELECT parent.parent_repertoire_id
-          FROM repertoire parent
-          JOIN ancestors ON ancestors.id = parent.id
-          WHERE parent.parent_repertoire_id IS NOT NULL
-        )
-        SELECT 1
-        FROM ancestors
-        JOIN musician_repertoire_library ancestor_library
-          ON ancestor_library.repertoire_id = ancestors.id
-        WHERE ancestor_library.musician_id = $1
-      )`,
-    ];
+    const conditions = [`access.owner_musician_id = $1 OR access.visibility = 'PUBLIC'`];
     const parameter = (value: unknown) => {
       parameters.push(value);
       return `$${parameters.length}`;
@@ -965,25 +961,23 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
     const offset = parameter((data.page - 1) * REPERTOIRE_LIBRARY_PAGE_SIZE);
     const [countResult, result] = await Promise.all([
       pool.query<{ total: number }>(
-        `${ACCESS_CTE}
+        `${ACCESS_CTE}${LIBRARY_ROOTS_CTE}
          SELECT count(*)::integer AS total
          FROM repertoire r
+         JOIN library_roots roots ON roots.id = r.id
          JOIN repertoire_access access ON access.id = r.id
-         JOIN musician_repertoire_library library
-           ON library.repertoire_id = r.id AND library.musician_id = $1
          WHERE ${where}`,
         countParameters,
       ),
       pool.query<
         Omit<RepertoireRow, keyof ResourceAccess | 'systemOwned'> & { externalId: string | null }
       >(
-        `${ACCESS_CTE},
+        `${ACCESS_CTE}${LIBRARY_ROOTS_CTE},
          page_repertoire AS (
            SELECT r.id
            FROM repertoire r
+           JOIN library_roots roots ON roots.id = r.id
            JOIN repertoire_access access ON access.id = r.id
-           JOIN musician_repertoire_library library
-             ON library.repertoire_id = r.id AND library.musician_id = $1
            WHERE ${where}
            ORDER BY r.parent_repertoire_id NULLS FIRST, lower(r.title), r.id
            LIMIT ${limit} OFFSET ${offset}
@@ -1008,7 +1002,14 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
            string_agg(DISTINCT instrument.name, ', ') AS instrument,
            resource.type::text AS "resourceType",
            resource.url AS "resourceUrl",
-           library.notes AS "libraryNotes"
+           library.notes AS "libraryNotes",
+           library.repertoire_id IS NOT NULL AS "inLibrary",
+           EXISTS (
+             SELECT 1 FROM repertoire child
+             JOIN repertoire_access child_access ON child_access.id = child.id
+             WHERE child.parent_repertoire_id = r.id
+               AND (child_access.owner_musician_id = $1 OR child_access.visibility = 'PUBLIC')
+           ) AS "hasChildren"
          FROM page_repertoire page
          JOIN repertoire r ON r.id = page.id
          JOIN repertoire_access access ON access.id = r.id
@@ -1026,104 +1027,22 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
            ORDER BY child.position NULLS LAST, child.id
            LIMIT 1
          ) resource ON TRUE
-         JOIN musician_repertoire_library library
+         LEFT JOIN musician_repertoire_library library
            ON library.repertoire_id = r.id AND library.musician_id = $1
          GROUP BY r.id, r.external_id, parent.title, access.visibility, access.owner_musician_id,
-           owner.display_name, resource.type, resource.url, library.notes
+           owner.display_name, resource.type, resource.url, library.notes, library.repertoire_id
          ORDER BY r.parent_repertoire_id NULLS FIRST, lower(r.title), r.id`,
         parameters,
       ),
     ]);
     const total = countResult.rows[0]?.total ?? 0;
-    const rootIds = result.rows.map((row) => row.id);
-    const childResult =
-      rootIds.length === 0
-        ? { rows: [] }
-        : await pool.query<
-            Omit<CatalogRepertoireRow, 'children'> & {
-              parentId: string;
-              rootId: string;
-            }
-          >(
-            `${ACCESS_CTE},
-             descendant AS (
-               SELECT child.id, child.parent_repertoire_id, roots.id AS root_id
-               FROM unnest($2::bigint[]) roots(id)
-               JOIN repertoire child ON child.parent_repertoire_id = roots.id
-               WHERE child.deleted_at IS NULL
-               UNION ALL
-               SELECT child.id, child.parent_repertoire_id, parent.root_id
-               FROM repertoire child
-               JOIN descendant parent ON parent.id = child.parent_repertoire_id
-               WHERE child.deleted_at IS NULL
-             )
-             SELECT
-               r.id::text,
-               r.title,
-               r.parent_repertoire_id::text AS "parentId",
-               descendant.root_id::text AS "rootId",
-               COALESCE(r.composition_year, EXTRACT(YEAR FROM r.publication_date)::integer)
-                 AS "compositionYear",
-               CASE
-                 WHEN r.start_measure IS NOT NULL THEN
-                   'Measures ' || r.start_measure || '–' || r.end_measure
-                 ELSE NULL
-               END AS "measureRange",
-               access.visibility::text AS visibility,
-               COALESCE((
-                 SELECT jsonb_agg(
-                   jsonb_build_object('id', composer.id::text, 'name', composer.name)
-                   ORDER BY credit.position NULLS LAST, composer.name
-                 )
-                 FROM repertoire_credit credit
-                 JOIN person composer ON composer.id = credit.person_id
-                 WHERE credit.repertoire_id = r.id AND credit.role = 'COMPOSER'
-               ), '[]'::jsonb) AS composers,
-               COALESCE((
-                 SELECT jsonb_agg(
-                   jsonb_build_object('id', instrument.id::text, 'name', instrument.name)
-                   ORDER BY part.position NULLS LAST, instrument.name
-                 )
-                 FROM repertoire_instrument part
-                 JOIN instrument ON instrument.id = part.instrument_id
-                 WHERE part.repertoire_id = r.id
-               ), '[]'::jsonb) AS instruments,
-               library.repertoire_id IS NOT NULL AS "inLibrary",
-               library.notes AS "libraryNotes",
-               access.owner_musician_id = $1 AS "ownedByUser"
-             FROM descendant
-             JOIN repertoire r ON r.id = descendant.id
-             JOIN repertoire_access access ON access.id = r.id
-             LEFT JOIN musician_repertoire_library library
-               ON library.repertoire_id = r.id AND library.musician_id = $1
-             WHERE access.owner_musician_id = $1 OR access.visibility = 'PUBLIC'
-             ORDER BY descendant.root_id, r.parent_repertoire_id, lower(r.title), r.id`,
-            [context.user.musicianId, rootIds],
-          );
-
-    const childrenByRoot = new Map<string, CatalogRepertoireRow[]>();
-    for (const rootId of rootIds) {
-      const rows = childResult.rows.filter((row) => row.rootId === rootId);
-      const items = new Map(
-        rows.map((row) => [row.id, { ...row, children: [] as CatalogRepertoireRow[] }]),
-      );
-      const children: CatalogRepertoireRow[] = [];
-      for (const row of rows) {
-        const item = items.get(row.id)!;
-        const parent = items.get(row.parentId);
-        if (parent) parent.children.push(item);
-        else children.push(item);
-      }
-      childrenByRoot.set(rootId, children);
-    }
-
     return {
       items: result.rows.map((repertoire) => {
         const access = resourceAccess(context.user, repertoire.ownerId, repertoire.visibility);
         const systemOwned = repertoire.externalId !== null;
         return {
           ...repertoire,
-          children: childrenByRoot.get(repertoire.id) ?? [],
+          children: undefined,
           systemOwned,
           ...access,
           canEdit: systemOwned ? false : access.canEdit,
@@ -1135,6 +1054,89 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
       total,
       totalPages: Math.ceil(total / REPERTOIRE_LIBRARY_PAGE_SIZE),
     };
+  });
+
+export const getRepertoireLibraryChildren = createServerFn({ method: 'GET' })
+  .middleware([authMiddleware])
+  .validator((parentId: string) => {
+    if (!/^\d+$/.test(parentId)) throw new Error('Invalid repertoire parent');
+    return parentId;
+  })
+  .handler(async ({ data: parentId, context }): Promise<CatalogRepertoireRow[]> => {
+    const result = await pool.query<Omit<CatalogRepertoireRow, 'children'>>(
+      `${ACCESS_CTE},
+       direct_library AS (
+         SELECT r.id, r.parent_repertoire_id
+         FROM musician_repertoire_library library
+         JOIN repertoire r ON r.id = library.repertoire_id
+         WHERE library.musician_id = $1 AND r.deleted_at IS NULL
+       ),
+       library_ancestors AS (
+         SELECT id, parent_repertoire_id FROM direct_library
+         UNION
+         SELECT parent.id, parent.parent_repertoire_id
+         FROM repertoire parent
+         JOIN library_ancestors child ON child.parent_repertoire_id = parent.id
+         JOIN repertoire_access access ON access.id = parent.id
+         WHERE access.owner_musician_id = $1 OR access.visibility = 'PUBLIC'
+       ),
+       library_descendants AS (
+         SELECT id, parent_repertoire_id FROM direct_library
+         UNION
+         SELECT child.id, child.parent_repertoire_id
+         FROM repertoire child
+         JOIN library_descendants parent ON child.parent_repertoire_id = parent.id
+         JOIN repertoire_access access ON access.id = child.id
+         WHERE child.deleted_at IS NULL
+           AND (access.owner_musician_id = $1 OR access.visibility = 'PUBLIC')
+       ),
+       included AS (
+         SELECT id, parent_repertoire_id FROM library_ancestors
+         UNION
+         SELECT id, parent_repertoire_id FROM library_descendants
+       )
+       SELECT
+         r.id::text,
+         r.title,
+         COALESCE(r.composition_year, EXTRACT(YEAR FROM r.publication_date)::integer)
+           AS "compositionYear",
+         CASE WHEN r.start_measure IS NOT NULL
+           THEN 'Measures ' || r.start_measure || '–' || r.end_measure ELSE NULL
+         END AS "measureRange",
+         access.visibility::text AS visibility,
+         COALESCE((
+           SELECT jsonb_agg(jsonb_build_object('id', person.id::text, 'name', person.name)
+             ORDER BY credit.position NULLS LAST, person.name)
+           FROM repertoire_credit credit
+           JOIN person ON person.id = credit.person_id
+           WHERE credit.repertoire_id = r.id AND credit.role = 'COMPOSER'
+         ), '[]'::jsonb) AS composers,
+         COALESCE((
+           SELECT jsonb_agg(jsonb_build_object('id', instrument.id::text, 'name', instrument.name)
+             ORDER BY part.position NULLS LAST, instrument.name)
+           FROM repertoire_instrument part
+           JOIN instrument ON instrument.id = part.instrument_id
+           WHERE part.repertoire_id = r.id
+         ), '[]'::jsonb) AS instruments,
+         library.repertoire_id IS NOT NULL AS "inLibrary",
+         library.notes AS "libraryNotes",
+         access.owner_musician_id = $1 AS "ownedByUser",
+         EXISTS (
+           SELECT 1 FROM repertoire grandchild
+           JOIN included grandchild_included ON grandchild_included.id = grandchild.id
+           WHERE grandchild.parent_repertoire_id = r.id
+         ) AS "hasChildren"
+       FROM repertoire r
+       JOIN included ON included.id = r.id
+       JOIN repertoire_access access ON access.id = r.id
+       LEFT JOIN musician_repertoire_library library
+         ON library.repertoire_id = r.id AND library.musician_id = $1
+       WHERE r.parent_repertoire_id = $2
+         AND (access.owner_musician_id = $1 OR access.visibility = 'PUBLIC')
+       ORDER BY lower(r.title), r.id`,
+      [context.user.musicianId, parentId],
+    );
+    return result.rows.map((row) => ({ ...row, children: [] }));
   });
 
 export const getRepertoireDetail = createServerFn({ method: 'GET' })

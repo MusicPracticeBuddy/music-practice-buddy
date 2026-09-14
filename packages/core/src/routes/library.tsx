@@ -14,6 +14,7 @@ import { exerciseKeys, exerciseLibraryQueryOptions } from '@/data/exerciseQuerie
 import {
   addRepertoireToLibrary,
   getInstruments,
+  getRepertoireLibraryChildren,
   removeRepertoireFromLibrary,
   type RepertoireLibrarySearchInput,
   type RepertoireLibraryPage,
@@ -48,6 +49,9 @@ function Library() {
   const [repertoireExpanded, setRepertoireExpanded] = createSignal(false);
   const [exercisesExpanded, setExercisesExpanded] = createSignal(false);
   const [expandedRepertoireIds, setExpandedRepertoireIds] = createSignal<string[]>([]);
+  const [repertoireChildren, setRepertoireChildren] = createSignal<
+    Record<string, CatalogRepertoireRow[]>
+  >({});
   const [repertoireQuery, setRepertoireQuery] = createSignal('');
   const [composer, setComposer] = createSignal('');
   const [instrumentIds, setInstrumentIds] = createSignal<string[]>([]);
@@ -177,6 +181,18 @@ function Library() {
 
   async function updateRepertoireLibrary(id: string, add: boolean) {
     await repertoireMutation.mutateAsync({ id, add });
+  }
+
+  async function toggleRepertoireChildren(id: string) {
+    if (expandedRepertoireIds().includes(id)) {
+      setExpandedRepertoireIds((ids) => ids.filter((expandedId) => expandedId !== id));
+      return;
+    }
+    setExpandedRepertoireIds((ids) => [...ids, id]);
+    if (!(id in repertoireChildren())) {
+      const children = await getRepertoireLibraryChildren({ data: id });
+      setRepertoireChildren((loaded) => ({ ...loaded, [id]: children }));
+    }
   }
 
   return (
@@ -346,34 +362,28 @@ function Library() {
                                 piece.visibility.toLowerCase(),
                                 ...(piece.measureRange ? [piece.measureRange] : []),
                               ],
-                              inLibrary: true,
+                              inLibrary: piece.inLibrary,
                               libraryNotes: piece.libraryNotes,
                             }}
                             pending={updatingRepertoireId() === piece.id}
                             actions={
-                              <Show when={(piece.children?.length ?? 0) > 0}>
+                              <Show when={piece.hasChildren}>
                                 <button
                                   class="text-button catalog-expand-button"
                                   type="button"
                                   aria-expanded={expanded()}
-                                  onClick={() =>
-                                    setExpandedRepertoireIds((ids) =>
-                                      expanded()
-                                        ? ids.filter((id) => id !== piece.id)
-                                        : [...ids, piece.id],
-                                    )
-                                  }
+                                  onClick={() => void toggleRepertoireChildren(piece.id)}
                                 >
-                                  {expanded() ? 'Hide' : 'Show'} {piece.children!.length}{' '}
-                                  {piece.children!.length === 1 ? 'child' : 'children'}
+                                  {expanded() ? 'Hide' : 'Show'} children
                                 </button>
                               </Show>
                             }
+                            onAdd={() => updateRepertoireLibrary(piece.id, true)}
                             onRemove={() => updateRepertoireLibrary(piece.id, false)}
                           >
                             <Show when={expanded()}>
                               <LibraryRepertoireChildren
-                                items={piece.children ?? []}
+                                items={repertoireChildren()[piece.id] ?? []}
                                 updatingId={updatingRepertoireId()}
                                 onAdd={(item) => updateRepertoireLibrary(item.id, true)}
                                 onRemove={(item) => updateRepertoireLibrary(item.id, false)}
@@ -604,32 +614,54 @@ function LibraryRepertoireChildren(props: {
   return (
     <ul class="catalog-child-list">
       <For each={props.items}>
-        {(item) => (
-          <li>
-            <RepertoireListRow
-              item={{
-                id: item.id,
-                title: item.title,
-                composer: item.composers.map((composer) => composer.name).join(', '),
-                details: [
-                  item.instruments.map((instrument) => instrument.name).join(', ') || 'Unscored',
-                  item.compositionYear === null ? 'Year unknown' : String(item.compositionYear),
-                  item.visibility.toLowerCase(),
-                  ...(item.measureRange ? [item.measureRange] : []),
-                ],
-                inLibrary: item.inLibrary,
-                libraryNotes: item.libraryNotes,
-              }}
-              pending={props.updatingId === item.id}
-              onAdd={() => props.onAdd(item)}
-              onRemove={() => props.onRemove(item)}
-            >
-              <Show when={item.children.length > 0}>
-                <LibraryRepertoireChildren {...props} items={item.children} />
-              </Show>
-            </RepertoireListRow>
-          </li>
-        )}
+        {(item) => {
+          const [expanded, setExpanded] = createSignal(false);
+          const [children, setChildren] = createSignal<CatalogRepertoireRow[] | null>(null);
+          const toggleChildren = async () => {
+            if (!expanded() && children() === null) {
+              setChildren(await getRepertoireLibraryChildren({ data: item.id }));
+            }
+            setExpanded(!expanded());
+          };
+          return (
+            <li>
+              <RepertoireListRow
+                item={{
+                  id: item.id,
+                  title: item.title,
+                  composer: item.composers.map((composer) => composer.name).join(', '),
+                  details: [
+                    item.instruments.map((instrument) => instrument.name).join(', ') || 'Unscored',
+                    item.compositionYear === null ? 'Year unknown' : String(item.compositionYear),
+                    item.visibility.toLowerCase(),
+                    ...(item.measureRange ? [item.measureRange] : []),
+                  ],
+                  inLibrary: item.inLibrary,
+                  libraryNotes: item.libraryNotes,
+                }}
+                pending={props.updatingId === item.id}
+                actions={
+                  <Show when={item.hasChildren}>
+                    <button
+                      class="text-button catalog-expand-button"
+                      type="button"
+                      aria-expanded={expanded()}
+                      onClick={() => void toggleChildren()}
+                    >
+                      {expanded() ? 'Hide' : 'Show'} children
+                    </button>
+                  </Show>
+                }
+                onAdd={() => props.onAdd(item)}
+                onRemove={() => props.onRemove(item)}
+              >
+                <Show when={expanded()}>
+                  <LibraryRepertoireChildren {...props} items={children() ?? []} />
+                </Show>
+              </RepertoireListRow>
+            </li>
+          );
+        }}
       </For>
     </ul>
   );
