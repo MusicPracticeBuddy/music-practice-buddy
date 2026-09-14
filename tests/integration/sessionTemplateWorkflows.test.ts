@@ -377,7 +377,7 @@ describe('library item persistence', () => {
     );
     await expect(getLibraryCounts()).resolves.toEqual({ repertoire: 22, exercises: 21 });
     const publicParentPage = await getRepertoireLibraryPage({
-      data: { ...EMPTY_REPERTOIRE_LIBRARY_SEARCH, query: 'Public library parent' },
+      data: { ...EMPTY_REPERTOIRE_LIBRARY_SEARCH, query: 'Pub' },
     });
     expect(publicParentPage).toMatchObject({
       total: 1,
@@ -403,7 +403,7 @@ describe('library item persistence', () => {
        SELECT 1, id FROM children WHERE title = 'Saved movement'`,
     );
     const unsavedCollectionPage = await getRepertoireLibraryPage({
-      data: { ...EMPTY_REPERTOIRE_LIBRARY_SEARCH, query: 'Saved movement' },
+      data: { ...EMPTY_REPERTOIRE_LIBRARY_SEARCH, query: 'Uns' },
     });
     expect(unsavedCollectionPage).toMatchObject({
       total: 1,
