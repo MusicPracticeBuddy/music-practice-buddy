@@ -210,15 +210,10 @@ type UpdateRepertoireInput = RepertoireInput & {
 };
 
 function validateMeasureRange(startMeasure: number | null, endMeasure: number | null) {
-  if ((startMeasure === null) !== (endMeasure === null)) {
-    throw new Error('Both a starting and ending measure are required for an excerpt');
-  }
   if (
-    startMeasure !== null &&
-    (!Number.isInteger(startMeasure) ||
-      !Number.isInteger(endMeasure) ||
-      startMeasure < 1 ||
-      endMeasure! < startMeasure)
+    (startMeasure !== null && (!Number.isInteger(startMeasure) || startMeasure < 1)) ||
+    (endMeasure !== null && (!Number.isInteger(endMeasure) || endMeasure < 1)) ||
+    (startMeasure !== null && endMeasure !== null && endMeasure < startMeasure)
   ) {
     throw new Error('Measure ranges must use positive whole numbers in ascending order');
   }
@@ -656,8 +651,10 @@ export const getPublicRepertoireCatalogPage = createServerFn({ method: 'GET' })
              EXTRACT(YEAR FROM repertoire.publication_date)::integer
            ) AS "compositionYear",
            CASE
-             WHEN repertoire.start_measure IS NOT NULL THEN
+             WHEN repertoire.start_measure IS NOT NULL AND repertoire.end_measure IS NOT NULL THEN
                'Measures ' || repertoire.start_measure || '–' || repertoire.end_measure
+             WHEN repertoire.start_measure IS NOT NULL THEN 'from ' || repertoire.start_measure
+             WHEN repertoire.end_measure IS NOT NULL THEN 'until ' || repertoire.end_measure
              ELSE NULL
            END AS "measureRange",
            repertoire.effective_visibility::text AS visibility,
@@ -997,8 +994,10 @@ export const getRepertoireLibraryPage = createServerFn({ method: 'GET' })
            r.external_id AS "externalId",
            parent.title AS "parentTitle",
            CASE
-             WHEN r.start_measure IS NOT NULL THEN
-               'Measures ' || r.start_measure || COALESCE('–' || r.end_measure, '')
+             WHEN r.start_measure IS NOT NULL AND r.end_measure IS NOT NULL THEN
+               'Measures ' || r.start_measure || '–' || r.end_measure
+             WHEN r.start_measure IS NOT NULL THEN 'from ' || r.start_measure
+             WHEN r.end_measure IS NOT NULL THEN 'until ' || r.end_measure
              ELSE NULL
            END AS "measureRange",
            r.effective_visibility::text AS visibility,
@@ -1131,8 +1130,12 @@ export const getRepertoireLibraryChildren = createServerFn({ method: 'GET' })
          r.title,
          COALESCE(r.composition_year, EXTRACT(YEAR FROM r.publication_date)::integer)
            AS "compositionYear",
-         CASE WHEN r.start_measure IS NOT NULL
-           THEN 'Measures ' || r.start_measure || '–' || r.end_measure ELSE NULL
+         CASE
+           WHEN r.start_measure IS NOT NULL AND r.end_measure IS NOT NULL
+             THEN 'Measures ' || r.start_measure || '–' || r.end_measure
+           WHEN r.start_measure IS NOT NULL THEN 'from ' || r.start_measure
+           WHEN r.end_measure IS NOT NULL THEN 'until ' || r.end_measure
+           ELSE NULL
          END AS "measureRange",
          r.effective_visibility::text AS visibility,
          COALESCE((
@@ -1395,6 +1398,7 @@ export const createChildRepertoire = createServerFn({ method: 'POST' })
          JOIN repertoire_access access ON access.id = parent.id
          WHERE parent.id = $6
            AND parent.start_measure IS NULL
+           AND parent.end_measure IS NULL
            AND parent.deleted_at IS NULL
            AND (
              access.owner_musician_id = $5

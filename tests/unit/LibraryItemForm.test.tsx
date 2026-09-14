@@ -229,6 +229,28 @@ describe('LibraryItemForm', () => {
     );
   });
 
+  it('creates an excerpt with either measure bound omitted', async () => {
+    render(() => (
+      <LibraryItemForm
+        kind="repertoire"
+        parentId="12"
+        parentName="Orchestral work"
+        isExcerpt
+        visibility="PRIVATE"
+      />
+    ));
+
+    fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'Opening excerpt' } });
+    fireEvent.input(screen.getByLabelText('Ending measure'), { target: { value: '24' } });
+    fireEvent.submit(screen.getByRole('button', { name: 'Create repertoire' }).closest('form')!);
+
+    await waitFor(() =>
+      expect(mocks.createChildRepertoire).toHaveBeenCalledWith({
+        data: expect.objectContaining({ startMeasure: null, endMeasure: 24 }),
+      }),
+    );
+  });
+
   it('keeps excerpt measure bounds in sync and rejects an inverted range', async () => {
     render(() => (
       <LibraryItemForm

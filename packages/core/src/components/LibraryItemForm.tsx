@@ -237,8 +237,10 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
           resources: values.resources,
         };
         const measureRange = {
-          startMeasure: props.isExcerpt ? Number(values.startMeasure) : null,
-          endMeasure: props.isExcerpt ? Number(values.endMeasure) : null,
+          startMeasure:
+            props.isExcerpt && values.startMeasure !== '' ? Number(values.startMeasure) : null,
+          endMeasure:
+            props.isExcerpt && values.endMeasure !== '' ? Number(values.endMeasure) : null,
         };
         const result = props.id
           ? await updateRepertoire({ data: { id: props.id, ...data, ...measureRange } })
@@ -321,7 +323,6 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
               step="1"
               value={startMeasure()}
               onInput={(event) => setStartMeasure(event.currentTarget.value)}
-              required
             />
           </div>
           <div>
@@ -336,7 +337,6 @@ export function LibraryItemForm(props: LibraryItemFormProps) {
               step="1"
               value={endMeasure()}
               onInput={(event) => setEndMeasure(event.currentTarget.value)}
-              required
             />
           </div>
         </div>

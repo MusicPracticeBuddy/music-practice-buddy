@@ -661,13 +661,35 @@ describe('library item persistence', () => {
         instruments: [{ instrumentId: parentInstrumentId, role: 'OTHER', partName: null }],
       },
     });
+    const openStartExcerpt = await createChildRepertoire({
+      data: {
+        parentId: parent.id,
+        title: 'Finale excerpt',
+        visibility: 'PRIVATE',
+        startMeasure: null,
+        endMeasure: 48,
+      },
+    });
+    const openEndExcerpt = await createChildRepertoire({
+      data: {
+        parentId: parent.id,
+        title: 'Coda excerpt',
+        visibility: 'PRIVATE',
+        startMeasure: 49,
+        endMeasure: null,
+      },
+    });
 
     expect(await getRepertoireDetail({ data: parent.id })).toMatchObject({
       children: [
         { id: excerpt.id, title: 'Horn excerpt', startMeasure: 12, endMeasure: 24 },
+        { id: openEndExcerpt.id, startMeasure: 49, endMeasure: null },
+        { id: openStartExcerpt.id, startMeasure: null, endMeasure: 48 },
         { id: movement.id, title: 'Second movement', startMeasure: null, endMeasure: null },
       ],
     });
+    await deleteRepertoire({ data: openStartExcerpt.id });
+    await deleteRepertoire({ data: openEndExcerpt.id });
     expect(await getRepertoireDetail({ data: excerpt.id })).toMatchObject({
       parent: { id: parent.id, title: 'Multi-part work' },
       instruments: [{ instrumentId: excerptInstrumentId, name: 'Excerpt horn' }],

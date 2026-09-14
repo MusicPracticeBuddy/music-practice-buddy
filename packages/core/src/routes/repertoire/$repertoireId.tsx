@@ -28,6 +28,13 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
+function formatMeasureRange(start: number | null, end: number | null) {
+  if (start !== null && end !== null) return `Measures ${start}–${end}`;
+  if (start !== null) return `from ${start}`;
+  if (end !== null) return `until ${end}`;
+  return null;
+}
+
 function RepertoireDetail() {
   const repertoire = Route.useLoaderData();
   const navigate = useNavigate();
@@ -61,8 +68,8 @@ function RepertoireDetail() {
       <header class="record-header">
         <div>
           <h1>{repertoire().title}</h1>
-          <Show when={repertoire().startMeasure !== null || repertoire().endMeasure !== null}>
-            Measures {repertoire().startMeasure ?? 1}–{repertoire().endMeasure ?? 'end'}
+          <Show when={formatMeasureRange(repertoire().startMeasure, repertoire().endMeasure)}>
+            {(range) => range()}
           </Show>
           <p class="lede">
             {repertoire()
@@ -225,7 +232,7 @@ function RepertoireDetail() {
           </article>
         </Show>
 
-        <Show when={repertoire().startMeasure === null}>
+        <Show when={repertoire().startMeasure === null && repertoire().endMeasure === null}>
           <article class="detail-card detail-card-wide">
             <div class="child-repertoire-header">
               <div>
@@ -261,10 +268,8 @@ function RepertoireDetail() {
                     <li>
                       <Link to="/repertoire/$repertoireId" params={{ repertoireId: child.id }}>
                         <strong>{child.title}</strong>
-                        <Show when={child.startMeasure !== null && child.endMeasure !== null}>
-                          <span>
-                            Measures {child.startMeasure}–{child.endMeasure}
-                          </span>
+                        <Show when={formatMeasureRange(child.startMeasure, child.endMeasure)}>
+                          {(range) => <span>{range()}</span>}
                         </Show>
                       </Link>
                     </li>
